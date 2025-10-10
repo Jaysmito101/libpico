@@ -67,9 +67,9 @@ SOFTWARE.
 #if defined(PICO_CANVAS_PREFER_WAYLAND)
 #define PICO_CANVAS_WAYLAND
 #elif defined(PICO_CANVAS_PREFER_X11)
-// #define PICO_CANVAS_X11
+#define PICO_CANVAS_X11
 #else
-// #define PICO_CANVAS_X11 // default to X11
+#define PICO_CANVAS_X11 // default to X11
 #endif
 
 #else
@@ -1029,7 +1029,548 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
 // Wayland Implementation (Linux)
 // --------------------------------------------
 
-// TODO: Wayland implementation
+#include <wayland-client.h>
+#include <wayland-client-protocol.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include <fcntl.h>
+
+// Try to use system xdg-shell, fall back to wl_shell
+#ifdef __has_include
+    #if __has_include("xdg-shell-client-protocol.h")
+        #include "xdg-shell-client-protocol.h"
+        #define PICO_CANVAS_HAS_XDG_SHELL 1
+    #endif
+#endif
+
+#ifndef PICO_CANVAS_HAS_XDG_SHELL
+// Fall back to wl_shell if xdg-shell is not available
+#warning "XDG Shell not available, falling back to deprecated wl_shell. Window decorations may not work properly."
+#define PICO_CANVAS_USE_WL_SHELL 1
+#endif
+
+typedef struct {
+    struct wl_buffer *buffer;
+    uint32_t *data;
+    int32_t width;
+    int32_t height;
+} __picoCanvasGraphicsBuffer_t;
+typedef __picoCanvasGraphicsBuffer_t *__picoCanvasGraphicsBuffer;
+
+static bool __picoCanvasGraphicsBufferRecreate(picoCanvas canvas);
+
+struct picoCanvas_t {
+    struct wl_display *display;
+    struct wl_registry *registry;
+    struct wl_compositor *compositor;
+    struct wl_shm *shm;
+    struct wl_surface *surface;
+    bool isOpen;
+    bool configured;
+    int32_t width;
+    int32_t height;
+    __picoCanvasGraphicsBuffer frontBuffer;
+    __picoCanvasGraphicsBuffer backBuffer;
+    picoCanvasLoggerCallback logger;
+    picoCanvasResizeCallback resizeCallback;
+    void *userData;
+    
+#ifdef PICO_CANVAS_HAS_XDG_SHELL
+    struct xdg_wm_base *xdg_wm_base;
+    struct xdg_surface *xdg_surface;
+    struct xdg_toplevel *xdg_toplevel;
+#else
+    struct wl_shell *shell;
+    struct wl_shell_surface *shell_surface;
+#endif
+};
+
+// --------------------------------------------
+// Internal Helper Functions (Wayland)
+// --------------------------------------------
+
+static void __picoCanvasRegistryHandler(void *data, struct wl_registry *registry, uint32_t id, const char *interface, uint32_t version)
+{
+    picoCanvas canvas = (picoCanvas)data;
+    
+    if (strcmp(interface, "wl_compositor") == 0) {
+        canvas->compositor = wl_registry_bind(registry, id, &wl_compositor_interface, 1);
+    } else if (strcmp(interface, "wl_shm") == 0) {
+        canvas->shm = wl_registry_bind(registry, id, &wl_shm_interface, 1);
+    }
+#ifdef PICO_CANVAS_HAS_XDG_SHELL
+    else if (strcmp(interface, "xdg_wm_base") == 0) {
+        canvas->xdg_wm_base = wl_registry_bind(registry, id, &xdg_wm_base_interface, 1);
+    }
+#else
+    else if (strcmp(interface, "wl_shell") == 0) {
+        canvas->shell = wl_registry_bind(registry, id, &wl_shell_interface, 1);
+    }
+#endif
+}
+
+static void __picoCanvasRegistryRemover(void *data, struct wl_registry *registry, uint32_t id)
+{
+}
+
+static const struct wl_registry_listener __picoCanvasRegistryListener = {
+    __picoCanvasRegistryHandler,
+    __picoCanvasRegistryRemover
+};
+
+#ifdef PICO_CANVAS_HAS_XDG_SHELL
+static void __picoCanvasXdgWmBasePing(void *data, struct xdg_wm_base *xdg_wm_base, uint32_t serial)
+{
+    xdg_wm_base_pong(xdg_wm_base, serial);
+}
+
+static const struct xdg_wm_base_listener __picoCanvasXdgWmBaseListener = {
+    __picoCanvasXdgWmBasePing
+};
+
+static void __picoCanvasXdgSurfaceConfigure(void *data, struct xdg_surface *xdg_surface, uint32_t serial)
+{
+    picoCanvas canvas = (picoCanvas)data;
+    xdg_surface_ack_configure(xdg_surface, serial);
+    canvas->configured = true;
+}
+
+static const struct xdg_surface_listener __picoCanvasXdgSurfaceListener = {
+    __picoCanvasXdgSurfaceConfigure
+};
+
+static void __picoCanvasXdgToplevelConfigure(void *data, struct xdg_toplevel *xdg_toplevel, int32_t width, int32_t height, struct wl_array *states)
+{
+    picoCanvas canvas = (picoCanvas)data;
+    (void)xdg_toplevel; // unused
+    (void)states; // unused
+    
+    if (width > 0 && height > 0 && (width != canvas->width || height != canvas->height)) {
+        canvas->width = width;
+        canvas->height = height;
+        if (!__picoCanvasGraphicsBufferRecreate(canvas)) {
+            if (canvas->logger)
+                canvas->logger("Failed to recreate graphics buffers on resize", canvas);
+        }
+        if (canvas->resizeCallback)
+            canvas->resizeCallback(width, height, canvas);
+    }
+}
+
+static void __picoCanvasXdgToplevelClose(void *data, struct xdg_toplevel *xdg_toplevel)
+{
+    picoCanvas canvas = (picoCanvas)data;
+    (void)xdg_toplevel; // unused
+    canvas->isOpen = false;
+}
+
+static void __picoCanvasXdgToplevelConfigureBounds(void *data, struct xdg_toplevel *xdg_toplevel, int32_t width, int32_t height)
+{
+    // Handle configure bounds if needed
+    (void)data;
+    (void)xdg_toplevel;
+    (void)width;
+    (void)height;
+}
+
+static void __picoCanvasXdgToplevelWmCapabilities(void *data, struct xdg_toplevel *xdg_toplevel, struct wl_array *capabilities)
+{
+    // Handle WM capabilities if needed
+    (void)data;
+    (void)xdg_toplevel;
+    (void)capabilities;
+}
+
+static const struct xdg_toplevel_listener __picoCanvasXdgToplevelListener = {
+    __picoCanvasXdgToplevelConfigure,
+    __picoCanvasXdgToplevelClose,
+    __picoCanvasXdgToplevelConfigureBounds,
+    __picoCanvasXdgToplevelWmCapabilities
+};
+#else
+// Fallback to wl_shell
+static void __picoCanvasShellSurfacePing(void *data, struct wl_shell_surface *shell_surface, uint32_t serial)
+{
+    wl_shell_surface_pong(shell_surface, serial);
+}
+
+static void __picoCanvasShellSurfaceConfigure(void *data, struct wl_shell_surface *shell_surface, uint32_t edges, int32_t width, int32_t height)
+{
+    picoCanvas canvas = (picoCanvas)data;
+    (void)shell_surface; // unused
+    (void)edges; // unused
+    
+    if (width > 0 && height > 0 && (width != canvas->width || height != canvas->height)) {
+        canvas->width = width;
+        canvas->height = height;
+        if (!__picoCanvasGraphicsBufferRecreate(canvas)) {
+            if (canvas->logger)
+                canvas->logger("Failed to recreate graphics buffers on resize", canvas);
+        }
+        if (canvas->resizeCallback)
+            canvas->resizeCallback(width, height, canvas);
+    }
+}
+
+static void __picoCanvasShellSurfacePopupDone(void *data, struct wl_shell_surface *shell_surface)
+{
+    // Handle popup done if needed
+    (void)data;
+    (void)shell_surface;
+}
+
+static const struct wl_shell_surface_listener __picoCanvasShellSurfaceListener = {
+    __picoCanvasShellSurfacePing,
+    __picoCanvasShellSurfaceConfigure,
+    __picoCanvasShellSurfacePopupDone
+};
+#endif
+
+static int __picoCanvasCreateSharedMemoryFile(off_t size)
+{
+    static const char template[] = "/picocanvas-shared-XXXXXX";
+    const char *path;
+    char *name;
+    int fd;
+    int ret;
+
+    path = getenv("XDG_RUNTIME_DIR");
+    if (!path) {
+        errno = ENOENT;
+        return -1;
+    }
+
+    name = PICO_MALLOC(strlen(path) + sizeof(template));
+    if (!name)
+        return -1;
+
+    strcpy(name, path);
+    strcat(name, template);
+
+    fd = mkstemp(name);
+    if (fd >= 0) {
+        unlink(name);
+        ret = ftruncate(fd, size);
+        if (ret < 0) {
+            close(fd);
+            fd = -1;
+        }
+    }
+
+    PICO_FREE(name);
+    return fd;
+}
+
+static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(picoCanvas canvas, int32_t width, int32_t height, bool createBuffer)
+{
+    __picoCanvasGraphicsBuffer buffer = (__picoCanvasGraphicsBuffer)PICO_MALLOC(sizeof(__picoCanvasGraphicsBuffer_t));
+    if (!buffer)
+        return NULL;
+    memset(buffer, 0, sizeof(__picoCanvasGraphicsBuffer_t));
+
+    buffer->width = width;
+    buffer->height = height;
+
+    if (createBuffer) {
+        int32_t stride = width * 4; // 4 bytes per pixel (ARGB8888)
+        int32_t size = stride * height;
+
+        int fd = __picoCanvasCreateSharedMemoryFile(size);
+        if (fd < 0) {
+            PICO_FREE(buffer);
+            return NULL;
+        }
+
+        buffer->data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        if (buffer->data == MAP_FAILED) {
+            close(fd);
+            PICO_FREE(buffer);
+            return NULL;
+        }
+
+        struct wl_shm_pool *pool = wl_shm_create_pool(canvas->shm, fd, size);
+        buffer->buffer = wl_shm_pool_create_buffer(pool, 0, width, height, stride, WL_SHM_FORMAT_ARGB8888);
+        wl_shm_pool_destroy(pool);
+        close(fd);
+
+        if (!buffer->buffer) {
+            munmap(buffer->data, size);
+            PICO_FREE(buffer);
+            return NULL;
+        }
+    } else {
+        buffer->data = (uint32_t *)PICO_MALLOC(width * height * sizeof(uint32_t));
+        if (!buffer->data) {
+            PICO_FREE(buffer);
+            return NULL;
+        }
+        buffer->buffer = NULL;
+    }
+
+    return buffer;
+}
+
+static void __picoCanvasGraphicsBufferDestroy(__picoCanvasGraphicsBuffer buffer)
+{
+    if (buffer->buffer) {
+        wl_buffer_destroy(buffer->buffer);
+        munmap(buffer->data, buffer->width * buffer->height * 4);
+    } else {
+        if (buffer->data)
+            PICO_FREE(buffer->data);
+    }
+    PICO_FREE(buffer);
+}
+
+static bool __picoCanvasGraphicsBufferRecreate(picoCanvas canvas)
+{
+    if (canvas->frontBuffer)
+        __picoCanvasGraphicsBufferDestroy(canvas->frontBuffer);
+    if (canvas->backBuffer)
+        __picoCanvasGraphicsBufferDestroy(canvas->backBuffer);
+
+    canvas->frontBuffer = __picoCanvasGraphicsBufferCreate(canvas, canvas->width, canvas->height, true);
+    canvas->backBuffer = __picoCanvasGraphicsBufferCreate(canvas, canvas->width, canvas->height, false);
+
+    return canvas->frontBuffer && canvas->backBuffer;
+}
+
+// --------------------------------------------
+// Public API Implementation (Wayland)
+// --------------------------------------------
+
+picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, picoCanvasLoggerCallback logger)
+{
+    picoCanvas canvas = (picoCanvas)PICO_MALLOC(sizeof(picoCanvas_t));
+    if (!canvas) {
+        if (logger)
+            logger("Failed to allocate memory for picoCanvas", canvas);
+        return NULL;
+    }
+    memset(canvas, 0, sizeof(picoCanvas_t));
+
+    canvas->width = width;
+    canvas->height = height;
+    canvas->isOpen = true;
+    canvas->logger = logger;
+    canvas->userData = NULL;
+
+    canvas->display = wl_display_connect(NULL);
+    if (!canvas->display) {
+        if (canvas->logger)
+            canvas->logger("Failed to connect to Wayland display", canvas);
+        PICO_FREE(canvas);
+        return NULL;
+    }
+
+    canvas->registry = wl_display_get_registry(canvas->display);
+    wl_registry_add_listener(canvas->registry, &__picoCanvasRegistryListener, canvas);
+    wl_display_dispatch(canvas->display);
+    wl_display_roundtrip(canvas->display);
+
+#ifdef PICO_CANVAS_HAS_XDG_SHELL
+    if (!canvas->compositor || !canvas->shm || !canvas->xdg_wm_base) {
+#else
+    if (!canvas->compositor || !canvas->shm || !canvas->shell) {
+#endif
+        if (canvas->logger)
+            canvas->logger("Failed to bind required Wayland interfaces", canvas);
+        wl_display_disconnect(canvas->display);
+        PICO_FREE(canvas);
+        return NULL;
+    }
+
+    canvas->surface = wl_compositor_create_surface(canvas->compositor);
+    if (!canvas->surface) {
+        if (canvas->logger)
+            canvas->logger("Failed to create Wayland surface", canvas);
+        wl_display_disconnect(canvas->display);
+        PICO_FREE(canvas);
+        return NULL;
+    }
+
+#ifdef PICO_CANVAS_HAS_XDG_SHELL
+    xdg_wm_base_add_listener(canvas->xdg_wm_base, &__picoCanvasXdgWmBaseListener, canvas);
+
+    canvas->xdg_surface = xdg_wm_base_get_xdg_surface(canvas->xdg_wm_base, canvas->surface);
+    if (!canvas->xdg_surface) {
+        if (canvas->logger)
+            canvas->logger("Failed to create XDG surface", canvas);
+        wl_surface_destroy(canvas->surface);
+        wl_display_disconnect(canvas->display);
+        PICO_FREE(canvas);
+        return NULL;
+    }
+
+    xdg_surface_add_listener(canvas->xdg_surface, &__picoCanvasXdgSurfaceListener, canvas);
+
+    canvas->xdg_toplevel = xdg_surface_get_toplevel(canvas->xdg_surface);
+    if (!canvas->xdg_toplevel) {
+        if (canvas->logger)
+            canvas->logger("Failed to create XDG toplevel", canvas);
+        xdg_surface_destroy(canvas->xdg_surface);
+        wl_surface_destroy(canvas->surface);
+        wl_display_disconnect(canvas->display);
+        PICO_FREE(canvas);
+        return NULL;
+    }
+
+    xdg_toplevel_add_listener(canvas->xdg_toplevel, &__picoCanvasXdgToplevelListener, canvas);
+    xdg_toplevel_set_title(canvas->xdg_toplevel, name ? name : "PicoCanvas");
+#else
+    canvas->shell_surface = wl_shell_get_shell_surface(canvas->shell, canvas->surface);
+    if (!canvas->shell_surface) {
+        if (canvas->logger)
+            canvas->logger("Failed to create shell surface", canvas);
+        wl_surface_destroy(canvas->surface);
+        wl_display_disconnect(canvas->display);
+        PICO_FREE(canvas);
+        return NULL;
+    }
+
+    wl_shell_surface_add_listener(canvas->shell_surface, &__picoCanvasShellSurfaceListener, canvas);
+    wl_shell_surface_set_toplevel(canvas->shell_surface);
+    wl_shell_surface_set_title(canvas->shell_surface, name ? name : "PicoCanvas");
+    canvas->configured = true; // wl_shell doesn't need explicit configure
+#endif
+
+    // Initial commit to make the surface visible
+    wl_surface_commit(canvas->surface);
+    wl_display_flush(canvas->display);
+
+    // Wait for the first configure event
+    while (!canvas->configured) {
+        wl_display_dispatch(canvas->display);
+    }
+
+    if (!__picoCanvasGraphicsBufferRecreate(canvas)) {
+        if (canvas->logger)
+            canvas->logger("Failed to create graphics buffers", canvas);
+#ifdef PICO_CANVAS_HAS_XDG_SHELL
+        xdg_toplevel_destroy(canvas->xdg_toplevel);
+        xdg_surface_destroy(canvas->xdg_surface);
+#else
+        wl_shell_surface_destroy(canvas->shell_surface);
+#endif
+        wl_surface_destroy(canvas->surface);
+        wl_display_disconnect(canvas->display);
+        PICO_FREE(canvas);
+        return NULL;
+    }
+
+    wl_display_flush(canvas->display);
+
+    return canvas;
+}
+
+void picoCanvasDestroy(picoCanvas canvas)
+{
+    if (canvas->frontBuffer)
+        __picoCanvasGraphicsBufferDestroy(canvas->frontBuffer);
+    if (canvas->backBuffer)
+        __picoCanvasGraphicsBufferDestroy(canvas->backBuffer);
+#ifdef PICO_CANVAS_HAS_XDG_SHELL
+    if (canvas->xdg_toplevel)
+        xdg_toplevel_destroy(canvas->xdg_toplevel);
+    if (canvas->xdg_surface)
+        xdg_surface_destroy(canvas->xdg_surface);
+#else
+    if (canvas->shell_surface)
+        wl_shell_surface_destroy(canvas->shell_surface);
+    if (canvas->shell)
+        wl_shell_destroy(canvas->shell);
+#endif
+    if (canvas->surface)
+        wl_surface_destroy(canvas->surface);
+    if (canvas->compositor)
+        wl_compositor_destroy(canvas->compositor);
+    if (canvas->shm)
+        wl_shm_destroy(canvas->shm);
+    if (canvas->registry)
+        wl_registry_destroy(canvas->registry);
+    if (canvas->display)
+        wl_display_disconnect(canvas->display);
+    PICO_FREE(canvas);
+}
+
+void picoCanvasUpdate(picoCanvas canvas)
+{
+    if (wl_display_dispatch_pending(canvas->display) == -1) {
+        canvas->isOpen = false;
+    }
+}
+
+void picoCanvasSwapBuffers(picoCanvas canvas)
+{
+    // Copy back buffer to front buffer
+    memcpy(canvas->frontBuffer->data, canvas->backBuffer->data, canvas->width * canvas->height * sizeof(uint32_t));
+
+    // Attach the front buffer to the surface
+    wl_surface_attach(canvas->surface, canvas->frontBuffer->buffer, 0, 0);
+    wl_surface_damage(canvas->surface, 0, 0, canvas->width, canvas->height);
+    wl_surface_commit(canvas->surface);
+    wl_display_flush(canvas->display);
+}
+
+void picoCanvasSetUserData(picoCanvas canvas, void *userData)
+{
+    canvas->userData = userData;
+}
+
+void *picoCanvasGetUserData(picoCanvas canvas)
+{
+    return canvas->userData;
+}
+
+void picoCanvasSetResizeCallback(picoCanvas canvas, picoCanvasResizeCallback callback)
+{
+    canvas->resizeCallback = callback;
+}
+
+bool picoCanvasIsOpen(picoCanvas canvas)
+{
+    return canvas->isOpen;
+}
+
+void picoCanvasSetTitle(picoCanvas canvas, const char *title)
+{
+#ifdef PICO_CANVAS_HAS_XDG_SHELL
+    xdg_toplevel_set_title(canvas->xdg_toplevel, title ? title : "PicoCanvas");
+#else
+    wl_shell_surface_set_title(canvas->shell_surface, title ? title : "PicoCanvas");
+#endif
+    wl_display_flush(canvas->display);
+}
+
+void picoCanvasSetSize(picoCanvas canvas, int32_t width, int32_t height)
+{
+    // Note: In Wayland, the compositor controls window size for toplevel surfaces
+    // We can only suggest a size, but the actual resize will come through configure events
+    canvas->width = width;
+    canvas->height = height;
+    if (!__picoCanvasGraphicsBufferRecreate(canvas)) {
+        if (canvas->logger)
+            canvas->logger("Failed to recreate graphics buffers on size change", canvas);
+    }
+    wl_display_flush(canvas->display);
+}
+
+void picoCanvasClear(picoCanvas canvas, picoCanvasColor color)
+{
+    for (int i = 0; i < canvas->width * canvas->height; ++i)
+        canvas->backBuffer->data[i] = color;
+}
+
+void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColor color)
+{
+    if (x < 0 || x >= canvas->width || y < 0 || y >= canvas->height)
+        return;
+    canvas->backBuffer->data[y * canvas->width + x] = color;
+}
+
 #endif // PICO_CANVAS_WAYLAND
 
 #endif // PICO_CANVAS_IMPLEMENTATION
