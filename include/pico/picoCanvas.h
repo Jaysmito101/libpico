@@ -28,40 +28,20 @@ SOFTWARE.
 #include <stdbool.h>
 #include <stdint.h>
 
-#if defined(_WIN32) || defined(_WIN64)
-
-#define PICO_CANVAS_WIN32
-
-#elif defined(__linux__) || defined(__unix__)
-
-#if defined(PICO_CANVAS_PREFER_WAYLAND)
-#define PICO_CANVAS_WAYLAND
-#elif defined(PICO_CANVAS_PREFER_X11)
-#define PICO_CANVAS_X11
-#else
-#define PICO_CANVAS_X11
-#endif
-
-#else
-
-#error "Unsupported platform for picoCanvas"
-
-#endif
-
 #ifndef PICO_MALLOC
 #define PICO_MALLOC malloc
 #define PICO_FREE   free
 #endif
 
+// ---------------------------------------------------------------------------------------------------------------
+
 typedef struct picoCanvas_t picoCanvas_t;
-
 typedef picoCanvas_t *picoCanvas;
-
 typedef uint32_t picoCanvasColor;
-
 typedef void (*picoCanvasLoggerCallback)(const char *message, picoCanvas canvas);
-
 typedef void (*picoCanvasResizeCallback)(int32_t width, int32_t height, picoCanvas canvas);
+
+// ---------------------------------------------------------------------------------------------------------------
 
 picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, picoCanvasLoggerCallback logger);
 void picoCanvasDestroy(picoCanvas canvas);
@@ -79,11 +59,32 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
 picoCanvasColor picoCanvasRgba2Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
 void picoCanvasColor2Rgba(picoCanvasColor color, uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a);
 
+// ---------------------------------------------------------------------------------------------------------------
+
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_CANVAS_IMPLEMENTATION)
 #define PICO_CANVAS_IMPLEMENTATION
 #endif
 
+#if defined(_WIN32) || defined(_WIN64)
+#define PICO_CANVAS_WIN32
+#elif defined(__linux__) || defined(__unix__)
+#if defined(PICO_CANVAS_PREFER_WAYLAND)
+#define PICO_CANVAS_WAYLAND
+#elif defined(PICO_CANVAS_PREFER_X11)
+#define PICO_CANVAS_X11
+#else
+#define PICO_CANVAS_X11
+#endif
+#else
+#error "Unsupported platform for picoCanvas"
+#endif
+
+// ---------------------------------------------------------------------------------------------------------------
+
 #ifdef PICO_CANVAS_IMPLEMENTATION
+
+// ---------------------------------------------------------------------------------------------------------------
+#if 1 // Common function implemntations
 
 picoCanvasColor picoCanvasRgba2Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
@@ -102,10 +103,16 @@ void picoCanvasColor2Rgba(picoCanvasColor color, uint8_t *r, uint8_t *g, uint8_t
         *a = color & 0xFF;
 }
 
+#endif
+// ---------------------------------------------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------------------------------------------
 #ifdef PICO_CANVAS_WIN32
 
 #include <Windows.h>
 #include <stdlib.h>
+
+// ---------------------------------------------------------------------------------------------------------------
 
 typedef struct {
     HBITMAP bitmap;
@@ -125,6 +132,8 @@ struct picoCanvas_t {
     picoCanvasResizeCallback resizeCallback;
     void *userData;
 };
+
+// ---------------------------------------------------------------------------------------------------------------
 
 static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(int32_t width, int32_t height, bool useBitmap)
 {
@@ -225,6 +234,8 @@ LRESULT CALLBACK __picoCanvasWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPA
     }
     return 0;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
 
 picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, picoCanvasLoggerCallback logger)
 {
@@ -358,14 +369,19 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
 }
 
 #endif // PICO_CANVAS_WIN32
+// ---------------------------------------------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------------------------------------------
 #ifdef PICO_CANVAS_X11
+
 #include <X11/X.h>
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <stdlib.h>
 #include <string.h>
+
+// ---------------------------------------------------------------------------------------------------------------
 
 typedef struct {
     XImage *image;
@@ -390,6 +406,8 @@ struct picoCanvas_t {
     void *userData;
     Atom wmDeleteWindow;
 };
+
+// ---------------------------------------------------------------------------------------------------------------
 
 static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(Display *display, int screen, int32_t width, int32_t height)
 {
@@ -461,6 +479,8 @@ static bool __picoCanvasGraphicsBufferRecreate(picoCanvas canvas)
 
     return canvas->pixmap != 0;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
 
 picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, picoCanvasLoggerCallback logger)
 {
@@ -686,7 +706,11 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
 }
 
 #endif // PICO_CANVAS_X11
+// ---------------------------------------------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------------------------------------------
 #if defined(PICO_CANVAS_WAYLAND)
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -696,6 +720,7 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
 #include <wayland-client-protocol.h>
 #include <wayland-client.h>
 
+// ---------------------------------------------------------------------------------------------------------------
 
 typedef struct {
     struct wl_buffer *buffer;
@@ -704,8 +729,6 @@ typedef struct {
     int32_t height;
 } __picoCanvasGraphicsBuffer_t;
 typedef __picoCanvasGraphicsBuffer_t *__picoCanvasGraphicsBuffer;
-
-static bool __picoCanvasGraphicsBufferRecreate(picoCanvas canvas);
 
 struct picoCanvas_t {
     struct wl_display *display;
@@ -724,6 +747,10 @@ struct picoCanvas_t {
     picoCanvasResizeCallback resizeCallback;
     void *userData;
 };
+
+// ---------------------------------------------------------------------------------------------------------------
+
+static bool __picoCanvasGraphicsBufferRecreate(picoCanvas canvas);
 
 static void __picoCanvasRegistryHandler(void *data, struct wl_registry *registry, uint32_t id, const char *interface, uint32_t version)
 {
@@ -883,6 +910,8 @@ static bool __picoCanvasGraphicsBufferRecreate(picoCanvas canvas)
 
     return canvas->frontBuffer && canvas->backBuffer;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
 
 picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, picoCanvasLoggerCallback logger)
 {
@@ -1059,7 +1088,10 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
     canvas->backBuffer->data[y * canvas->width + x] = color;
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+
 #endif // PICO_CANVAS_WAYLAND
+// ---------------------------------------------------------------------------------------------------------------
 
 #endif // PICO_CANVAS_IMPLEMENTATION
 
