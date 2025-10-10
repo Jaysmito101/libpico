@@ -57,44 +57,19 @@ SOFTWARE.
 #include <stdbool.h>
 #include <stdint.h>
 
-// Platform Detection
-
-/**
- * @def PICO_CANVAS_WIN32
- * @brief Defined when targeting Windows platform
- *
- * This macro is automatically defined on Windows (_WIN32 or _WIN64) systems.
- * It enables the Win32 API backend for window creation and rendering.
- */
-
-/**
- * @def PICO_CANVAS_X11
- * @brief Defined when targeting Linux X11 platform
- *
- * This macro is automatically defined on Linux/Unix systems when X11 is selected
- * as the windowing backend. X11 is the default on Linux unless overridden.
- */
-
-/**
- * @def PICO_CANVAS_WAYLAND
- * @brief Defined when targeting Linux Wayland platform
- *
- * This macro is defined on Linux/Unix systems when Wayland is explicitly selected
- * by defining PICO_CANVAS_PREFER_WAYLAND before including this header.
- */
 
 #if defined(_WIN32) || defined(_WIN64)
 
 #define PICO_CANVAS_WIN32
 
-#elif defined(__linux__) || defined(__unix__)
+#elif defined(__linux__) || defined(__unix__) 
 
-#ifdef PICO_CANVAS_PREFER_WAYLAND
+#if defined(PICO_CANVAS_PREFER_WAYLAND)
 #define PICO_CANVAS_WAYLAND
 #elif defined(PICO_CANVAS_PREFER_X11)
-#define PICO_CANVAS_X11
+// #define PICO_CANVAS_X11
 #else
-#define PICO_CANVAS_X11 // default to X11
+// #define PICO_CANVAS_X11 // default to X11
 #endif
 
 #else
@@ -457,7 +432,7 @@ void picoCanvasColor2Rgba(picoCanvasColor color, uint8_t *r, uint8_t *g, uint8_t
 
 // Platform Specific Implementation
 
-#if defined(PICO_CANVAS_WIN32)
+#ifdef PICO_CANVAS_WIN32
 // --------------------------------------------
 // Win32 Implementation
 // --------------------------------------------
@@ -715,18 +690,18 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
     canvas->backBuffer->buffer[y * canvas->width + x] = color;
 }
 
-#elif defined(PICO_CANVAS_X11)
+#endif // PICO_CANVAS_WIN32
+
+#ifdef PICO_CANVAS_X11
 // --------------------------------------------
 // X11 Implementation (Linux)
 // --------------------------------------------
-
 #include <X11/X.h>
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <stdlib.h>
 #include <string.h>
-
 
 typedef struct {
     XImage *image;
@@ -1046,16 +1021,16 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
     canvas->backBuffer->buffer[y * canvas->width + x] = color;
 }
 
-#elif defined(PICO_CANVAS_WAYLAND)
+#endif // PICO_CANVAS_X11
+
+
+#if defined(PICO_CANVAS_WAYLAND)
 // --------------------------------------------
 // Wayland Implementation (Linux)
 // --------------------------------------------
 
 // TODO: Wayland implementation
-
-#else
-#error "No backend platform selected for picoCanvas"
-#endif // platform selection
+#endif // PICO_CANVAS_WAYLAND
 
 #endif // PICO_CANVAS_IMPLEMENTATION
 
