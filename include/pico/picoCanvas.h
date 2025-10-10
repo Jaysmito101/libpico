@@ -22,26 +22,24 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-
 #ifndef PICO_CANVAS_H
 #define PICO_CANVAS_H
 
 #include <stdbool.h>
 #include <stdint.h>
 
-
 #if defined(_WIN32) || defined(_WIN64)
 
 #define PICO_CANVAS_WIN32
 
-#elif defined(__linux__) || defined(__unix__) 
+#elif defined(__linux__) || defined(__unix__)
 
 #if defined(PICO_CANVAS_PREFER_WAYLAND)
 #define PICO_CANVAS_WAYLAND
 #elif defined(PICO_CANVAS_PREFER_X11)
 #define PICO_CANVAS_X11
 #else
-#define PICO_CANVAS_X11 
+#define PICO_CANVAS_X11
 #endif
 
 #else
@@ -140,7 +138,7 @@ static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(int32_t width
         BITMAPINFO bmi              = {0};
         bmi.bmiHeader.biSize        = sizeof(BITMAPINFOHEADER);
         bmi.bmiHeader.biWidth       = width;
-        bmi.bmiHeader.biHeight      = -height; 
+        bmi.bmiHeader.biHeight      = -height;
         bmi.bmiHeader.biPlanes      = 1;
         bmi.bmiHeader.biBitCount    = 32;
         bmi.bmiHeader.biCompression = BI_RGB;
@@ -430,7 +428,7 @@ static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(Display *disp
 static void __picoCanvasGraphicsBufferDestroy(__picoCanvasGraphicsBuffer buffer)
 {
     if (buffer->image) {
-        buffer->image->data = NULL; 
+        buffer->image->data = NULL;
         XDestroyImage(buffer->image);
     }
     if (buffer->buffer)
@@ -689,14 +687,15 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
 
 #endif // PICO_CANVAS_X11
 #if defined(PICO_CANVAS_WAYLAND)
-#include <wayland-client.h>
-#include <wayland-client-protocol.h>
-#include <sys/mman.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <wayland-client-protocol.h>
+#include <wayland-client.h>
+
 
 typedef struct {
     struct wl_buffer *buffer;
@@ -729,7 +728,7 @@ struct picoCanvas_t {
 static void __picoCanvasRegistryHandler(void *data, struct wl_registry *registry, uint32_t id, const char *interface, uint32_t version)
 {
     picoCanvas canvas = (picoCanvas)data;
-    
+
     if (strcmp(interface, "wl_compositor") == 0) {
         canvas->compositor = wl_registry_bind(registry, id, &wl_compositor_interface, 1);
     } else if (strcmp(interface, "wl_shm") == 0) {
@@ -745,8 +744,7 @@ static void __picoCanvasRegistryRemover(void *data, struct wl_registry *registry
 
 static const struct wl_registry_listener __picoCanvasRegistryListener = {
     __picoCanvasRegistryHandler,
-    __picoCanvasRegistryRemover
-};
+    __picoCanvasRegistryRemover};
 
 static void __picoCanvasShellSurfacePing(void *data, struct wl_shell_surface *shell_surface, uint32_t serial)
 {
@@ -757,7 +755,7 @@ static void __picoCanvasShellSurfaceConfigure(void *data, struct wl_shell_surfac
 {
     picoCanvas canvas = (picoCanvas)data;
     if (width > 0 && height > 0 && (width != canvas->width || height != canvas->height)) {
-        canvas->width = width;
+        canvas->width  = width;
         canvas->height = height;
         if (!__picoCanvasGraphicsBufferRecreate(canvas)) {
             if (canvas->logger)
@@ -775,8 +773,7 @@ static void __picoCanvasShellSurfacePopupDone(void *data, struct wl_shell_surfac
 static const struct wl_shell_surface_listener __picoCanvasShellSurfaceListener = {
     __picoCanvasShellSurfacePing,
     __picoCanvasShellSurfaceConfigure,
-    __picoCanvasShellSurfacePopupDone
-};
+    __picoCanvasShellSurfacePopupDone};
 
 static int __picoCanvasCreateSharedMemoryFile(off_t size)
 {
@@ -820,12 +817,12 @@ static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(picoCanvas ca
         return NULL;
     memset(buffer, 0, sizeof(__picoCanvasGraphicsBuffer_t));
 
-    buffer->width = width;
+    buffer->width  = width;
     buffer->height = height;
 
     if (createBuffer) {
-        int32_t stride = width * 4; 
-        int32_t size = stride * height;
+        int32_t stride = width * 4;
+        int32_t size   = stride * height;
 
         int fd = __picoCanvasCreateSharedMemoryFile(size);
         if (fd < 0) {
@@ -841,7 +838,7 @@ static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(picoCanvas ca
         }
 
         struct wl_shm_pool *pool = wl_shm_create_pool(canvas->shm, fd, size);
-        buffer->buffer = wl_shm_pool_create_buffer(pool, 0, width, height, stride, WL_SHM_FORMAT_ARGB8888);
+        buffer->buffer           = wl_shm_pool_create_buffer(pool, 0, width, height, stride, WL_SHM_FORMAT_ARGB8888);
         wl_shm_pool_destroy(pool);
         close(fd);
 
@@ -882,7 +879,7 @@ static bool __picoCanvasGraphicsBufferRecreate(picoCanvas canvas)
         __picoCanvasGraphicsBufferDestroy(canvas->backBuffer);
 
     canvas->frontBuffer = __picoCanvasGraphicsBufferCreate(canvas, canvas->width, canvas->height, true);
-    canvas->backBuffer = __picoCanvasGraphicsBufferCreate(canvas, canvas->width, canvas->height, false);
+    canvas->backBuffer  = __picoCanvasGraphicsBufferCreate(canvas, canvas->width, canvas->height, false);
 
     return canvas->frontBuffer && canvas->backBuffer;
 }
@@ -897,10 +894,10 @@ picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, pic
     }
     memset(canvas, 0, sizeof(picoCanvas_t));
 
-    canvas->width = width;
-    canvas->height = height;
-    canvas->isOpen = true;
-    canvas->logger = logger;
+    canvas->width    = width;
+    canvas->height   = height;
+    canvas->isOpen   = true;
+    canvas->logger   = logger;
     canvas->userData = NULL;
 
     canvas->display = wl_display_connect(NULL);
@@ -994,10 +991,9 @@ void picoCanvasUpdate(picoCanvas canvas)
 
 void picoCanvasSwapBuffers(picoCanvas canvas)
 {
-    
+
     memcpy(canvas->frontBuffer->data, canvas->backBuffer->data, canvas->width * canvas->height * sizeof(uint32_t));
 
-    
     wl_surface_attach(canvas->surface, canvas->frontBuffer->buffer, 0, 0);
     wl_surface_damage(canvas->surface, 0, 0, canvas->width, canvas->height);
     wl_surface_commit(canvas->surface);
@@ -1032,8 +1028,8 @@ void picoCanvasSetTitle(picoCanvas canvas, const char *title)
 
 void picoCanvasSetSize(picoCanvas canvas, int32_t width, int32_t height)
 {
-    
-    canvas->width = width;
+
+    canvas->width  = width;
     canvas->height = height;
     if (!__picoCanvasGraphicsBufferRecreate(canvas)) {
         if (canvas->logger)
