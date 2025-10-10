@@ -56,6 +56,7 @@ void picoCanvasSetSize(picoCanvas canvas, int32_t width, int32_t height);
 void picoCanvasGetSize(picoCanvas canvas, int32_t *width, int32_t *height);
 void picoCanvasClear(picoCanvas canvas, picoCanvasColor color);
 void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColor color);
+size_t picoCanvasGetTime(picoCanvas canvas);
 picoCanvasColor picoCanvasRgba2Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
 void picoCanvasColor2Rgba(picoCanvasColor color, uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a);
 
@@ -88,19 +89,19 @@ void picoCanvasColor2Rgba(picoCanvasColor color, uint8_t *r, uint8_t *g, uint8_t
 
 picoCanvasColor picoCanvasRgba2Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
-    return ((picoCanvasColor)r << 24) | ((picoCanvasColor)g << 16) | ((picoCanvasColor)b << 8) | (picoCanvasColor)a;
+    return ((picoCanvasColor)a << 24) | ((picoCanvasColor)r << 16) | ((picoCanvasColor)g << 8) | (picoCanvasColor)b;
 }
 
 void picoCanvasColor2Rgba(picoCanvasColor color, uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a)
 {
-    if (r)
-        *r = (color >> 24) & 0xFF;
-    if (g)
-        *g = (color >> 16) & 0xFF;
-    if (b)
-        *b = (color >> 8) & 0xFF;
     if (a)
-        *a = color & 0xFF;
+        *a = (color >> 24) & 0xFF;
+    if (r)
+        *r = (color >> 16) & 0xFF;
+    if (g)
+        *g = (color >> 8) & 0xFF;
+    if (b)
+        *b = color & 0xFF;
 }
 
 #endif
@@ -131,6 +132,7 @@ struct picoCanvas_t {
     picoCanvasLoggerCallback logger;
     picoCanvasResizeCallback resizeCallback;
     void *userData;
+    size_t creationTime;
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -253,6 +255,7 @@ picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, pic
     canvas->logger       = logger;
     canvas->userData     = NULL;
     canvas->moduleHandle = GetModuleHandle(NULL);
+    canvas->creationTime = GetTickCount64();
 
     WNDCLASSEX wincl    = {0};
     wincl.hInstance     = canvas->moduleHandle;
@@ -368,6 +371,11 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
     canvas->backBuffer->buffer[y * canvas->width + x] = color;
 }
 
+size_t picoCanvasGetTime(picoCanvas canvas)
+{
+    return (size_t)(GetTickCount64() - canvas->creationTime);
+}
+
 #endif // PICO_CANVAS_WIN32
 // ---------------------------------------------------------------------------------------------------------------
 
@@ -380,6 +388,8 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
 #include <X11/Xutil.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <sys/time.h>
 
 // ---------------------------------------------------------------------------------------------------------------
 
@@ -405,6 +415,7 @@ struct picoCanvas_t {
     picoCanvasResizeCallback resizeCallback;
     void *userData;
     Atom wmDeleteWindow;
+    size_t creationTime;
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -497,6 +508,10 @@ picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, pic
     canvas->isOpen   = true;
     canvas->logger   = logger;
     canvas->userData = NULL;
+
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    canvas->creationTime = (size_t)(tv.tv_sec * 1000 + tv.tv_usec / 1000);
 
     canvas->display = XOpenDisplay(NULL);
     if (!canvas->display) {
@@ -705,6 +720,14 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
     canvas->backBuffer->buffer[y * canvas->width + x] = color;
 }
 
+size_t picoCanvasGetTime(picoCanvas canvas)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    size_t currentTime = (size_t)(tv.tv_sec * 1000 + tv.tv_usec / 1000);
+    return currentTime - canvas->creationTime;
+}
+
 #endif // PICO_CANVAS_X11
 // ---------------------------------------------------------------------------------------------------------------
 
@@ -717,6 +740,8 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <time.h>
+#include <sys/time.h>
 #include <wayland-client-protocol.h>
 #include <wayland-client.h>
 
@@ -746,6 +771,7 @@ struct picoCanvas_t {
     picoCanvasLoggerCallback logger;
     picoCanvasResizeCallback resizeCallback;
     void *userData;
+    size_t creationTime;
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -755,6 +781,7 @@ static bool __picoCanvasGraphicsBufferRecreate(picoCanvas canvas);
 static void __picoCanvasRegistryHandler(void *data, struct wl_registry *registry, uint32_t id, const char *interface, uint32_t version)
 {
     picoCanvas canvas = (picoCanvas)data;
+    (void)version;
 
     if (strcmp(interface, "wl_compositor") == 0) {
         canvas->compositor = wl_registry_bind(registry, id, &wl_compositor_interface, 1);
@@ -767,6 +794,9 @@ static void __picoCanvasRegistryHandler(void *data, struct wl_registry *registry
 
 static void __picoCanvasRegistryRemover(void *data, struct wl_registry *registry, uint32_t id)
 {
+    (void)data;
+    (void)registry;
+    (void)id;
 }
 
 static const struct wl_registry_listener __picoCanvasRegistryListener = {
@@ -775,12 +805,15 @@ static const struct wl_registry_listener __picoCanvasRegistryListener = {
 
 static void __picoCanvasShellSurfacePing(void *data, struct wl_shell_surface *shell_surface, uint32_t serial)
 {
+    (void)data;
     wl_shell_surface_pong(shell_surface, serial);
 }
 
 static void __picoCanvasShellSurfaceConfigure(void *data, struct wl_shell_surface *shell_surface, uint32_t edges, int32_t width, int32_t height)
 {
     picoCanvas canvas = (picoCanvas)data;
+    (void)shell_surface;
+    (void)edges;
     if (width > 0 && height > 0 && (width != canvas->width || height != canvas->height)) {
         canvas->width  = width;
         canvas->height = height;
@@ -795,6 +828,8 @@ static void __picoCanvasShellSurfaceConfigure(void *data, struct wl_shell_surfac
 
 static void __picoCanvasShellSurfacePopupDone(void *data, struct wl_shell_surface *shell_surface)
 {
+    (void)data;
+    (void)shell_surface;
 }
 
 static const struct wl_shell_surface_listener __picoCanvasShellSurfaceListener = {
@@ -928,6 +963,10 @@ picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, pic
     canvas->isOpen   = true;
     canvas->logger   = logger;
     canvas->userData = NULL;
+
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    canvas->creationTime = (size_t)(tv.tv_sec * 1000 + tv.tv_usec / 1000);
 
     canvas->display = wl_display_connect(NULL);
     if (!canvas->display) {
@@ -1086,6 +1125,14 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
     if (x < 0 || x >= canvas->width || y < 0 || y >= canvas->height)
         return;
     canvas->backBuffer->data[y * canvas->width + x] = color;
+}
+
+size_t picoCanvasGetTime(picoCanvas canvas)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    size_t currentTime = (size_t)(tv.tv_sec * 1000 + tv.tv_usec / 1000);
+    return currentTime - canvas->creationTime;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
