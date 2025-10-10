@@ -22,34 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-/**
- * @file picoCanvas.h
- * @brief A lightweight, single-header library for creating cross-platform pixel canvas windows
- *
- * picoCanvas provides a simple API for creating windows with direct pixel buffer access,
- * making it ideal for software rendering, pixel art, game development, and visualization.
- *
- * Usage:
- * @code
- * #define PICO_CANVAS_IMPLEMENTATION
- * #include "picoCanvas.h"
- *
- * int main() {
- *     picoCanvas canvas = picoCanvasCreate("My Window", 800, 600, NULL);
- *     while (picoCanvasIsOpen(canvas)) {
- *         picoCanvasUpdate(canvas);
- *         picoCanvasClear(canvas, picoCanvasRgba2Color(0, 0, 0, 255));
- *         // Draw your pixels here
- *         picoCanvasSwapBuffers(canvas);
- *     }
- *     picoCanvasDestroy(canvas);
- *     return 0;
- * }
- * @endcode
- *
- * @author Jaysmito Mukherjee
- * @date 2025
- */
 
 #ifndef PICO_CANVAS_H
 #define PICO_CANVAS_H
@@ -69,7 +41,7 @@ SOFTWARE.
 #elif defined(PICO_CANVAS_PREFER_X11)
 #define PICO_CANVAS_X11
 #else
-#define PICO_CANVAS_X11 // default to X11
+#define PICO_CANVAS_X11 
 #endif
 
 #else
@@ -83,326 +55,30 @@ SOFTWARE.
 #define PICO_FREE   free
 #endif
 
-// Type Definitions
-
-/**
- * @typedef picoCanvas_t
- * @brief Opaque structure representing a canvas window
- *
- * This structure contains all the internal state for a canvas window.
- * Users should only interact with it through the provided API functions.
- */
 typedef struct picoCanvas_t picoCanvas_t;
 
-/**
- * @typedef picoCanvas
- * @brief Handle to a canvas window
- *
- * This is a pointer to the opaque picoCanvas_t structure. All API functions
- * take this handle as their first parameter.
- */
 typedef picoCanvas_t *picoCanvas;
 
-/**
- * @typedef picoCanvasColor
- * @brief Represents a 32-bit RGBA color value
- *
- * Color is packed as RGBA with 8 bits per channel:
- * - Bits 24-31: Red channel
- * - Bits 16-23: Green channel
- * - Bits 8-15: Blue channel
- * - Bits 0-7: Alpha channel
- *
- * Use picoCanvasRgba2Color() to create colors and picoCanvasColor2Rgba() to extract components.
- */
 typedef uint32_t picoCanvasColor;
 
-// ============================================
-// Callback Types
-// ============================================
-
-/**
- * @typedef picoCanvasLoggerCallback
- * @brief Callback function type for logging messages from picoCanvas
- *
- * @param message The log message string (null-terminated)
- * @param canvas The canvas instance that generated the log message
- *
- * @note The message pointer is only valid during the callback invocation.
- *       Copy the string if you need to store it.
- */
 typedef void (*picoCanvasLoggerCallback)(const char *message, picoCanvas canvas);
 
-/**
- * @typedef picoCanvasResizeCallback
- * @brief Callback function type for handling canvas resize events
- *
- * This callback is invoked whenever the canvas window is resized, either by
- * the user dragging the window borders or programmatically via picoCanvasSetSize().
- *
- * @param width The new width of the canvas in pixels
- * @param height The new height of the canvas in pixels
- * @param canvas The canvas instance that was resized
- *
- * @note The buffers are automatically recreated before this callback is invoked.
- */
 typedef void (*picoCanvasResizeCallback)(int32_t width, int32_t height, picoCanvas canvas);
 
-// Canvas Lifecycle Functions
-
-/**
- * @brief Creates a new picoCanvas window with the specified dimensions
- *
- * This function allocates and initializes a new canvas window with double-buffered
- * rendering. The window is immediately shown on screen.
- *
- * @param name The title of the window (can be NULL for default title "PicoCanvas")
- * @param width The initial width of the canvas in pixels (must be > 0)
- * @param height The initial height of the canvas in pixels (must be > 0)
- * @param logger Optional callback function for logging messages (can be NULL)
- *
- * @return A new picoCanvas handle, or NULL if creation failed
- *
- * @note The caller is responsible for destroying the canvas with picoCanvasDestroy()
- *       when done to avoid memory leaks.
- *
- * @see picoCanvasDestroy()
- */
 picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, picoCanvasLoggerCallback logger);
-
-/**
- * @brief Destroys a picoCanvas instance and frees all associated resources
- *
- * This function closes the window, destroys all graphics buffers, and frees
- * all memory associated with the canvas.
- *
- * @param canvas The canvas instance to destroy
- *
- * @note After calling this function, the canvas handle is invalid and must not be used.
- * @warning Do not call this function twice on the same canvas.
- *
- * @see picoCanvasCreate()
- */
 void picoCanvasDestroy(picoCanvas canvas);
-
-// Canvas Update and Rendering Functions
-
-/**
- * @brief Processes window events and updates the canvas state
- *
- * This function pumps and processes all pending window messages.
- *
- * @param canvas The canvas instance to update
- *
- * @note This function should be called regularly (typically once per frame in your
- *       main loop) to keep the window responsive. If not called frequently enough,
- *       the window may appear frozen to the operating system.
- *
- * @warning Always check picoCanvasIsOpen() after calling this function, as the
- *          user may have closed the window.
- *
- * @see picoCanvasIsOpen()
- */
 void picoCanvasUpdate(picoCanvas canvas);
-
-/**
- * @brief Swaps the front and back buffers, displaying the rendered content
- *
- * This function copies the contents of the back buffer (where you draw) to the
- * front buffer (what's displayed on screen) and triggers a window repaint.
- *
- * @param canvas The canvas instance to swap buffers for
- *
- * @note This implements double-buffering to prevent tearing and flickering.
- *       Always draw to the back buffer and call this function when you're done
- *       drawing a frame.
- *
- * @note The back buffer contents are preserved after swapping, so you can
- *       perform incremental updates without clearing.
- *
- * @see picoCanvasClear(), picoCanvasDrawPixel()
- */
 void picoCanvasSwapBuffers(picoCanvas canvas);
-
-// ============================================
-// Canvas Property Getters and Setters
-// ============================================
-
-/**
- * @brief Sets user-defined data associated with the canvas
- *
- * This function allows you to attach arbitrary data to a canvas instance,
- * which can be useful for storing application state that needs to be accessed
- * in callbacks or other parts of your application.
- *
- * @param canvas The canvas instance
- * @param userData Pointer to user-defined data (can be any type, including NULL)
- *
- * @note The library does not manage this memory. You are responsible for
- *       allocating and freeing any memory pointed to by userData.
- *
- * @see picoCanvasGetUserData()
- */
 void picoCanvasSetUserData(picoCanvas canvas, void *userData);
-
-/**
- * @brief Retrieves the user-defined data associated with the canvas
- *
- * Returns the pointer that was previously set with picoCanvasSetUserData().
- *
- * @param canvas The canvas instance
- *
- * @return Pointer to the user-defined data, or NULL if none was set
- *
- * @see picoCanvasSetUserData()
- */
 void *picoCanvasGetUserData(picoCanvas canvas);
-
-/**
- * @brief Sets a callback function to be called when the canvas is resized
- *
- * The callback will be invoked whenever the window is resized, either by the
- * user or programmatically. The graphics buffers are automatically recreated
- * before the callback is invoked.
- *
- * @param canvas The canvas instance
- * @param callback The callback function to be called on resize events, or NULL to remove
- *
- * @note Only one resize callback can be set at a time. Setting a new callback
- *       replaces the previous one.
- *
- * @see picoCanvasResizeCallback, picoCanvasSetSize()
- */
 void picoCanvasSetResizeCallback(picoCanvas canvas, picoCanvasResizeCallback callback);
-
-/**
- * @brief Checks if the canvas window is still open
- *
- * Returns false if the user has closed the window or if the window was destroyed.
- *
- * @param canvas The canvas instance to check
- *
- * @return true if the window is open and active, false otherwise
- *
- * @note This is typically used as the condition in your main loop:
- * @code
- * while (picoCanvasIsOpen(canvas)) {
- *     // Update and render
- * }
- * @endcode
- *
- * @see picoCanvasUpdate()
- */
 bool picoCanvasIsOpen(picoCanvas canvas);
-
-/**
- * @brief Sets the title of the canvas window
- *
- * Changes the text displayed in the window's title bar.
- *
- * @param canvas The canvas instance
- * @param title The new title string (must be null-terminated)
- *
- * @note The string is copied internally, so you don't need to keep the pointer valid.
- */
 void picoCanvasSetTitle(picoCanvas canvas, const char *title);
-
-/**
- * @brief Resizes the canvas window to the specified dimensions
- *
- * This function requests the operating system to resize the window. The actual
- * resize will trigger a WM_SIZE(on windows for example) event which recreates
- * the buffers and invokes the resize callback if one is set.
- *
- * @param canvas The canvas instance
- * @param width The new width in pixels (must be > 0)
- * @param height The new height in pixels (must be > 0)
- *
- * @note The resize may not happen immediately. The resize callback will be
- *       invoked once the resize is complete.
- *
- * @see picoCanvasSetResizeCallback()
- */
 void picoCanvasSetSize(picoCanvas canvas, int32_t width, int32_t height);
-
-// Drawing Functions
-
-/**
- * @brief Clears the entire back buffer to a solid color
- *
- * Fills every pixel in the back buffer with the specified color. This is typically
- * called at the beginning of each frame before drawing.
- *
- * @param canvas The canvas instance
- * @param color The color to fill the canvas with
- *
- * @note This function modifies the back buffer only. Call picoCanvasSwapBuffers()
- *       to display the cleared canvas on screen.
- *
- * @see picoCanvasSwapBuffers(), picoCanvasRgba2Color()
- */
+void picoCanvasGetSize(picoCanvas canvas, int32_t *width, int32_t *height);
 void picoCanvasClear(picoCanvas canvas, picoCanvasColor color);
-
-/**
- * @brief Draws a single pixel at the specified coordinates
- *
- * Sets the color of a single pixel in the back buffer. The coordinate system
- * has (0,0) at the top-left corner, with X increasing to the right and Y
- * increasing downward.
- *
- * @param canvas The canvas instance
- * @param x The x-coordinate of the pixel (0 is left edge)
- * @param y The y-coordinate of the pixel (0 is top edge)
- * @param color The color to set the pixel to
- *
- * @note Coordinates outside the canvas bounds [0, width) x [0, height) are
- *       safely ignored (no bounds checking error).
- *
- * @note Changes are made to the back buffer only. Call picoCanvasSwapBuffers()
- *       to display your drawing on screen.
- *
- * @see picoCanvasSwapBuffers(), picoCanvasRgba2Color()
- */
 void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColor color);
-
-// Color Utility Functions
-
-/**
- * @brief Converts RGBA color components to a picoCanvasColor value
- *
- * Packs four 8-bit color channels into a single 32-bit color value that can
- * be used with drawing functions.
- *
- * @param r Red component (0-255)
- * @param g Green component (0-255)
- * @param b Blue component (0-255)
- * @param a Alpha component (0-255, where 0 is transparent and 255 is fully opaque)
- *
- * @return A packed picoCanvasColor value
- *
- * @note The color format is RGBA with 8 bits per channel, packed as:
- *       (R << 24) | (G << 16) | (B << 8) | A
- *
- * @see picoCanvasColor2Rgba()
- */
 picoCanvasColor picoCanvasRgba2Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
-
-/**
- * @brief Extracts RGBA components from a picoCanvasColor value
- *
- * Unpacks a 32-bit color value into its individual 8-bit RGBA components.
- *
- * @param color The packed color value to decompose
- * @param r Pointer to store the red component (can be NULL to skip)
- * @param g Pointer to store the green component (can be NULL to skip)
- * @param b Pointer to store the blue component (can be NULL to skip)
- * @param a Pointer to store the alpha component (can be NULL to skip)
- *
- * @note Any parameter can be NULL if you don't need that particular component.
- *       This is useful when you only need to extract specific channels.
- *
- * @see picoCanvasRgba2Color()
- */
 void picoCanvasColor2Rgba(picoCanvasColor color, uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_CANVAS_IMPLEMENTATION)
@@ -410,8 +86,6 @@ void picoCanvasColor2Rgba(picoCanvasColor color, uint8_t *r, uint8_t *g, uint8_t
 #endif
 
 #ifdef PICO_CANVAS_IMPLEMENTATION
-
-// Common Implementation (Platform Independent)
 
 picoCanvasColor picoCanvasRgba2Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
@@ -430,12 +104,7 @@ void picoCanvasColor2Rgba(picoCanvasColor color, uint8_t *r, uint8_t *g, uint8_t
         *a = color & 0xFF;
 }
 
-// Platform Specific Implementation
-
 #ifdef PICO_CANVAS_WIN32
-// --------------------------------------------
-// Win32 Implementation
-// --------------------------------------------
 
 #include <Windows.h>
 #include <stdlib.h>
@@ -459,10 +128,6 @@ struct picoCanvas_t {
     void *userData;
 };
 
-// --------------------------------------------
-// Internal Helper Functions (Win32)
-// --------------------------------------------
-
 static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(int32_t width, int32_t height, bool useBitmap)
 {
     __picoCanvasGraphicsBuffer buffer = (__picoCanvasGraphicsBuffer)PICO_MALLOC(sizeof(__picoCanvasGraphicsBuffer_t));
@@ -475,7 +140,7 @@ static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(int32_t width
         BITMAPINFO bmi              = {0};
         bmi.bmiHeader.biSize        = sizeof(BITMAPINFOHEADER);
         bmi.bmiHeader.biWidth       = width;
-        bmi.bmiHeader.biHeight      = -height; // top-down
+        bmi.bmiHeader.biHeight      = -height; 
         bmi.bmiHeader.biPlanes      = 1;
         bmi.bmiHeader.biBitCount    = 32;
         bmi.bmiHeader.biCompression = BI_RGB;
@@ -562,10 +227,6 @@ LRESULT CALLBACK __picoCanvasWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPA
     }
     return 0;
 }
-
-// --------------------------------------------
-// Public API Implementation (Win32)
-// --------------------------------------------
 
 picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, picoCanvasLoggerCallback logger)
 {
@@ -677,6 +338,14 @@ void picoCanvasSetSize(picoCanvas canvas, int32_t width, int32_t height)
     SetWindowPos(canvas->windowHandle, NULL, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
+void picoCanvasGetSize(picoCanvas canvas, int32_t *width, int32_t *height)
+{
+    if (width)
+        *width = canvas->width;
+    if (height)
+        *height = canvas->height;
+}
+
 void picoCanvasClear(picoCanvas canvas, picoCanvasColor color)
 {
     for (int i = 0; i < canvas->width * canvas->height; ++i)
@@ -693,9 +362,6 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
 #endif // PICO_CANVAS_WIN32
 
 #ifdef PICO_CANVAS_X11
-// --------------------------------------------
-// X11 Implementation (Linux)
-// --------------------------------------------
 #include <X11/X.h>
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
@@ -726,10 +392,6 @@ struct picoCanvas_t {
     void *userData;
     Atom wmDeleteWindow;
 };
-
-// --------------------------------------------
-// Internal Helper Functions (X11)
-// --------------------------------------------
 
 static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(Display *display, int screen, int32_t width, int32_t height)
 {
@@ -768,7 +430,7 @@ static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(Display *disp
 static void __picoCanvasGraphicsBufferDestroy(__picoCanvasGraphicsBuffer buffer)
 {
     if (buffer->image) {
-        buffer->image->data = NULL; // Prevent XDestroyImage from freeing our buffer
+        buffer->image->data = NULL; 
         XDestroyImage(buffer->image);
     }
     if (buffer->buffer)
@@ -801,10 +463,6 @@ static bool __picoCanvasGraphicsBufferRecreate(picoCanvas canvas)
 
     return canvas->pixmap != 0;
 }
-
-// --------------------------------------------
-// Public API Implementation (X11)
-// --------------------------------------------
 
 picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, picoCanvasLoggerCallback logger)
 {
@@ -1008,6 +666,14 @@ void picoCanvasSetSize(picoCanvas canvas, int32_t width, int32_t height)
     XFlush(canvas->display);
 }
 
+void picoCanvasGetSize(picoCanvas canvas, int32_t *width, int32_t *height)
+{
+    if (width)
+        *width = canvas->width;
+    if (height)
+        *height = canvas->height;
+}
+
 void picoCanvasClear(picoCanvas canvas, picoCanvasColor color)
 {
     for (int i = 0; i < canvas->width * canvas->height; ++i)
@@ -1022,13 +688,7 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
 }
 
 #endif // PICO_CANVAS_X11
-
-
 #if defined(PICO_CANVAS_WAYLAND)
-// --------------------------------------------
-// Wayland Implementation (Linux)
-// --------------------------------------------
-
 #include <wayland-client.h>
 #include <wayland-client-protocol.h>
 #include <sys/mman.h>
@@ -1037,20 +697,6 @@ void picoCanvasDrawPixel(picoCanvas canvas, int32_t x, int32_t y, picoCanvasColo
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-
-// Try to use system xdg-shell, fall back to wl_shell
-#ifdef __has_include
-    #if __has_include("xdg-shell-client-protocol.h")
-        #include "xdg-shell-client-protocol.h"
-        #define PICO_CANVAS_HAS_XDG_SHELL 1
-    #endif
-#endif
-
-#ifndef PICO_CANVAS_HAS_XDG_SHELL
-// Fall back to wl_shell if xdg-shell is not available
-#warning "XDG Shell not available, falling back to deprecated wl_shell. Window decorations may not work properly."
-#define PICO_CANVAS_USE_WL_SHELL 1
-#endif
 
 typedef struct {
     struct wl_buffer *buffer;
@@ -1067,9 +713,10 @@ struct picoCanvas_t {
     struct wl_registry *registry;
     struct wl_compositor *compositor;
     struct wl_shm *shm;
+    struct wl_shell *shell;
     struct wl_surface *surface;
+    struct wl_shell_surface *shell_surface;
     bool isOpen;
-    bool configured;
     int32_t width;
     int32_t height;
     __picoCanvasGraphicsBuffer frontBuffer;
@@ -1077,20 +724,7 @@ struct picoCanvas_t {
     picoCanvasLoggerCallback logger;
     picoCanvasResizeCallback resizeCallback;
     void *userData;
-    
-#ifdef PICO_CANVAS_HAS_XDG_SHELL
-    struct xdg_wm_base *xdg_wm_base;
-    struct xdg_surface *xdg_surface;
-    struct xdg_toplevel *xdg_toplevel;
-#else
-    struct wl_shell *shell;
-    struct wl_shell_surface *shell_surface;
-#endif
 };
-
-// --------------------------------------------
-// Internal Helper Functions (Wayland)
-// --------------------------------------------
 
 static void __picoCanvasRegistryHandler(void *data, struct wl_registry *registry, uint32_t id, const char *interface, uint32_t version)
 {
@@ -1100,16 +734,9 @@ static void __picoCanvasRegistryHandler(void *data, struct wl_registry *registry
         canvas->compositor = wl_registry_bind(registry, id, &wl_compositor_interface, 1);
     } else if (strcmp(interface, "wl_shm") == 0) {
         canvas->shm = wl_registry_bind(registry, id, &wl_shm_interface, 1);
-    }
-#ifdef PICO_CANVAS_HAS_XDG_SHELL
-    else if (strcmp(interface, "xdg_wm_base") == 0) {
-        canvas->xdg_wm_base = wl_registry_bind(registry, id, &xdg_wm_base_interface, 1);
-    }
-#else
-    else if (strcmp(interface, "wl_shell") == 0) {
+    } else if (strcmp(interface, "wl_shell") == 0) {
         canvas->shell = wl_registry_bind(registry, id, &wl_shell_interface, 1);
     }
-#endif
 }
 
 static void __picoCanvasRegistryRemover(void *data, struct wl_registry *registry, uint32_t id)
@@ -1121,77 +748,6 @@ static const struct wl_registry_listener __picoCanvasRegistryListener = {
     __picoCanvasRegistryRemover
 };
 
-#ifdef PICO_CANVAS_HAS_XDG_SHELL
-static void __picoCanvasXdgWmBasePing(void *data, struct xdg_wm_base *xdg_wm_base, uint32_t serial)
-{
-    xdg_wm_base_pong(xdg_wm_base, serial);
-}
-
-static const struct xdg_wm_base_listener __picoCanvasXdgWmBaseListener = {
-    __picoCanvasXdgWmBasePing
-};
-
-static void __picoCanvasXdgSurfaceConfigure(void *data, struct xdg_surface *xdg_surface, uint32_t serial)
-{
-    picoCanvas canvas = (picoCanvas)data;
-    xdg_surface_ack_configure(xdg_surface, serial);
-    canvas->configured = true;
-}
-
-static const struct xdg_surface_listener __picoCanvasXdgSurfaceListener = {
-    __picoCanvasXdgSurfaceConfigure
-};
-
-static void __picoCanvasXdgToplevelConfigure(void *data, struct xdg_toplevel *xdg_toplevel, int32_t width, int32_t height, struct wl_array *states)
-{
-    picoCanvas canvas = (picoCanvas)data;
-    (void)xdg_toplevel; // unused
-    (void)states; // unused
-    
-    if (width > 0 && height > 0 && (width != canvas->width || height != canvas->height)) {
-        canvas->width = width;
-        canvas->height = height;
-        if (!__picoCanvasGraphicsBufferRecreate(canvas)) {
-            if (canvas->logger)
-                canvas->logger("Failed to recreate graphics buffers on resize", canvas);
-        }
-        if (canvas->resizeCallback)
-            canvas->resizeCallback(width, height, canvas);
-    }
-}
-
-static void __picoCanvasXdgToplevelClose(void *data, struct xdg_toplevel *xdg_toplevel)
-{
-    picoCanvas canvas = (picoCanvas)data;
-    (void)xdg_toplevel; // unused
-    canvas->isOpen = false;
-}
-
-static void __picoCanvasXdgToplevelConfigureBounds(void *data, struct xdg_toplevel *xdg_toplevel, int32_t width, int32_t height)
-{
-    // Handle configure bounds if needed
-    (void)data;
-    (void)xdg_toplevel;
-    (void)width;
-    (void)height;
-}
-
-static void __picoCanvasXdgToplevelWmCapabilities(void *data, struct xdg_toplevel *xdg_toplevel, struct wl_array *capabilities)
-{
-    // Handle WM capabilities if needed
-    (void)data;
-    (void)xdg_toplevel;
-    (void)capabilities;
-}
-
-static const struct xdg_toplevel_listener __picoCanvasXdgToplevelListener = {
-    __picoCanvasXdgToplevelConfigure,
-    __picoCanvasXdgToplevelClose,
-    __picoCanvasXdgToplevelConfigureBounds,
-    __picoCanvasXdgToplevelWmCapabilities
-};
-#else
-// Fallback to wl_shell
 static void __picoCanvasShellSurfacePing(void *data, struct wl_shell_surface *shell_surface, uint32_t serial)
 {
     wl_shell_surface_pong(shell_surface, serial);
@@ -1200,9 +756,6 @@ static void __picoCanvasShellSurfacePing(void *data, struct wl_shell_surface *sh
 static void __picoCanvasShellSurfaceConfigure(void *data, struct wl_shell_surface *shell_surface, uint32_t edges, int32_t width, int32_t height)
 {
     picoCanvas canvas = (picoCanvas)data;
-    (void)shell_surface; // unused
-    (void)edges; // unused
-    
     if (width > 0 && height > 0 && (width != canvas->width || height != canvas->height)) {
         canvas->width = width;
         canvas->height = height;
@@ -1217,9 +770,6 @@ static void __picoCanvasShellSurfaceConfigure(void *data, struct wl_shell_surfac
 
 static void __picoCanvasShellSurfacePopupDone(void *data, struct wl_shell_surface *shell_surface)
 {
-    // Handle popup done if needed
-    (void)data;
-    (void)shell_surface;
 }
 
 static const struct wl_shell_surface_listener __picoCanvasShellSurfaceListener = {
@@ -1227,7 +777,6 @@ static const struct wl_shell_surface_listener __picoCanvasShellSurfaceListener =
     __picoCanvasShellSurfaceConfigure,
     __picoCanvasShellSurfacePopupDone
 };
-#endif
 
 static int __picoCanvasCreateSharedMemoryFile(off_t size)
 {
@@ -1275,7 +824,7 @@ static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(picoCanvas ca
     buffer->height = height;
 
     if (createBuffer) {
-        int32_t stride = width * 4; // 4 bytes per pixel (ARGB8888)
+        int32_t stride = width * 4; 
         int32_t size = stride * height;
 
         int fd = __picoCanvasCreateSharedMemoryFile(size);
@@ -1338,10 +887,6 @@ static bool __picoCanvasGraphicsBufferRecreate(picoCanvas canvas)
     return canvas->frontBuffer && canvas->backBuffer;
 }
 
-// --------------------------------------------
-// Public API Implementation (Wayland)
-// --------------------------------------------
-
 picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, picoCanvasLoggerCallback logger)
 {
     picoCanvas canvas = (picoCanvas)PICO_MALLOC(sizeof(picoCanvas_t));
@@ -1371,11 +916,7 @@ picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, pic
     wl_display_dispatch(canvas->display);
     wl_display_roundtrip(canvas->display);
 
-#ifdef PICO_CANVAS_HAS_XDG_SHELL
-    if (!canvas->compositor || !canvas->shm || !canvas->xdg_wm_base) {
-#else
     if (!canvas->compositor || !canvas->shm || !canvas->shell) {
-#endif
         if (canvas->logger)
             canvas->logger("Failed to bind required Wayland interfaces", canvas);
         wl_display_disconnect(canvas->display);
@@ -1392,35 +933,6 @@ picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, pic
         return NULL;
     }
 
-#ifdef PICO_CANVAS_HAS_XDG_SHELL
-    xdg_wm_base_add_listener(canvas->xdg_wm_base, &__picoCanvasXdgWmBaseListener, canvas);
-
-    canvas->xdg_surface = xdg_wm_base_get_xdg_surface(canvas->xdg_wm_base, canvas->surface);
-    if (!canvas->xdg_surface) {
-        if (canvas->logger)
-            canvas->logger("Failed to create XDG surface", canvas);
-        wl_surface_destroy(canvas->surface);
-        wl_display_disconnect(canvas->display);
-        PICO_FREE(canvas);
-        return NULL;
-    }
-
-    xdg_surface_add_listener(canvas->xdg_surface, &__picoCanvasXdgSurfaceListener, canvas);
-
-    canvas->xdg_toplevel = xdg_surface_get_toplevel(canvas->xdg_surface);
-    if (!canvas->xdg_toplevel) {
-        if (canvas->logger)
-            canvas->logger("Failed to create XDG toplevel", canvas);
-        xdg_surface_destroy(canvas->xdg_surface);
-        wl_surface_destroy(canvas->surface);
-        wl_display_disconnect(canvas->display);
-        PICO_FREE(canvas);
-        return NULL;
-    }
-
-    xdg_toplevel_add_listener(canvas->xdg_toplevel, &__picoCanvasXdgToplevelListener, canvas);
-    xdg_toplevel_set_title(canvas->xdg_toplevel, name ? name : "PicoCanvas");
-#else
     canvas->shell_surface = wl_shell_get_shell_surface(canvas->shell, canvas->surface);
     if (!canvas->shell_surface) {
         if (canvas->logger)
@@ -1434,27 +946,11 @@ picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, pic
     wl_shell_surface_add_listener(canvas->shell_surface, &__picoCanvasShellSurfaceListener, canvas);
     wl_shell_surface_set_toplevel(canvas->shell_surface);
     wl_shell_surface_set_title(canvas->shell_surface, name ? name : "PicoCanvas");
-    canvas->configured = true; // wl_shell doesn't need explicit configure
-#endif
-
-    // Initial commit to make the surface visible
-    wl_surface_commit(canvas->surface);
-    wl_display_flush(canvas->display);
-
-    // Wait for the first configure event
-    while (!canvas->configured) {
-        wl_display_dispatch(canvas->display);
-    }
 
     if (!__picoCanvasGraphicsBufferRecreate(canvas)) {
         if (canvas->logger)
             canvas->logger("Failed to create graphics buffers", canvas);
-#ifdef PICO_CANVAS_HAS_XDG_SHELL
-        xdg_toplevel_destroy(canvas->xdg_toplevel);
-        xdg_surface_destroy(canvas->xdg_surface);
-#else
         wl_shell_surface_destroy(canvas->shell_surface);
-#endif
         wl_surface_destroy(canvas->surface);
         wl_display_disconnect(canvas->display);
         PICO_FREE(canvas);
@@ -1472,19 +968,12 @@ void picoCanvasDestroy(picoCanvas canvas)
         __picoCanvasGraphicsBufferDestroy(canvas->frontBuffer);
     if (canvas->backBuffer)
         __picoCanvasGraphicsBufferDestroy(canvas->backBuffer);
-#ifdef PICO_CANVAS_HAS_XDG_SHELL
-    if (canvas->xdg_toplevel)
-        xdg_toplevel_destroy(canvas->xdg_toplevel);
-    if (canvas->xdg_surface)
-        xdg_surface_destroy(canvas->xdg_surface);
-#else
     if (canvas->shell_surface)
         wl_shell_surface_destroy(canvas->shell_surface);
-    if (canvas->shell)
-        wl_shell_destroy(canvas->shell);
-#endif
     if (canvas->surface)
         wl_surface_destroy(canvas->surface);
+    if (canvas->shell)
+        wl_shell_destroy(canvas->shell);
     if (canvas->compositor)
         wl_compositor_destroy(canvas->compositor);
     if (canvas->shm)
@@ -1505,10 +994,10 @@ void picoCanvasUpdate(picoCanvas canvas)
 
 void picoCanvasSwapBuffers(picoCanvas canvas)
 {
-    // Copy back buffer to front buffer
+    
     memcpy(canvas->frontBuffer->data, canvas->backBuffer->data, canvas->width * canvas->height * sizeof(uint32_t));
 
-    // Attach the front buffer to the surface
+    
     wl_surface_attach(canvas->surface, canvas->frontBuffer->buffer, 0, 0);
     wl_surface_damage(canvas->surface, 0, 0, canvas->width, canvas->height);
     wl_surface_commit(canvas->surface);
@@ -1537,18 +1026,13 @@ bool picoCanvasIsOpen(picoCanvas canvas)
 
 void picoCanvasSetTitle(picoCanvas canvas, const char *title)
 {
-#ifdef PICO_CANVAS_HAS_XDG_SHELL
-    xdg_toplevel_set_title(canvas->xdg_toplevel, title ? title : "PicoCanvas");
-#else
     wl_shell_surface_set_title(canvas->shell_surface, title ? title : "PicoCanvas");
-#endif
     wl_display_flush(canvas->display);
 }
 
 void picoCanvasSetSize(picoCanvas canvas, int32_t width, int32_t height)
 {
-    // Note: In Wayland, the compositor controls window size for toplevel surfaces
-    // We can only suggest a size, but the actual resize will come through configure events
+    
     canvas->width = width;
     canvas->height = height;
     if (!__picoCanvasGraphicsBufferRecreate(canvas)) {
@@ -1556,6 +1040,14 @@ void picoCanvasSetSize(picoCanvas canvas, int32_t width, int32_t height)
             canvas->logger("Failed to recreate graphics buffers on size change", canvas);
     }
     wl_display_flush(canvas->display);
+}
+
+void picoCanvasGetSize(picoCanvas canvas, int32_t *width, int32_t *height)
+{
+    if (width)
+        *width = canvas->width;
+    if (height)
+        *height = canvas->height;
 }
 
 void picoCanvasClear(picoCanvas canvas, picoCanvasColor color)
