@@ -7,6 +7,7 @@ headers you wanna use define `PICO_IMPLEMENTATION` before including the headers.
 
 ## Libraries:
 
-| Library | File | Description |
-|---------|------|-------------|
-| picoCanvas | `include/pico/pico_window.h` | A simple cross-platform library to create a window and draw pixels/shapes to it. |
+| Library | File | Description | Example |
+|---------|------|-------------|---------|
+| picoCanvas | `include/pico/picoCanvas.h` | A simple cross-platform library to create a window and draw pixels to it. | `examples/picoCanvas` |
+| picoLog | `include/pico/picoLog.h` | A simple logging library. | `examples/picoLog` |
