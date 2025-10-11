@@ -52,12 +52,12 @@ SOFTWARE.
 #define PICO_LOG_LINE __LINE__
 #define PICO_LOG_FILENAME (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
 #elif defined(__GNUC__) || defined(__MINGW32__) || defined(__MINGW64__)
-#define PICO_LOG_FUNC __PRETTY_FUNCTION__
+#define PICO_LOG_FUNC __func__ 
 #define PICO_LOG_FILE __FILE__
 #define PICO_LOG_LINE __LINE__
 #define PICO_LOG_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #elif defined(__clang__) || defined(__APPLE__)
-#define PICO_LOG_FUNC __PRETTY_FUNCTION__
+#define PICO_LOG_FUNC __func__ 
 #define PICO_LOG_FILE __FILE__
 #define PICO_LOG_LINE __LINE__
 #define PICO_LOG_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -89,28 +89,28 @@ SOFTWARE.
 #include <stdint.h>
 
 typedef enum {
-    PICO_LOG_LEVEL_DEBUG   = 0b00000001,
-    PICO_LOG_LEVEL_VERBOSE = 0b00000010,
-    PICO_LOG_LEVEL_INFO    = 0b00000100,
-    PICO_LOG_LEVEL_WARN    = 0b00001000,
-    PICO_LOG_LEVEL_ERROR   = 0b00010000,
-    PICO_LOG_LEVEL_NONE    = 0b00000000,
-    PICO_LOG_LEVEL_ALL     = 0b00011111
+    PICO_LOG_LEVEL_DEBUG   = 0x01,
+    PICO_LOG_LEVEL_VERBOSE = 0x02,
+    PICO_LOG_LEVEL_INFO    = 0x04,
+    PICO_LOG_LEVEL_WARN    = 0x08,
+    PICO_LOG_LEVEL_ERROR   = 0x10,
+    PICO_LOG_LEVEL_NONE    = 0x00,
+    PICO_LOG_LEVEL_ALL     = 0x1F
 } picoLogLevel;
 
 typedef enum {
-    PICO_LOG_TARGET_CONSOLE = 0b00000001,
-    PICO_LOG_TARGET_FILE    = 0b00000010,
-    PICO_LOG_TARGET_CUSTOM  = 0b00000100,
-    PICO_LOG_TARGET_ALL     = 0b00000111
+    PICO_LOG_TARGET_CONSOLE = 0x01,
+    PICO_LOG_TARGET_FILE    = 0x02,
+    PICO_LOG_TARGET_CUSTOM  = 0x04,
+    PICO_LOG_TARGET_ALL     = 0x07
 } picoLogTarget;
 
 typedef enum {
-    PICO_LOG_FORMAT_DEFAULT      = 0b00000001, // [YYYY-MM-DD HH:MM:SS.mmm] [LEVEL] [TAG]: MESSAGE
-    PICO_LOG_FORMAT_SHORT        = 0b00000010, // [LEVEL] [TAG]: MESSAGE
-    PICO_LOG_FORMAT_MESSAGE_ONLY = 0b00000100, // MESSAGE
-    PICO_LOG_FORMAT_VERBOSE      = 0b00001000, // [YYYY-MM-DD HH:MM:SS.mmm] [FILE:LINE] [FUNCTION] [LEVEL] [TAG]: MESSAGE
-    PICO_LOG_FORMAT_JSON         = 0b00010000, // {"time": "YYYY-MM-DD HH:MM:SS.mmm", "file": "...", "line": ..., "function": "...", "level": "...", "tag": "...", "message": "..."}
+    PICO_LOG_FORMAT_DEFAULT      = 0x01, // [YYYY-MM-DD HH:MM:SS.mmm] [LEVEL] [TAG]: MESSAGE
+    PICO_LOG_FORMAT_SHORT        = 0x02, // [LEVEL] [TAG]: MESSAGE
+    PICO_LOG_FORMAT_MESSAGE_ONLY = 0x04, // MESSAGE
+    PICO_LOG_FORMAT_VERBOSE      = 0x08, // [YYYY-MM-DD HH:MM:SS.mmm] [FILE:LINE] [FUNCTION] [LEVEL] [TAG]: MESSAGE
+    PICO_LOG_FORMAT_JSON         = 0x10, // {"time": "YYYY-MM-DD HH:MM:SS.mmm", "file": "...", "line": ..., "function": "...", "level": "...", "tag": "...", "message": "..."}
 } picoLogFormat;
 
 typedef struct {
