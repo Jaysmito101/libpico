@@ -12,3 +12,4 @@ headers you wanna use define `PICO_IMPLEMENTATION` before including the headers.
 | picoCanvas | `include/pico/picoCanvas.h` | A simple cross-platform library to create a window and draw pixels to it. | `examples/picoCanvas` |
 | picoLog | `include/pico/picoLog.h` | A simple logging library. | `examples/picoLog` |
 | picoThreads | `include/pico/picoThreads.h` | A simple cross-platform threading + thread pool library. | `examples/picoThreads` |
+| picoStream | `include/pico/picoStream.h` | A simple file and memory stream library. | `examples/picoStream` |
