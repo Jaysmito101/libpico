@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background-color: #0a0a0a;
+            color: #e5e5e5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        .drop-zone {
+            border: 2px dashed #404040;
+            transition: all 0.3s;
+        }
+        .drop-zone.dragover {
+            border-color: #707070;
+            background-color: #1a1a1a;
+        }
+        .chart-bar {
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .chart-bar:hover {
+            filter: brightness(1.2);
+        }
+        .flame-rect {
+            cursor: pointer;
+            transition: filter 0.15s;
+        }
+        .flame-rect:hover {
+            filter: brightness(1.3);
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #1a1a1a 0%, #151515 100%);
+            border: 1px solid #2a2a2a;
+        }
+        .content-card {
+            background-color: #121212;
+            border: 1px solid #252525;
+        }
+        .tab-btn {
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            border-bottom-color: #808080;
+            color: #ffffff;
+        }
+        .tab-btn:hover:not(.active) {
+            color: #b0b0b0;
+        }
+        .data-row:hover {
+            background-color: #1a1a1a;
+        }
+        .waterfall-container {
+            position: relative;
+            min-height: 400px;
+        }
+        .waterfall-row {
+            position: absolute;
+            height: 32px;
+            left: 0;
+            right: 0;
+        }
+        .waterfall-bar {
+            position: absolute;
+            height: 24px;
+            top: 4px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        .waterfall-bar:hover {
+            filter: brightness(1.3);
+            z-index: 100;
+            transform: scaleY(1.15);
+            border-color: rgba(255,255,255,0.3);
+        }
+        .waterfall-label {
+            font-size: 11px;
+            color: #888;
+            position: absolute;
+            top: 8px;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #flameTooltip {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            border: 1px solid #444;
+            max-width: 400px;
+            line-height: 1.5;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #404040;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #505050;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="min-h-screen">
+        <!-- Drop Zone -->
+        <div id="dropZone" class="flex items-center justify-center min-h-screen p-8">
+            <div class="drop-zone rounded-xl p-24 text-center max-w-2xl w-full">
+                <h1 class="text-4xl font-light mb-4 tracking-tight">Performance Visualizer</h1>
+                <p class="text-gray-500 text-lg mb-8">Drop JSON file or click to browse</p>
+                <input type="file" id="fileInput" accept=".json" class="hidden">
+                <button id="browseBtn" class="px-8 py-3 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors border border-gray-700">
+                    Select File
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content (hidden initially) -->
+        <div id="mainContent" class="hidden">
+            <!-- Header with Stats -->
+            <div class="border-b border-gray-800 bg-black sticky top-0 z-50">
+                <div class="px-8 py-6">
+                    <h1 class="text-2xl font-light mb-6 tracking-tight">Performance Analysis</h1>
+                    <div id="summaryCards" class="grid grid-cols-2 md:grid-cols-6 gap-4"></div>
+                </div>
+                
+                <!-- Navigation Tabs -->
+                <div class="flex space-x-8 px-8">
+                    <button class="tab-btn px-2 py-3 text-sm font-medium text-gray-400" data-tab="overview">Overview</button>
+                    <button class="tab-btn px-2 py-3 text-sm font-medium text-gray-400" data-tab="flamegraph">Flamegraph</button>
+                    <button class="tab-btn px-2 py-3 text-sm font-medium text-gray-400" data-tab="functions">Functions</button>
+                    <button class="tab-btn px-2 py-3 text-sm font-medium text-gray-400" data-tab="timeline">Timeline</button>
+                    <button class="tab-btn px-2 py-3 text-sm font-medium text-gray-400" data-tab="data">Raw Data</button>
+                </div>
+            </div>
+
+            <!-- Tab Content -->
+            <div id="tabContent" class="p-8"></div>
+        </div>
+    </div>
+
+    <script>
+        let perfData = null;
+
+        // File Handling
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const browseBtn = document.getElementById('browseBtn');
+        const mainContent = document.getElementById('mainContent');
+
+        browseBtn.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.querySelector('.drop-zone').classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.querySelector('.drop-zone').classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.querySelector('.drop-zone').classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type === 'application/json') {
+                loadFile(file);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) loadFile(file);
+        });
+
+        function loadFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    perfData = JSON.parse(e.target.result);
+                    showMainContent();
+                } catch (error) {
+                    alert('Error parsing JSON file: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function showMainContent() {
+            dropZone.classList.add('hidden');
+            mainContent.classList.remove('hidden');
+            renderSummaryCards();
+            renderTab('overview');
+        }
+
+        // Summary Cards
+        function renderSummaryCards() {
+            const cards = document.getElementById('summaryCards');
+            const totalRecords = perfData.totalRecords;
+            const totalItems = perfData.records.reduce((sum, r) => sum + r.itemCount, 0);
+            
+            let totalDuration = 0;
+            let maxDuration = 0;
+            let minDuration = Infinity;
+            const uniqueFunctions = new Set();
+            
+            perfData.records.forEach(record => {
+                record.items.forEach(item => {
+                    uniqueFunctions.add(item.name);
+                    if (item.scopeDepth === 0) {
+                        totalDuration += item.duration.milliseconds;
+                        maxDuration = Math.max(maxDuration, item.duration.milliseconds);
+                        minDuration = Math.min(minDuration, item.duration.milliseconds);
+                    }
+                });
+            });
+
+            const cardData = [
+                { label: 'Records', value: totalRecords },
+                { label: 'Total Items', value: totalItems },
+                { label: 'Functions', value: uniqueFunctions.size },
+                { label: 'Total Time', value: totalDuration.toFixed(1) + 'ms' },
+                { label: 'Longest', value: maxDuration.toFixed(1) + 'ms' },
+                { label: 'Avg/Record', value: (totalDuration / totalRecords).toFixed(1) + 'ms' }
+            ];
+
+            cards.innerHTML = cardData.map(card => `
+                <div class="stat-card rounded-lg p-4">
+                    <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">${card.label}</div>
+                    <div class="text-2xl font-light">${card.value}</div>
+                </div>
+            `).join('');
+        }
+
+        // Tab Management
+        let currentTab = 'overview';
+
+        // Keyboard shortcuts for flamegraph
+        document.addEventListener('keydown', (e) => {
+            if (currentTab === 'flamegraph') {
+                if (e.key === '+' || e.key === '=') {
+                    e.preventDefault();
+                    document.getElementById('flameZoomOut')?.click();
+                } else if (e.key === '-' || e.key === '_') {
+                    e.preventDefault();
+                    if (flameZoomStack.length > 0) {
+                        document.getElementById('flameZoomOut')?.click();
+                    }
+                } else if (e.key === '0' || e.key === 'Escape') {
+                    e.preventDefault();
+                    document.getElementById('flameReset')?.click();
+                }
+            }
+        });
+
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                renderTab(btn.dataset.tab);
+            });
+        });
+
+        function renderTab(tabName) {
+            currentTab = tabName;
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                if (btn.dataset.tab === tabName) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            const content = document.getElementById('tabContent');
+            switch (tabName) {
+                case 'overview':
+                    content.innerHTML = renderOverview();
+                    break;
+                case 'flamegraph':
+                    content.innerHTML = renderFlamegraph();
+                    initFlamegraph();
+                    break;
+                case 'functions':
+                    content.innerHTML = renderTopFunctions();
+                    break;
+                case 'timeline':
+                    content.innerHTML = renderTimeline();
+                    break;
+                case 'data':
+                    content.innerHTML = renderRawData();
+                    break;
+            }
+        }
+
+        function renderCurrentTab() {
+            renderTab(currentTab);
+        }
+
+        // Overview Tab
+        function renderOverview() {
+            const functionStats = {};
+            perfData.records.forEach(record => {
+                record.items.forEach(item => {
+                    if (!functionStats[item.name]) {
+                        functionStats[item.name] = {
+                            count: 0,
+                            totalTime: 0,
+                            minTime: Infinity,
+                            maxTime: 0,
+                            avgDepth: 0
+                        };
+                    }
+                    functionStats[item.name].count++;
+                    functionStats[item.name].totalTime += item.duration.microseconds;
+                    functionStats[item.name].minTime = Math.min(functionStats[item.name].minTime, item.duration.microseconds);
+                    functionStats[item.name].maxTime = Math.max(functionStats[item.name].maxTime, item.duration.microseconds);
+                    functionStats[item.name].avgDepth += item.scopeDepth;
+                });
+            });
+
+            Object.keys(functionStats).forEach(key => {
+                functionStats[key].avgDepth /= functionStats[key].count;
+            });
+
+            const sortedFunctions = Object.entries(functionStats)
+                .sort((a, b) => b[1].totalTime - a[1].totalTime)
+                .slice(0, 15);
+
+            const maxTime = sortedFunctions[0][1].totalTime;
+
+            return `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="content-card rounded-xl p-6">
+                        <h3 class="text-xl font-light mb-6 text-gray-300">Top Functions by Time</h3>
+                        <div class="space-y-3">
+                            ${sortedFunctions.map(([name, stats], idx) => {
+                                const percentage = (stats.totalTime / maxTime * 100);
+                                const shade = 180 + Math.floor((idx / sortedFunctions.length) * 75);
+                                return `
+                                    <div>
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="font-mono text-sm">${name}</span>
+                                            <span class="text-gray-500 text-xs font-mono">${(stats.totalTime / 1000).toFixed(2)}ms</span>
+                                        </div>
+                                        <div class="w-full bg-gray-900 rounded h-2">
+                                            <div class="chart-bar h-2 rounded" style="width: ${percentage}%; background-color: rgb(${shade}, ${shade}, ${shade})"></div>
+                                        </div>
+                                        <div class="mt-1 text-xs text-gray-600 flex gap-4">
+                                            <span>${stats.count} calls</span>
+                                            <span>avg ${(stats.totalTime / stats.count / 1000).toFixed(2)}ms</span>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    
+                    <div class="content-card rounded-xl p-6">
+                        <h3 class="text-xl font-light mb-6 text-gray-300">Function Statistics</h3>
+                        <div class="space-y-2 text-sm font-mono">
+                            ${sortedFunctions.slice(0, 10).map(([name, stats]) => `
+                                <div class="flex justify-between py-2 border-b border-gray-800 data-row rounded px-2">
+                                    <span class="text-gray-400 truncate pr-4">${name}</span>
+                                    <div class="flex gap-4 text-xs text-gray-500">
+                                        <span>${stats.count}x</span>
+                                        <span>${(stats.minTime / 1000).toFixed(1)}-${(stats.maxTime / 1000).toFixed(1)}ms</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Flamegraph Tab
+        let flameZoomStack = [];
+        let currentFlameRoot = null;
+
+        function renderFlamegraph() {
+            return `
+                <div class="content-card rounded-xl p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-light text-gray-300">Call Stack Flamegraph</h3>
+                        <div class="flex gap-2 items-center">
+                            <button id="flameZoomOut" class="px-3 py-1 bg-gray-800 rounded text-xs hover:bg-gray-700 transition-colors disabled:opacity-30" disabled>
+                                Zoom Out
+                            </button>
+                            <button id="flameReset" class="px-3 py-1 bg-gray-800 rounded text-xs hover:bg-gray-700 transition-colors">
+                                Reset
+                            </button>
+                        </div>
+                    </div>
+                    <div id="flamegraphInfo" class="mb-4 text-xs font-mono text-gray-500 h-5"></div>
+                    <div id="flamegraphContainer" class="overflow-hidden rounded-lg border border-gray-800">
+                        <svg id="flamegraphSvg" width="100%" height="600"></svg>
+                    </div>
+                    <div class="mt-4 text-xs text-gray-600">
+                        Click blocks to zoom in • Wider blocks = more time spent • Keyboard: + or - to zoom, 0 or ESC to reset
+                    </div>
+                </div>
+                <div id="flameTooltip"></div>
+            `;
+        }
+
+        function initFlamegraph() {
+            const flameData = buildFlameData();
+            currentFlameRoot = flameData;
+            flameZoomStack = [];
+            renderFlameView(flameData);
+            
+            document.getElementById('flameZoomOut').addEventListener('click', () => {
+                if (flameZoomStack.length > 0) {
+                    currentFlameRoot = flameZoomStack.pop();
+                    renderFlameView(currentFlameRoot);
+                    document.getElementById('flameZoomOut').disabled = flameZoomStack.length === 0;
+                }
+            });
+            
+            document.getElementById('flameReset').addEventListener('click', () => {
+                currentFlameRoot = flameData;
+                flameZoomStack = [];
+                renderFlameView(flameData);
+                document.getElementById('flameZoomOut').disabled = true;
+            });
+        }
+        
+        function renderFlameView(data) {
+            const svg = document.getElementById('flamegraphSvg');
+            const container = document.getElementById('flamegraphContainer');
+            const width = container.offsetWidth;
+            const height = 600;
+            
+            svg.setAttribute('width', width);
+            svg.setAttribute('height', height);
+            
+            renderFlameBlocks(svg, Array.isArray(data) ? data : [data], width, height);
+        }
+
+        function buildFlameData() {
+            const allStacks = [];
+            
+            perfData.records.forEach(record => {
+                const rootItems = record.items.filter(item => item.scopeDepth === 0);
+                rootItems.forEach(rootItem => {
+                    const stack = buildStack(rootItem, record.items);
+                    allStacks.push(stack);
+                });
+            });
+            
+            return allStacks;
+        }
+
+        function buildStack(item, allItems) {
+            const children = allItems.filter(i => i.parentName === item.name && i.startTime >= item.startTime && i.endTime <= item.endTime);
+            
+            return {
+                name: item.name,
+                value: item.duration.microseconds,
+                duration: item.duration,
+                depth: item.scopeDepth,
+                file: item.start.file,
+                line: item.start.line,
+                func: item.start.function,
+                children: children.map(child => buildStack(child, allItems))
+            };
+        }
+
+        function renderFlameBlocks(svg, stacks, width, height) {
+            svg.innerHTML = '';
+            
+            let maxDepth = 0;
+            function getMaxDepth(node, depth = 0) {
+                maxDepth = Math.max(maxDepth, depth);
+                node.children.forEach(child => getMaxDepth(child, depth + 1));
+            }
+            stacks.forEach(stack => getMaxDepth(stack));
+            
+            const blockHeight = Math.min(25, height / (maxDepth + 1));
+            const totalValue = stacks.reduce((sum, s) => sum + s.value, 0);
+            
+            let xOffset = 0;
+            stacks.forEach(stack => {
+                const stackWidth = (stack.value / totalValue) * width;
+                renderFlameNode(svg, stack, xOffset, 0, stackWidth, blockHeight, totalValue);
+                xOffset += stackWidth;
+            });
+        }
+
+        function renderFlameNode(svg, node, x, y, width, height, totalValue) {
+            if (width < 1) return;
+            
+            const shade = 100 + Math.floor((node.depth / 10) * 100);
+            const gray = Math.min(200, shade);
+            
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('x', x);
+            rect.setAttribute('y', y);
+            rect.setAttribute('width', width);
+            rect.setAttribute('height', height - 1);
+            rect.setAttribute('fill', `rgb(${gray}, ${gray}, ${gray})`);
+            rect.setAttribute('stroke', '#0a0a0a');
+            rect.setAttribute('stroke-width', '0.5');
+            rect.classList.add('flame-rect');
+            rect.style.cursor = 'pointer';
+            
+            const tooltip = document.getElementById('flameTooltip');
+            const info = document.getElementById('flamegraphInfo');
+            
+            rect.addEventListener('mouseenter', (e) => {
+                const fileName = node.file ? node.file.split('\\').pop() : 'unknown';
+                info.innerHTML = `<span class="text-gray-400">${node.name}</span> • ${(node.value / 1000).toFixed(2)}ms • ${fileName}:${node.line || '?'}`;
+                
+                tooltip.innerHTML = `
+                    <div><strong>${node.name}</strong></div>
+                    <div class="text-gray-400 mt-1">${(node.value / 1000).toFixed(3)} ms</div>
+                    <div class="text-gray-500 mt-2 text-xs">${node.file || 'unknown'}</div>
+                    <div class="text-gray-500 text-xs">Line ${node.line || '?'}</div>
+                    ${node.func ? `<div class="text-gray-500 text-xs mt-1">${node.func}</div>` : ''}
+                    <div class="text-gray-600 text-xs mt-2">Click to zoom</div>
+                `;
+                tooltip.style.display = 'block';
+                tooltip.style.left = e.pageX + 10 + 'px';
+                tooltip.style.top = e.pageY + 10 + 'px';
+            });
+            
+            rect.addEventListener('mousemove', (e) => {
+                tooltip.style.left = e.pageX + 10 + 'px';
+                tooltip.style.top = e.pageY + 10 + 'px';
+            });
+            
+            rect.addEventListener('mouseleave', () => {
+                info.textContent = '';
+                tooltip.style.display = 'none';
+            });
+            
+            rect.addEventListener('click', () => {
+                if (node.children.length > 0) {
+                    flameZoomStack.push(currentFlameRoot);
+                    currentFlameRoot = [node];
+                    renderFlameView(currentFlameRoot);
+                    document.getElementById('flameZoomOut').disabled = false;
+                }
+            });
+            
+            svg.appendChild(rect);
+            
+            if (width > 40) {
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', x + 4);
+                text.setAttribute('y', y + height - 8);
+                text.setAttribute('font-size', '11');
+                text.setAttribute('fill', '#0a0a0a');
+                text.setAttribute('font-family', 'monospace');
+                text.style.pointerEvents = 'none';
+                text.textContent = node.name.substring(0, Math.floor(width / 7));
+                svg.appendChild(text);
+            }
+            
+            if (node.children.length > 0) {
+                const childrenValue = node.children.reduce((sum, c) => sum + c.value, 0);
+                let childX = x;
+                node.children.forEach(child => {
+                    const childWidth = (child.value / childrenValue) * width;
+                    renderFlameNode(svg, child, childX, y + height, childWidth, height, totalValue);
+                    childX += childWidth;
+                });
+            }
+        }
+
+        // Top Functions Tab
+        function renderTopFunctions() {
+            const functionStats = {};
+            perfData.records.forEach(record => {
+                record.items.forEach(item => {
+                    if (!functionStats[item.name]) {
+                        functionStats[item.name] = {
+                            count: 0,
+                            totalTime: 0,
+                            minTime: Infinity,
+                            maxTime: 0,
+                            selfTime: 0,
+                            avgDepth: 0,
+                            calls: []
+                        };
+                    }
+                    const stats = functionStats[item.name];
+                    stats.count++;
+                    stats.totalTime += item.duration.microseconds;
+                    stats.minTime = Math.min(stats.minTime, item.duration.microseconds);
+                    stats.maxTime = Math.max(stats.maxTime, item.duration.microseconds);
+                    stats.avgDepth += item.scopeDepth;
+                    stats.calls.push({
+                        duration: item.duration.microseconds,
+                        depth: item.scopeDepth,
+                        parent: item.parentName,
+                        file: item.start.file,
+                        line: item.start.line
+                    });
+                });
+            });
+
+            // Calculate average depth
+            Object.keys(functionStats).forEach(key => {
+                functionStats[key].avgDepth /= functionStats[key].count;
+            });
+
+            const sortedFunctions = Object.entries(functionStats)
+                .sort((a, b) => b[1].totalTime - a[1].totalTime);
+
+            const html = `
+                <div class="content-card rounded-xl p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-light text-gray-300">All Functions</h3>
+                        <div class="flex gap-2 text-xs">
+                            <button class="sort-btn px-3 py-1 bg-gray-800 rounded hover:bg-gray-700" data-sort="total">Sort: Total Time</button>
+                            <button class="sort-btn px-3 py-1 bg-gray-800 rounded hover:bg-gray-700" data-sort="calls">Sort: Calls</button>
+                            <button class="sort-btn px-3 py-1 bg-gray-800 rounded hover:bg-gray-700" data-sort="avg">Sort: Average</button>
+                            <button class="sort-btn px-3 py-1 bg-gray-800 rounded hover:bg-gray-700" data-sort="name">Sort: Name</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm" id="functionsTable">
+                            <thead>
+                                <tr class="border-b border-gray-800 text-gray-500 text-xs uppercase">
+                                    <th class="text-left py-3 px-3 font-medium">#</th>
+                                    <th class="text-left py-3 px-3 font-medium">Function</th>
+                                    <th class="text-left py-3 px-3 font-medium">Location</th>
+                                    <th class="text-right py-3 px-3 font-medium">Calls</th>
+                                    <th class="text-right py-3 px-3 font-medium">Total</th>
+                                    <th class="text-right py-3 px-3 font-medium">Average</th>
+                                    <th class="text-right py-3 px-3 font-medium">Min</th>
+                                    <th class="text-right py-3 px-3 font-medium">Max</th>
+                                    <th class="text-right py-3 px-3 font-medium">Depth</th>
+                                </tr>
+                            </thead>
+                            <tbody class="font-mono" id="functionsTableBody">
+                                ${sortedFunctions.map(([name, stats], idx) => {
+                                    const firstCall = stats.calls[0];
+                                    const fileName = firstCall.file ? firstCall.file.split('\\').pop().split('/').pop() : 'unknown';
+                                    return `
+                                    <tr class="data-row border-b border-gray-900" data-name="${name}" data-total="${stats.totalTime}" data-calls="${stats.count}" data-avg="${stats.totalTime / stats.count}">
+                                        <td class="py-3 px-3 text-gray-600">${idx + 1}</td>
+                                        <td class="py-3 px-3 text-gray-300">${name}</td>
+                                        <td class="py-3 px-3 text-gray-600 text-xs">${fileName}:${firstCall.line}</td>
+                                        <td class="py-3 px-3 text-right text-gray-400">${stats.count}</td>
+                                        <td class="py-3 px-3 text-right">${(stats.totalTime / 1000).toFixed(2)}ms</td>
+                                        <td class="py-3 px-3 text-right text-gray-400">${(stats.totalTime / stats.count / 1000).toFixed(2)}ms</td>
+                                        <td class="py-3 px-3 text-right text-gray-600 text-xs">${(stats.minTime / 1000).toFixed(2)}ms</td>
+                                        <td class="py-3 px-3 text-right text-gray-600 text-xs">${(stats.maxTime / 1000).toFixed(2)}ms</td>
+                                        <td class="py-3 px-3 text-right text-gray-600 text-xs">${stats.avgDepth.toFixed(1)}</td>
+                                    </tr>
+                                `;}).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            setTimeout(() => {
+                document.querySelectorAll('.sort-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const sortBy = btn.dataset.sort;
+                        const tbody = document.getElementById('functionsTableBody');
+                        const rows = Array.from(tbody.querySelectorAll('tr'));
+                        
+                        rows.sort((a, b) => {
+                            if (sortBy === 'name') {
+                                return a.dataset.name.localeCompare(b.dataset.name);
+                            } else if (sortBy === 'total') {
+                                return parseFloat(b.dataset.total) - parseFloat(a.dataset.total);
+                            } else if (sortBy === 'calls') {
+                                return parseInt(b.dataset.calls) - parseInt(a.dataset.calls);
+                            } else if (sortBy === 'avg') {
+                                return parseFloat(b.dataset.avg) - parseFloat(a.dataset.avg);
+                            }
+                        });
+                        
+                        tbody.innerHTML = '';
+                        rows.forEach((row, idx) => {
+                            row.querySelector('td').textContent = idx + 1;
+                            tbody.appendChild(row);
+                        });
+                        
+                        document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('bg-gray-600'));
+                        btn.classList.add('bg-gray-600');
+                    });
+                });
+            }, 0);
+            
+            return html;
+        }
+
+
+
+        function buildPath(item, allItems) {
+            const path = [item.name];
+            let currentParent = item.parentName;
+            
+            while (currentParent && currentParent !== 'ROOT') {
+                const parent = allItems.find(i => i.name === currentParent && i.scopeDepth < item.scopeDepth);
+                if (parent) {
+                    path.unshift(parent.name);
+                    currentParent = parent.parentName;
+                } else {
+                    break;
+                }
+            }
+            
+            return path;
+        }
+
+        // Timeline Tab - Waterfall View
+        function renderTimeline() {
+            let html = `
+                <div class="content-card rounded-xl p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-light text-gray-300">Execution Waterfall - All Records</h3>
+                        <div class="text-xs text-gray-600">
+                            <span>${perfData.records.length} records</span>
+                            <span class="ml-4">Use slider or scroll horizontally</span>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <input type="range" id="timelineScroll" min="0" max="100" value="0" 
+                               class="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer"
+                               style="accent-color: #606060">
+                    </div>
+                    <div id="waterfallScrollContainer" class="overflow-x-auto overflow-y-auto max-h-[600px] bg-black rounded-lg border border-gray-900" style="scroll-behavior: smooth">
+                        <div style="min-width: 2000px; padding: 12px">
+            `;
+            
+            perfData.records.forEach((record, idx) => {
+                const minTime = Math.min(...record.items.map(item => item.startTime));
+                const maxTime = Math.max(...record.items.map(item => item.endTime));
+                const totalDuration = maxTime - minTime;
+                
+                html += `
+                    <div class="mb-6 pb-6 border-b border-gray-900 last:border-b-0">
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="text-sm font-light text-gray-400">Record ${idx + 1}</h4>
+                            <div class="text-xs text-gray-600">
+                                <span>${record.itemCount} calls</span>
+                                <span class="ml-3">${(totalDuration / 1000).toFixed(2)}ms</span>
+                            </div>
+                        </div>
+                        <div class="waterfall-container" style="min-height: ${record.items.length * 36}px; position: relative">
+                            ${renderWaterfallBars(record.items, minTime, totalDuration)}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            setTimeout(() => {
+                const container = document.getElementById('waterfallScrollContainer');
+                const slider = document.getElementById('timelineScroll');
+                
+                if (container && slider) {
+                    slider.addEventListener('input', (e) => {
+                        const scrollPercentage = e.target.value / 100;
+                        const maxScroll = container.scrollWidth - container.clientWidth;
+                        container.scrollLeft = maxScroll * scrollPercentage;
+                    });
+                    
+                    container.addEventListener('scroll', () => {
+                        const scrollPercentage = container.scrollLeft / (container.scrollWidth - container.clientWidth);
+                        slider.value = scrollPercentage * 100;
+                    });
+                }
+            }, 0);
+            
+            return html;
+        }
+
+        function renderWaterfallBars(items, minTime, totalDuration) {
+            // Sort items by start time
+            const sortedItems = [...items].sort((a, b) => a.startTime - b.startTime);
+            
+            return sortedItems.map((item, idx) => {
+                const startPercent = ((item.startTime - minTime) / totalDuration) * 100;
+                const widthPercent = (item.duration.microseconds / (totalDuration / 1000)) * 100;
+                const topPos = idx * 36;
+                
+                // Color based on depth
+                const shade = 100 + (item.scopeDepth * 20);
+                const gray = Math.min(220, shade);
+                
+                const fileName = item.start.file ? item.start.file.split('\\').pop().split('/').pop() : 'unknown';
+                
+                return `
+                    <div class="waterfall-row" style="position: absolute; top: ${topPos}px; left: 0; right: 0; height: 36px">
+                        <div class="waterfall-label" style="position: absolute; left: 0; width: 200px; padding-left: ${item.scopeDepth * 12}px">
+                            ${item.name}
+                        </div>
+                        <div class="waterfall-bar" 
+                             style="position: absolute; 
+                                    left: calc(220px + ${startPercent}%); 
+                                    width: ${Math.max(widthPercent, 0.5)}%; 
+                                    background: rgb(${gray}, ${gray}, ${gray});"
+                             title="${item.name} - ${(item.duration.microseconds / 1000).toFixed(2)}ms - ${fileName}:${item.start.line}">
+                            <span class="text-xs truncate" style="color: #0a0a0a">
+                                ${widthPercent > 8 ? item.name.substring(0, Math.floor(widthPercent * 1.5)) : ''}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Raw Data Tab
+        function renderRawData() {
+            return `
+                <div class="content-card rounded-xl p-6">
+                    <h3 class="text-xl font-light mb-6 text-gray-300">Raw JSON Data</h3>
+                    <div class="bg-black rounded-lg p-4 overflow-auto max-h-[600px] border border-gray-900">
+                        <pre class="text-xs font-mono text-gray-500">${JSON.stringify(perfData, null, 2)}</pre>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
