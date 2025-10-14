@@ -171,7 +171,7 @@ picoLogTarget picoLogStringToTarget(const char *targetStr);
 #define PICO_LOG_IMPLEMENTATION
 #endif
 
-#ifdef PICO_LOG_IMPLEMENTATION
+#if defined(PICO_LOG_IMPLEMENTATION) && !defined(PICO_LOG_DISABLE)
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <Windows.h>
