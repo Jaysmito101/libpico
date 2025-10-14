@@ -13,3 +13,4 @@ headers you wanna use define `PICO_IMPLEMENTATION` before including the headers.
 | picoLog | `include/pico/picoLog.h` | A simple logging library. | `examples/picoLog` |
 | picoThreads | `include/pico/picoThreads.h` | A simple cross-platform threading + thread pool library. | `examples/picoThreads` |
 | picoStream | `include/pico/picoStream.h` | A simple file and memory stream library. | `examples/picoStream` |
+| picoPerf | `include/pico/picoPerf.h` | A simple performance measurement library. | `examples/picoPerf` |
