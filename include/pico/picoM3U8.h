@@ -83,16 +83,17 @@ SOFTWARE.
 typedef enum {
     PICO_M3U8_PLAYLIST_TYPE_MASTER = 0,
     PICO_M3U8_PLAYLIST_TYPE_MEDIA,
+    PICO_M3U8_PLAYLIST_TYPE_INVALID,
     PICO_M3U8_PLAYLIST_TYPE_COUNT
 } picoM3U8PlaylistType;
 
 typedef enum {
-    PICO_M3U8_MEDIA_TYPE_ATTRIBUTE_UNKNOWN = 0,
-    PICO_M3U8_MEDIA_TYPE_ATTRIBUTE_VIDEO,
-    PICO_M3U8_MEDIA_TYPE_ATTRIBUTE_AUDIO,
-    PICO_M3U8_MEDIA_TYPE_ATTRIBUTE_SUBTITLES,
-    PICO_M3U8_MEDIA_TYPE_ATTRIBUTE_CLOSED_CAPTIONS,
-    PICO_M3U8_MEDIA_TYPE_ATTRIBUTE_COUNT
+    PICO_M3U8_MEDIA_TYPE_UNKNOWN = 0,
+    PICO_M3U8_MEDIA_TYPE_VIDEO,
+    PICO_M3U8_MEDIA_TYPE_AUDIO,
+    PICO_M3U8_MEDIA_TYPE_SUBTITLES,
+    PICO_M3U8_MEDIA_TYPE_CLOSED_CAPTIONS,
+    PICO_M3U8_MEDIA_TYPE_COUNT
 } picoM3U8MediaType;
 
 typedef enum {
@@ -122,6 +123,12 @@ typedef enum {
     PICO_M3U8_MEDIA_PLAYLIST_TYPE_EVENT,
     PICO_M3U8_MEDIA_PLAYLIST_TYPE_COUNT
 } picoM3U8MediaPlaylistType;
+
+typedef enum {
+    PICO_M3U8_RESULT_SUCCESS = 0,
+    PICO_M3U8_RESULT_ERROR_UNKNOWN,
+    PICO_M3U8_RESULT_COUNT
+} picoM3U8Result;
 
 typedef union {
     picoM3U8InstreamIdType type;
@@ -825,6 +832,173 @@ typedef union {
 } picoM3U8Playlist_t;
 typedef picoM3U8Playlist_t *picoM3U8Playlist;
 
+picoM3U8PlaylistType picoM3U8DetectPlaylistType(const char *data, uint32_t dataLength);
 
+const char* picoM3U8PlaylistTypeToString(picoM3U8PlaylistType type);
+const char* picoM3U8MediaTypeToString(picoM3U8MediaType type);
+const char* picoM3U8InstreamIdTypeToString(picoM3U8InstreamIdType instreamIdType);
+const char* picoM3U8HDCPLevelToString(picoM3U8HDCPLevel hdcpLevel);
+const char* picoM3U8KeyMethodToString(picoM3U8KeyMethod keyMethod);
+const char* picoM3U8MediaPlaylistTypeToString(picoM3U8MediaPlaylistType playlistType);
+const char* picoM3U8YesNoToString(bool value);
+const char* picoM3U8ResultToString(picoM3U8Result result);
+const char* picoM3U8InstreamIdToString(picoM3U8InstreamId instreamId);
+
+
+#if defined(PICO_IMPLEMENTATION) && !defined(PICO_M3U8_IMPLEMENTATION)
+#define PICO_M3U8_IMPLEMENTATION
+#endif
+
+#ifdef PICO_M3U8_IMPLEMENTATION
+
+// Detects whether the given data is a Master or Media playlist
+// It works by looking for uri lines, if any uri lines are found 
+// to be ending with .m3u8 it is assumed to be a Master playlist
+picoM3U8PlaylistType picoM3U8DetectPlaylistType(const char *data, uint32_t dataLength) {
+    if (data == NULL || dataLength == 0) {
+        return PICO_M3U8_PLAYLIST_TYPE_INVALID;
+    }
+
+    const char *dataEnd = data + dataLength;
+    const char *lineStart = data;
+
+    while (lineStart < dataEnd) {
+        // NOTE: Ideally we should do a \n\r check 
+        // but it doesnt matter as all we are looking for 
+        // is .m3u8 in the line
+        const char *lineEnd = strchr(lineStart, '\n'); 
+        if (lineEnd == NULL) {
+            lineEnd = dataEnd;
+        }
+
+        if (strstr(lineStart, ".m3u8") != NULL) {
+            return PICO_M3U8_PLAYLIST_TYPE_MASTER;
+        }
+
+        lineStart = lineEnd + 1;
+    }
+
+    return PICO_M3U8_PLAYLIST_TYPE_MEDIA;
+}
+
+const char* picoM3U8PlaylistTypeToString(picoM3U8PlaylistType type)
+{
+    switch (type) {
+        case PICO_M3U8_PLAYLIST_TYPE_MASTER:
+            return "MASTER";
+        case PICO_M3U8_PLAYLIST_TYPE_MEDIA:
+            return "MEDIA";
+        default:
+            return "INVALID";
+    }
+}
+
+const char* picoM3U8MediaTypeToString(picoM3U8MediaType type)
+{
+    switch (type) {
+        case PICO_M3U8_MEDIA_TYPE_AUDIO:
+            return "AUDIO";
+        case PICO_M3U8_MEDIA_TYPE_VIDEO:
+            return "VIDEO";
+        case PICO_M3U8_MEDIA_TYPE_SUBTITLES:
+            return "SUBTITLES";
+        case PICO_M3U8_MEDIA_TYPE_CLOSED_CAPTIONS:
+            return "CLOSED-CAPTIONS";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+const char* picoM3U8InstreamIdTypeToString(picoM3U8InstreamIdType instreamIdType)
+{
+    switch (instreamIdType) {
+        case PICO_M3U8_INSTREAM_ID_CC1:
+            return "CC1";
+        case PICO_M3U8_INSTREAM_ID_CC2:
+            return "CC2";
+        case PICO_M3U8_INSTREAM_ID_CC3:
+            return "CC3";
+        case PICO_M3U8_INSTREAM_ID_CC4:
+            return "CC4";
+        case PICO_M3U8_INSTREAM_ID_SERVICE:
+            return "SERVICE";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+const char* picoM3U8HDCPLevelToString(picoM3U8HDCPLevel hdcpLevel)
+{
+    switch (hdcpLevel) {
+        case PICO_M3U8_HDCP_LEVEL_TYPE0:
+            return "HDCP_LEVEL_TYPE0";
+        case PICO_M3U8_HDCP_LEVEL_NONE:
+            return "HDCP_LEVEL_NONE";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+const char* picoM3U8KeyMethodToString(picoM3U8KeyMethod keyMethod)
+{
+    switch (keyMethod) {
+        case PICO_M3U8_KEY_METHOD_NONE:
+            return "NONE";
+        case PICO_M3U8_KEY_METHOD_AES_128:
+            return "AES-128";
+        case PICO_M3U8_KEY_METHOD_SAMPLE_AES:
+            return "SAMPLE-AES";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+const char* picoM3U8MediaPlaylistTypeToString(picoM3U8MediaPlaylistType playlistType)
+{
+    switch (playlistType) {
+        case PICO_M3U8_MEDIA_PLAYLIST_TYPE_EVENT:
+            return "EVENT";
+        case PICO_M3U8_MEDIA_PLAYLIST_TYPE_VOD:
+            return "VOD";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+const char* picoM3U8YesNoToString(bool value)
+{
+    return value ? "YES" : "NO";
+}
+
+const char* picoM3U8InstreamIdToString(picoM3U8InstreamId instreamId)
+{
+    static char buffer[32];
+    switch (instreamId.type) {
+        case PICO_M3U8_INSTREAM_ID_CC1:
+        case PICO_M3U8_INSTREAM_ID_CC2:
+        case PICO_M3U8_INSTREAM_ID_CC3:
+        case PICO_M3U8_INSTREAM_ID_CC4:
+            return picoM3U8InstreamIdTypeToString(instreamId.type);
+        case PICO_M3U8_INSTREAM_ID_SERVICE:
+            snprintf(buffer, sizeof(buffer), "SERVICE%d", instreamId.service.n);
+            return buffer;
+        default:
+            return "UNKNOWN";
+    }
+}
+
+// TODO: Expand this as more error codes are added
+const char* picoM3U8ResultToString(picoM3U8Result result)
+{
+    switch (result) {
+        case PICO_M3U8_RESULT_SUCCESS:
+            return "SUCCESS";
+        default:
+            return "UNKNOWN_ERROR";
+    }
+}
+
+
+#endif // PICO_M3U8_IMPLEMENTATION
 
 #endif // PICO_M3U8_H
