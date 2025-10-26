@@ -124,7 +124,8 @@ typedef enum {
 } picoM3U8KeyMethod;
 
 typedef enum {
-    PICO_M3U8_MEDIA_PLAYLIST_TYPE_VOD = 0,
+    PICO_M3U8_MEDIA_PLAYLIST_TYPE_UNKNOWN = 0,
+    PICO_M3U8_MEDIA_PLAYLIST_TYPE_VOD,
     PICO_M3U8_MEDIA_PLAYLIST_TYPE_EVENT,
     PICO_M3U8_MEDIA_PLAYLIST_TYPE_COUNT
 } picoM3U8MediaPlaylistType;
@@ -754,7 +755,7 @@ typedef picoM3U8MasterPlaylist_t *picoM3U8MasterPlaylist;
 typedef struct {
     picoM3U8PlaylistType type;
 
-    picoM3U8CommonInfo commonInfo;
+    picoM3U8CommonInfo_t commonInfo;
 
     picoM3U8MediaSegment mediaSegments;
     uint32_t mediaSegmentCount;
@@ -764,6 +765,7 @@ typedef struct {
     // file, when rounded to the nearest integer, MUST be less than or equal
     // to the target duration; longer segments can trigger playback stalls
     // or other errors.  It applies to the entire Playlist file.
+    // The EXT-X-TARGETDURATION tag is REQUIRED
     uint32_t targetDuration;
 
     // The EXT-X-MEDIA-SEQUENCE tag indicates the Media Sequence Number of
@@ -844,15 +846,20 @@ const char *picoM3U8InstreamIdToString(picoM3U8InstreamId instreamId);
         }                                           \
     } while (0)
 
-#define __PICO_M3U8_MATCH(string, tag) \
-    if (strncmp(context->lineStartPtr, string, sizeof(string) - 1) == 0) { \
-        context->currentTag = tag;                                      \
-        return PICO_M3U8_RESULT_SUCCESS;                               \
+#define __PICO_M3U8_MATCH(string, tag)                                       \
+    {                                                                        \
+        size_t __stringLength = sizeof(string) - 1;                          \
+        if (strncmp(context->lineStartPtr, string, __stringLength) == 0) {   \
+            context->currentTag = tag;                                       \
+            context->encounteredTags[tag] += 1;                              \
+            context->tagPayloadPtr = context->lineStartPtr + __stringLength; \
+            return PICO_M3U8_RESULT_SUCCESS;                                 \
+        }                                                                    \
     }
 
 typedef enum {
     // Basic Tags
-    PICO_M3U8_TAG_EXTM3U,
+    PICO_M3U8_TAG_EXTM3U = 0,
     PICO_M3U8_TAG_EXT_X_VERSION,
     // Media Segment Tags
     PICO_M3U8_TAG_EXTINF,
@@ -865,6 +872,7 @@ typedef enum {
     // Media Playlist Tags
     PICO_M3U8_TAG_EXT_X_TARGETDURATION,
     PICO_M3U8_TAG_EXT_X_MEDIA_SEQUENCE,
+    PICO_M3U8_TAG_EXT_X_ENDLIST,
     PICO_M3U8_TAG_EXT_X_DISCONTINUITY_SEQUENCE,
     PICO_M3U8_TAG_EXT_X_PLAYLIST_TYPE,
     PICO_M3U8_TAG_EXT_X_I_FRAMES_ONLY,
@@ -877,7 +885,8 @@ typedef enum {
     PICO_M3U8_TAG_EXT_X_INDEPENDENT_SEGMENTS,
     PICO_M3U8_TAG_EXT_X_START,
     // Unknown Tag
-    PICO_M3U8_TAG_UNKNOWN
+    PICO_M3U8_TAG_UNKNOWN,
+    PICO_M3U8_TAG_COUNT
 } __picoM3U8Tag;
 
 typedef enum {
@@ -898,10 +907,12 @@ typedef struct {
     __picoM3U8Tag currentTag;
     const char *lineStartPtr;
     const char *lineEndPtr;
+    const char *tagPayloadPtr;
+
+    uint32_t encounteredTags[PICO_M3U8_TAG_COUNT];
 
 } __picoM3U8ParserContext_t;
 typedef __picoM3U8ParserContext_t *__picoM3U8ParserContext;
-
 
 #if 1 // Debug Print Functions
 void __picoM3U8CommonInfoDebugPrint(const picoM3U8CommonInfo commonInfo)
@@ -1113,7 +1124,7 @@ void __picoM3U8MediaPlaylistDebugPrint(const picoM3U8MediaPlaylist playlist)
         return;
     }
 
-    __picoM3U8CommonInfoDebugPrint(playlist->commonInfo);
+    __picoM3U8CommonInfoDebugPrint(&playlist->commonInfo);
 
     PICO_M3U8_LOG("Target Duration: %d", playlist->targetDuration);
     PICO_M3U8_LOG("Media Sequence: %d", playlist->mediaSequence);
@@ -1205,11 +1216,12 @@ picoM3U8Result __picoM3U8ParseTagFromLine(__picoM3U8ParserContext context)
     __PICO_M3U8_MATCH("#EXT-X-DISCONTINUITY", PICO_M3U8_TAG_EXT_X_DISCONTINUITY);
     __PICO_M3U8_MATCH("#EXT-X-KEY", PICO_M3U8_TAG_EXT_X_KEY);
     __PICO_M3U8_MATCH("#EXT-X-MAP", PICO_M3U8_TAG_EXT_X_MAP);
-    __PICO_M3U8_MATCH("#EXT-X-PROGRAM-DATE-TIME", PICO_M3U8_TAG_EXT_X_PROGRAM_DATE_TIME);   
-    __PICO_M3U8_MATCH("#EXT-X-DATERANGE", PICO_M3U8_TAG_EXT_X_DATE_RANGE);  
+    __PICO_M3U8_MATCH("#EXT-X-PROGRAM-DATE-TIME", PICO_M3U8_TAG_EXT_X_PROGRAM_DATE_TIME);
+    __PICO_M3U8_MATCH("#EXT-X-DATERANGE", PICO_M3U8_TAG_EXT_X_DATE_RANGE);
     // Media Playlist Tags
-    __PICO_M3U8_MATCH("#EXT-X-TARGETDURATION", PICO_M3U8_TAG_EXT_X_TARGETDURATION); 
+    __PICO_M3U8_MATCH("#EXT-X-TARGETDURATION", PICO_M3U8_TAG_EXT_X_TARGETDURATION);
     __PICO_M3U8_MATCH("#EXT-X-MEDIA-SEQUENCE", PICO_M3U8_TAG_EXT_X_MEDIA_SEQUENCE);
+    __PICO_M3U8_MATCH("#EXT-X-ENDLIST", PICO_M3U8_TAG_EXT_X_ENDLIST);
     __PICO_M3U8_MATCH("#EXT-X-DISCONTINUITY-SEQUENCE", PICO_M3U8_TAG_EXT_X_DISCONTINUITY_SEQUENCE);
     __PICO_M3U8_MATCH("#EXT-X-PLAYLIST-TYPE", PICO_M3U8_TAG_EXT_X_PLAYLIST_TYPE);
     __PICO_M3U8_MATCH("#EXT-X-I-FRAMES-ONLY", PICO_M3U8_TAG_EXT_X_I_FRAMES_ONLY);
@@ -1225,7 +1237,6 @@ picoM3U8Result __picoM3U8ParseTagFromLine(__picoM3U8ParserContext context)
     context->currentTag = PICO_M3U8_TAG_UNKNOWN;
     return PICO_M3U8_RESULT_ERROR_UNKNOWN_TAG;
 }
-
 
 bool __picoM3U8ParserContextIsLineEmptyOrWhitespace(__picoM3U8ParserContext context)
 {
@@ -1280,9 +1291,9 @@ picoM3U8Result __picoM3U8ParserContextNextLine(__picoM3U8ParserContext context)
     context->lineStartPtr = lineStart;
     context->lineEndPtr   = lineEnd;
     context->lineNumber++;
-    
+
     __PICO_M3U8_CHECK(__picoM3U8ParserContextTrimLine(context));
-    context->lineType = PICO_M3U8_LINE_TYPE_EMPTY;
+    context->lineType   = PICO_M3U8_LINE_TYPE_EMPTY;
     context->currentTag = PICO_M3U8_TAG_UNKNOWN;
 
     if (__picoM3U8ParserContextIsLineEmptyOrWhitespace(context)) {
@@ -1306,6 +1317,101 @@ bool __picoM3U8ParserContextIsEndOfData(__picoM3U8ParserContext context)
     return context->currentPosition >= context->dataLength;
 }
 
+bool __picoM3U8ParseAttribute(const char* start, const char* end, const char* attributeName, const char** attributeValueStartOut, const char** attributeValueEndOut)
+{
+    if (start == NULL || end == NULL || attributeName == NULL || attributeValueStartOut == NULL || attributeValueEndOut == NULL) {
+        return false;
+    }
+
+    size_t attributeNameLength = strlen(attributeName);
+    const char* ptr = start;
+
+    while (ptr < end) {
+        // Find the start of the attribute
+        while (ptr < end && __picoM3U8IsWhitespaceChar(*ptr)) {
+            ptr++;
+        }
+
+        const char* nameStart = ptr;
+        while (ptr < end && *ptr != '=' && *ptr != ',' && !__picoM3U8IsWhitespaceChar(*ptr)) {
+            ptr++;
+        }
+        const char* nameEnd = ptr;
+
+        // Check if we found the attribute name
+        size_t nameLength = (size_t)(nameEnd - nameStart);
+        if (nameLength == attributeNameLength && strncmp(nameStart, attributeName, nameLength) == 0) {
+            // Move past '='
+            while (ptr < end && (__picoM3U8IsWhitespaceChar(*ptr) || *ptr == '=')) {
+                ptr++;
+            }
+
+            const char* valueStart = ptr;
+            // Find the end of the attribute value
+            bool isInQuotes = false;
+            while (ptr < end && (*ptr != ',' || isInQuotes)) {
+                if (*ptr == '"') {
+                    isInQuotes = !isInQuotes;
+                }
+                ptr++;
+            }
+            const char* valueEnd = ptr;
+
+            // Trim whitespace from value
+            __picoM3U8TrimString(&valueStart, &valueEnd);
+
+            *attributeValueStartOut = valueStart;
+            *attributeValueEndOut   = valueEnd;
+            return true;
+        }
+
+        // Move to the next attribute
+        bool isInQuotes = false;
+        while (ptr < end && (*ptr != ',' || isInQuotes)) {
+            if (*ptr == '"') {
+                isInQuotes = !isInQuotes;
+            }
+            ptr++;
+        }
+        if (ptr < end && *ptr == ',') {
+            ptr++; // Skip the comma
+        }
+    }
+
+    return false;
+}
+
+void __picoM3U8MediaPlaylistTypeParse(const char *payloadStart, const char *payloadEnd, picoM3U8MediaPlaylistType *playlistTypeOut)
+{
+    if (payloadStart == NULL || payloadEnd == NULL || playlistTypeOut == NULL) {
+        return;
+    }
+
+    if (strncmp(payloadStart, "VOD", 3) == 0) {
+        *playlistTypeOut = PICO_M3U8_MEDIA_PLAYLIST_TYPE_VOD;
+    } else if (strncmp(payloadStart, "EVENT", 5) == 0) {
+        *playlistTypeOut = PICO_M3U8_MEDIA_PLAYLIST_TYPE_EVENT;
+    } else {
+        *playlistTypeOut = PICO_M3U8_MEDIA_PLAYLIST_TYPE_UNKNOWN;
+    }
+}
+
+bool __picoM3U8ParseYesNo(const char *valueStart, const char *valueEnd)
+{
+    if (valueStart == NULL || valueEnd == NULL) {
+        return false;
+    }
+
+    size_t valueLength = (size_t)(valueEnd - valueStart);
+    if (valueLength >= 3 && strncmp(valueStart, "YES", 3) == 0) {
+        return true;
+    } else if (valueLength >= 2 && strncmp(valueStart, "NO", 2) == 0) {
+        return false;
+    }
+
+    return false;
+}
+
 picoM3U8Result __picoM3U8MasterPlaylistParse(__picoM3U8ParserContext context, picoM3U8MasterPlaylist playlistOut)
 {
     (void)context;
@@ -1319,14 +1425,22 @@ picoM3U8Result __picoM3U8MediaPlaylistParse(__picoM3U8ParserContext context, pic
         return PICO_M3U8_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    bool foundHeader = false;
+    bool foundHeader         = false;
+    bool hasTargetDuration   = false;
+    bool discountinuityFound = false;
+    bool endlistFound       = false;
+    picoM3U8Result result    = PICO_M3U8_RESULT_SUCCESS;
+
+    // defaults according to spec
+    playlistOut->mediaSequence         = 0;
+    playlistOut->discontinuitySequence = 0;
 
     while (!__picoM3U8ParserContextIsEndOfData(context)) {
         __PICO_M3U8_CHECK(__picoM3U8ParserContextNextLine(context));
 
         if (context->lineType == PICO_M3U8_LINE_TYPE_EMPTY) {
             continue;
-        }
+        }  
 
         if (!foundHeader) {
             if (context->lineType == PICO_M3U8_LINE_TYPE_TAG) {
@@ -1337,52 +1451,109 @@ picoM3U8Result __picoM3U8MediaPlaylistParse(__picoM3U8ParserContext context, pic
             }
         }
 
+        static char buffer[256];
         switch (context->lineType) {
-            case PICO_M3U8_LINE_TYPE_TAG:
-            {
+            case PICO_M3U8_LINE_TYPE_TAG: {
                 switch (context->currentTag) {
-                    case PICO_M3U8_TAG_EXTINF:
-                    {
-                        fprintf(stderr, "EXTINF Tag Detected\n");
+                    // Media Playlist Tags
+                    case PICO_M3U8_TAG_EXT_X_TARGETDURATION: {
+                        sprintf(buffer, "%.*s", (int)(context->lineEndPtr - context->tagPayloadPtr - 1), context->tagPayloadPtr + 1);
+                        playlistOut->targetDuration = atoi(buffer);
+                        hasTargetDuration           = true;
                         break;
                     }
-                    case PICO_M3U8_TAG_EXT_X_BYTERANGE:
-                    {
-                        fprintf(stderr, "EXT-X-BYTERANGE Tag Detected\n");
+                    case PICO_M3U8_TAG_EXT_X_MEDIA_SEQUENCE: {
+                        sprintf(buffer, "%.*s", (int)(context->lineEndPtr - context->tagPayloadPtr - 1), context->tagPayloadPtr + 1);
+                        playlistOut->mediaSequence = atoi(buffer);
+                        // Media Sequence tag must appear before any Media Segments
+                        if (playlistOut->mediaSegmentCount > 0) {
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
                         break;
                     }
-                    case PICO_M3U8_TAG_EXT_X_DISCONTINUITY:
-                    {
-                        fprintf(stderr, "EXT-X-DISCONTINUITY Tag Detected\n");
+                    case PICO_M3U8_TAG_EXT_X_DISCONTINUITY_SEQUENCE: {
+                        sprintf(buffer, "%.*s", (int)(context->lineEndPtr - context->tagPayloadPtr - 1), context->tagPayloadPtr + 1);
+                        playlistOut->discontinuitySequence = atoi(buffer);
+                        // Discontinuity Sequence tag must appear before any Media Segments 
+                        // and before any discontinuity tags
+                        if (playlistOut->mediaSegmentCount > 0 && !discountinuityFound) {
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
                         break;
                     }
-                    case PICO_M3U8_TAG_EXT_X_KEY:
-                    {
-                        fprintf(stderr, "EXT-X-KEY Tag Detected\n");
+                    case PICO_M3U8_TAG_EXT_X_ENDLIST: {
+                        endlistFound = true;
                         break;
                     }
-                    case PICO_M3U8_TAG_EXT_X_MAP:
-                    {
-                        fprintf(stderr, "EXT-X-MAP Tag Detected\n");
+                    case PICO_M3U8_TAG_EXT_X_PLAYLIST_TYPE: {
+                        __picoM3U8MediaPlaylistTypeParse(context->tagPayloadPtr + 1, context->lineEndPtr, &playlistOut->playlistType);
                         break;
+                    }
+                    case PICO_M3U8_TAG_EXT_X_I_FRAMES_ONLY: {
+                        // Use of the EXT-X-I-FRAMES-ONLY REQUIRES a compatibility version number of 4 or greater.
+                        if (playlistOut->commonInfo.version < 4) {
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
+                        playlistOut->iFramesOnly = true;
+                        break;
+                    }
+                    // Common Tags
+                    case PICO_M3U8_TAG_EXT_X_INDEPENDENT_SEGMENTS: {
+                        playlistOut->commonInfo.independentSegments = true;
+                        break;
+                    }
+                    case PICO_M3U8_TAG_EXT_X_START: {
+                        const char* start;
+                        const char* end;
+                        // This tag MUST contain the TIME-OFFSET attribute
+                        if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "TIME-OFFSET", (const char **)&start, (const char **)&end)) {
+                            playlistOut->commonInfo.startAttributes.timeOffset = (float)atof(start);
+                        } else {
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
+                        // The PRECISE attribute is optional
+                        playlistOut->commonInfo.startAttributes.precise = false; // default value as per spec
+                        if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "PRECISE", (const char **)&start, (const char **)&end)) {
+                            playlistOut->commonInfo.startAttributes.precise = __picoM3U8ParseYesNo(start, end);
+                        }
+                        break;
+                    }
+                    // a error case for master playlist tags in media playlist
+                    case PICO_M3U8_TAG_EXT_X_MEDIA:
+                    case PICO_M3U8_TAG_EXT_X_STREAM_INF:
+                    case PICO_M3U8_TAG_EXT_X_SESSION_DATA:
+                    case PICO_M3U8_TAG_EXT_X_SESSION_KEY: {
+                        result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                        goto cleanup;
                     }
                     default:
-                        fprintf(stderr, "Other Tag Detected: %d %.*s\n", context->currentTag, (int)(context->lineEndPtr - context->lineStartPtr), context->lineStartPtr);
-                        break;
+                        // fprintf(stderr, "Other Tag Detected: %d %.*s\n", context->currentTag, (int)(context->lineEndPtr - context->lineStartPtr), context->lineStartPtr);
+                        continue;
                 }
                 break;
             }
-            case PICO_M3U8_LINE_TYPE_URI:
-            {
+            case PICO_M3U8_LINE_TYPE_URI: {
                 fprintf(stderr, "URI Line Detected: %.*s\n", (int)(context->lineEndPtr - context->lineStartPtr), context->lineStartPtr);
                 break;
             }
             default:
-                break;
+                continue;
         }
     }
 
-    return PICO_M3U8_RESULT_SUCCESS;
+    // Target Duration is required
+    if (!hasTargetDuration) {
+        result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+        goto cleanup;
+    }
+
+cleanup:
+
+    return result;
 }
 
 picoM3U8Result picoM3U8PlaylistParse(const char *data, uint32_t dataLength, picoM3U8Playlist *playlistOut)
@@ -1636,3 +1807,4 @@ const char *picoM3U8ResultToString(picoM3U8Result result)
 #endif // PICO_M3U8_IMPLEMENTATION
 
 #endif // PICO_M3U8_H
+ 
