@@ -31,8 +31,9 @@ SOFTWARE.
 #include <stdint.h>
 
 #ifndef PICO_MALLOC
-#define PICO_MALLOC malloc
-#define PICO_FREE   free
+#define PICO_MALLOC  malloc
+#define PICO_REALLOC realloc
+#define PICO_FREE    free
 #endif
 
 #ifndef PICO_M3U8_LOG
@@ -370,7 +371,7 @@ typedef struct {
     // more EXT-X-KEY tags with different KEYFORMAT attributes MAY apply to
     // the same Media Segment if they ultimately produce the same decryption
     // key.
-    picoM3U8KeyAttributes keyAttributes;
+    picoM3U8KeyAttributes_t keyAttributes;
     bool hasKeyAttributes;
 
     // The EXT-X-MAP tag specifies how to obtain the Media Initialization
@@ -398,11 +399,16 @@ typedef struct {
     // Media Segment with an absolute date and/or time.  It applies only to
     // the next Media Segment.
     picoM3U8DateTime_t programDateTime;
+    bool hasProgramDateTime;
 
     // The EXT-X-DATERANGE tag associates a Date Range (i.e., a range of
     // time defined by a starting and ending date) with a set of attribute/
     // value pairs.
     picoM3U8DateRange_t dateRange;
+    bool hasDateRange;
+
+    // The URI of the Media Segment
+    char uri[PICO_M3U8_MAX_URI_LENGTH];
 } picoM3U8MediaSegment_t;
 typedef picoM3U8MediaSegment_t *picoM3U8MediaSegment;
 
@@ -1006,6 +1012,7 @@ void __picoM3U8KeyDebugPrint(const picoM3U8KeyAttributes sessionKey)
     PICO_M3U8_LOG("  - IV: %s", buffer);
     PICO_M3U8_LOG("  - Key Format: %s", sessionKey->keyFormat);
     PICO_M3U8_LOG("  - Key Format Versions: %s", sessionKey->keyFormatVersions);
+    PICO_M3U8_LOG("----------------------");
 }
 
 void __picoM3U8DateTimeDebugPrint(const picoM3U8DateTime dateTime)
@@ -1014,7 +1021,7 @@ void __picoM3U8DateTimeDebugPrint(const picoM3U8DateTime dateTime)
         return;
     }
 
-    PICO_M3U8_LOG("Date Time: %04d-%02d-%02dT%02d:%02d:%02dZ",
+    PICO_M3U8_LOG("    - %04d-%02d-%02dT%02d:%02d:%02dZ",
                   dateTime->year,
                   dateTime->month,
                   dateTime->day,
@@ -1059,7 +1066,7 @@ void __picoM3U8MediaSegmentDebugPrint(const picoM3U8MediaSegment segment)
     }
     PICO_M3U8_LOG("  - Discontinuity: %s", picoM3U8YesNoToString(segment->discontinuity));
     if (segment->hasKeyAttributes) {
-        __picoM3U8KeyDebugPrint(segment->keyAttributes);
+        __picoM3U8KeyDebugPrint(&segment->keyAttributes);
     } else {
         PICO_M3U8_LOG("  - Key: (none)");
     }
@@ -1073,8 +1080,19 @@ void __picoM3U8MediaSegmentDebugPrint(const picoM3U8MediaSegment segment)
     } else {
         PICO_M3U8_LOG("  - Map: (none)");
     }
-    __picoM3U8DateTimeDebugPrint(&segment->programDateTime);
-    __picoM3U8DateRangeDebugPrint(&segment->dateRange);
+    if (segment->hasProgramDateTime) {
+        PICO_M3U8_LOG("  - Program Date Time: ");
+        __picoM3U8DateTimeDebugPrint(&segment->programDateTime);
+    } else {
+        PICO_M3U8_LOG("  - Program Date Time: (none)");
+    }
+    if (segment->hasDateRange) {
+        PICO_M3U8_LOG("  - Date Range: ");
+        __picoM3U8DateRangeDebugPrint(&segment->dateRange);
+    } else {
+        PICO_M3U8_LOG("  - Date Range: (none)");
+    }
+    PICO_M3U8_LOG("  - URI: %s", segment->uri);
 }
 
 void __picoM3U8MasterPlaylistDebugPrint(const picoM3U8MasterPlaylist playlist)
@@ -1308,6 +1326,58 @@ picoM3U8Result __picoM3U8ParserContextNextLine(__picoM3U8ParserContext context)
     return PICO_M3U8_RESULT_SUCCESS;
 }
 
+bool __picoM3U8ListAdd(void **list, uint32_t *count, size_t elementSize, void *newElement, size_t *capacity)
+{
+    if (list == NULL || count == NULL || newElement == NULL || capacity == NULL) {
+        return false;
+    }
+
+    if (*list == NULL) {
+        *capacity = 4;
+        *list     = PICO_MALLOC(elementSize * (*capacity));
+        if (*list == NULL) {
+            return false;
+        }
+    } else if (*count >= *capacity) {
+        size_t newCapacity = (*capacity) * 2;
+        void *newList      = PICO_REALLOC(*list, elementSize * newCapacity);
+        if (newList == NULL) {
+            return false;
+        }
+        *list     = newList;
+        *capacity = newCapacity;
+    }
+
+    memcpy((char *)(*list) + ((*count) * elementSize), newElement, elementSize);
+    (*count)++;
+    return true;
+}
+
+bool __picoM3U8ListPack(void **list, uint32_t *count, size_t elementSize)
+{
+    if (list == NULL) {
+        return true;
+    }
+
+    if (count == NULL) {
+        return false;
+    }
+
+    if (*list == NULL || *count == 0) {
+        PICO_FREE(*list);
+        *list  = NULL;
+        *count = 0;
+        return true;
+    }
+
+    void *newList = PICO_REALLOC(*list, elementSize * (*count));
+    if (newList == NULL) {
+        return false;
+    }
+    *list = newList;
+    return true;
+}
+
 bool __picoM3U8ParserContextIsEndOfData(__picoM3U8ParserContext context)
 {
     if (context == NULL || context->data == NULL || context->dataLength == 0) {
@@ -1317,14 +1387,14 @@ bool __picoM3U8ParserContextIsEndOfData(__picoM3U8ParserContext context)
     return context->currentPosition >= context->dataLength;
 }
 
-bool __picoM3U8ParseAttribute(const char* start, const char* end, const char* attributeName, const char** attributeValueStartOut, const char** attributeValueEndOut)
+bool __picoM3U8ParseAttribute(const char *start, const char *end, const char *attributeName, const char **attributeValueStartOut, const char **attributeValueEndOut)
 {
     if (start == NULL || end == NULL || attributeName == NULL || attributeValueStartOut == NULL || attributeValueEndOut == NULL) {
         return false;
     }
 
     size_t attributeNameLength = strlen(attributeName);
-    const char* ptr = start;
+    const char *ptr            = start;
 
     while (ptr < end) {
         // Find the start of the attribute
@@ -1332,11 +1402,11 @@ bool __picoM3U8ParseAttribute(const char* start, const char* end, const char* at
             ptr++;
         }
 
-        const char* nameStart = ptr;
+        const char *nameStart = ptr;
         while (ptr < end && *ptr != '=' && *ptr != ',' && !__picoM3U8IsWhitespaceChar(*ptr)) {
             ptr++;
         }
-        const char* nameEnd = ptr;
+        const char *nameEnd = ptr;
 
         // Check if we found the attribute name
         size_t nameLength = (size_t)(nameEnd - nameStart);
@@ -1346,7 +1416,7 @@ bool __picoM3U8ParseAttribute(const char* start, const char* end, const char* at
                 ptr++;
             }
 
-            const char* valueStart = ptr;
+            const char *valueStart = ptr;
             // Find the end of the attribute value
             bool isInQuotes = false;
             while (ptr < end && (*ptr != ',' || isInQuotes)) {
@@ -1355,7 +1425,7 @@ bool __picoM3U8ParseAttribute(const char* start, const char* end, const char* at
                 }
                 ptr++;
             }
-            const char* valueEnd = ptr;
+            const char *valueEnd = ptr;
 
             // Trim whitespace from value
             __picoM3U8TrimString(&valueStart, &valueEnd);
@@ -1412,6 +1482,274 @@ bool __picoM3U8ParseYesNo(const char *valueStart, const char *valueEnd)
     return false;
 }
 
+bool __picoM3U8ParseByteRange(const char *valueStart, const char *valueEnd, picoM3U8ByteRange *byteRangeOut)
+{
+    if (valueStart == NULL || valueEnd == NULL || byteRangeOut == NULL) {
+        return false;
+    }
+
+    const char *atSignPtr        = strchr(valueStart, '@');
+    static char lengthBuffer[16] = {0};
+    if (atSignPtr != NULL && atSignPtr < valueEnd) {
+        size_t lengthSize = (size_t)(atSignPtr - valueStart);
+        if (lengthSize >= sizeof(lengthBuffer)) {
+            return false;
+        }
+        strncpy(lengthBuffer, valueStart, lengthSize);
+        byteRangeOut->length = (uint32_t)atoi(lengthBuffer);
+
+        char offsetBuffer[16] = {0};
+        size_t offsetSize     = (size_t)(valueEnd - atSignPtr - 1);
+        if (offsetSize >= sizeof(offsetBuffer)) {
+            return false;
+        }
+        strncpy(offsetBuffer, atSignPtr + 1, offsetSize);
+        byteRangeOut->offset    = (uint32_t)atoi(offsetBuffer);
+        byteRangeOut->hasOffset = true;
+    } else {
+        size_t lengthSize = (size_t)(valueEnd - valueStart);
+        if (lengthSize >= sizeof(lengthBuffer)) {
+            return false;
+        }
+        strncpy(lengthBuffer, valueStart, lengthSize);
+        byteRangeOut->length    = (uint32_t)atoi(lengthBuffer);
+        byteRangeOut->hasOffset = false;
+        byteRangeOut->offset    = 0;
+    }
+
+    return true;
+}
+
+bool __picoM3U8ParseKeyAttributes(const char *valueStart, const char *valueEnd, picoM3U8KeyAttributes keyAttributesOut)
+{
+    if (valueStart == NULL || valueEnd == NULL) {
+        return false;
+    }
+
+    // Initialize defaults
+    keyAttributesOut->method = PICO_M3U8_KEY_METHOD_NONE;
+    keyAttributesOut->uri[0] = '\0';
+    memset(keyAttributesOut->iv, 0, sizeof(keyAttributesOut->iv));
+    keyAttributesOut->keyFormat[0]         = '\0';
+    keyAttributesOut->keyFormatVersions[0] = '\0';
+
+    const char *attrValueStart;
+    const char *attrValueEnd;
+
+    // METHOD
+    if (__picoM3U8ParseAttribute(valueStart, valueEnd, "METHOD", &attrValueStart, &attrValueEnd)) {
+        size_t methodLength = (size_t)(attrValueEnd - attrValueStart);
+        if (methodLength >= 7 && strncmp(attrValueStart, "AES-128", 7) == 0) {
+            keyAttributesOut->method = PICO_M3U8_KEY_METHOD_AES_128;
+        } else if (methodLength >= 11 && strncmp(attrValueStart, "SAMPLE-AES", 11) == 0) {
+            keyAttributesOut->method = PICO_M3U8_KEY_METHOD_SAMPLE_AES;
+        } else if (methodLength >= 4 && strncmp(attrValueStart, "NONE", 4) == 0) {
+            keyAttributesOut->method = PICO_M3U8_KEY_METHOD_NONE;
+        } else {
+            return false; // Unknown METHOD
+        }
+    } else {
+        return false; // METHOD is required
+    }
+
+    // URI
+    if (__picoM3U8ParseAttribute(valueStart, valueEnd, "URI", &attrValueStart, &attrValueEnd)) {
+        size_t uriLength = (size_t)(attrValueEnd - attrValueStart);
+        if (uriLength - 2 >= sizeof(keyAttributesOut->uri)) {
+            return false;
+        }
+        strncpy(keyAttributesOut->uri, attrValueStart + 1, uriLength - 2); // Skip quotes
+        keyAttributesOut->uri[uriLength - 2] = '\0';
+    } else if (keyAttributesOut->method != PICO_M3U8_KEY_METHOD_NONE) {
+        return false; // URI is required unless METHOD is NONE
+    }
+
+    // IV
+    if (__picoM3U8ParseAttribute(valueStart, valueEnd, "IV", &attrValueStart, &attrValueEnd)) {
+        size_t ivLength = (size_t)(attrValueEnd - attrValueStart);
+        // here iv is hex string like 0x1A2B3C4D5E6F708192A3B4C5D6E7F809
+        // parsing it into bytes (128 bits = 16 bytes)
+        if (ivLength < 3 || ivLength > 34 || attrValueStart[0] != '0' || (attrValueStart[1] != 'x' && attrValueStart[1] != 'X')) {
+            return false; // Invalid IV format
+        }
+        size_t hexLength = ivLength - 2; // Skip '0x'
+        if (hexLength % 2 != 0 || hexLength / 2 > sizeof(keyAttributesOut->iv)) {
+            return false; // Invalid IV length
+        }
+        for (size_t i = 0; i < hexLength / 2; i++) {
+            char byteString[3]      = {attrValueStart[2 + i * 2], attrValueStart[2 + i * 2 + 1], '\0'};
+            keyAttributesOut->iv[i] = (uint8_t)strtoul(byteString, NULL, 16);
+        }
+    }
+
+    // KEYFORMAT
+    if (__picoM3U8ParseAttribute(valueStart, valueEnd, "KEYFORMAT", &attrValueStart, &attrValueEnd)) {
+        size_t keyFormatLength = (size_t)(attrValueEnd - attrValueStart);
+        if (keyFormatLength - 2 >= sizeof(keyAttributesOut->keyFormat)) {
+            return false;
+        }
+        strncpy(keyAttributesOut->keyFormat, attrValueStart + 1, keyFormatLength - 2); // Skip quotes
+        keyAttributesOut->keyFormat[keyFormatLength - 2] = '\0';
+    }
+
+    // KEYFORMATVERSIONS
+    if (__picoM3U8ParseAttribute(valueStart, valueEnd, "KEYFORMATVERSIONS", &attrValueStart, &attrValueEnd)) {
+        size_t keyFormatVersionsLength = (size_t)(attrValueEnd - attrValueStart);
+        if (keyFormatVersionsLength - 2 >= sizeof(keyAttributesOut->keyFormatVersions)) {
+            return false;
+        }
+        strncpy(keyAttributesOut->keyFormatVersions, attrValueStart + 1, keyFormatVersionsLength - 2); // Skip quotes
+        keyAttributesOut->keyFormatVersions[keyFormatVersionsLength - 2] = '\0';
+    }
+
+    return true;
+}
+
+bool __picoM3U8ParseDateTime(const char *valueStart, const char *valueEnd, picoM3U8DateTime dateTimeOut)
+{
+    if (valueStart == NULL || valueEnd == NULL || dateTimeOut == NULL) {
+        return false;
+    }
+
+    size_t length = (size_t)(valueEnd - valueStart);
+    if (length >= PICO_M3U8_MAX_DATATIME_STRING_LENGTH || length < 19) {
+        return false; // Minimum format: YYYY-MM-DDTHH:MM:SS
+    }
+
+    strncpy(dateTimeOut->data, valueStart, length);
+    dateTimeOut->data[length] = '\0';
+
+    memset(&dateTimeOut->year, 0, sizeof(picoM3U8DateTime_t) - offsetof(picoM3U8DateTime_t, year));
+    dateTimeOut->timezoneOffset = 0;
+
+    const char *ptr = valueStart;
+
+    // Parse year (YYYY)
+    if (ptr + 4 > valueEnd || ptr[4] != '-') {
+        return false;
+    }
+    char yearBuf[5] = {0};
+    strncpy(yearBuf, ptr, 4);
+    dateTimeOut->year = (uint16_t)atoi(yearBuf);
+    ptr += 5; // Skip YYYY-
+
+    // Parse month (MM)
+    if (ptr + 2 > valueEnd || ptr[2] != '-') {
+        return false;
+    }
+    char monthBuf[3] = {0};
+    strncpy(monthBuf, ptr, 2);
+    dateTimeOut->month = (uint8_t)atoi(monthBuf);
+    if (dateTimeOut->month < 1 || dateTimeOut->month > 12) {
+        return false;
+    }
+    ptr += 3; // Skip MM-
+
+    // Parse day (DD)
+    if (ptr + 2 > valueEnd || (ptr[2] != 'T' && ptr[2] != 't')) {
+        return false;
+    }
+    char dayBuf[3] = {0};
+    strncpy(dayBuf, ptr, 2);
+    dateTimeOut->day = (uint8_t)atoi(dayBuf);
+    if (dateTimeOut->day < 1 || dateTimeOut->day > 31) {
+        return false;
+    }
+    ptr += 3; // Skip DDT
+
+    // Parse hour (HH)
+    if (ptr + 2 > valueEnd || ptr[2] != ':') {
+        return false;
+    }
+    char hourBuf[3] = {0};
+    strncpy(hourBuf, ptr, 2);
+    dateTimeOut->hour = (uint8_t)atoi(hourBuf);
+    if (dateTimeOut->hour > 23) {
+        return false;
+    }
+    ptr += 3; // Skip HH:
+
+    // Parse minute (MM)
+    if (ptr + 2 > valueEnd || ptr[2] != ':') {
+        return false;
+    }
+    char minuteBuf[3] = {0};
+    strncpy(minuteBuf, ptr, 2);
+    dateTimeOut->minute = (uint8_t)atoi(minuteBuf);
+    if (dateTimeOut->minute > 59) {
+        return false;
+    }
+    ptr += 3; // Skip MM:
+
+    // Parse second (SS)
+    if (ptr + 2 > valueEnd) {
+        return false;
+    }
+    char secondBuf[3] = {0};
+    strncpy(secondBuf, ptr, 2);
+    dateTimeOut->second = (uint8_t)atoi(secondBuf);
+    if (dateTimeOut->second > 59) {
+        return false;
+    }
+    ptr += 2; // Skip SS
+
+    // Parse optional milliseconds (.SSS)
+    if (ptr < valueEnd && *ptr == '.') {
+        ptr++; // Skip '.'
+        const char *msStart = ptr;
+        while (ptr < valueEnd && *ptr >= '0' && *ptr <= '9') {
+            ptr++;
+        }
+        size_t msLength = (size_t)(ptr - msStart);
+        if (msLength > 0 && msLength <= 3) {
+            char msBuf[4] = {0};
+            strncpy(msBuf, msStart, msLength);
+            dateTimeOut->millisecond = (uint32_t)atoi(msBuf);
+            // Normalize to milliseconds
+            if (msLength == 1)
+                dateTimeOut->millisecond *= 100;
+            else if (msLength == 2)
+                dateTimeOut->millisecond *= 10;
+        }
+    }
+
+    // Parse optional timezone
+    if (ptr < valueEnd) {
+        if (*ptr == 'Z' || *ptr == 'z') {
+            dateTimeOut->timezoneOffset = 0;
+        } else if (*ptr == '+' || *ptr == '-') {
+            bool isNegative = (*ptr == '-');
+            ptr++;
+
+            // Parse timezone hours
+            if (ptr + 2 > valueEnd) {
+                return false;
+            }
+            char tzHourBuf[3] = {0};
+            strncpy(tzHourBuf, ptr, 2);
+            int8_t tzHours = (int8_t)atoi(tzHourBuf);
+            ptr += 2;
+
+            // Skip optional ':'
+            if (ptr < valueEnd && *ptr == ':') {
+                ptr++;
+            }
+
+            // Parse optional timezone minutes
+            int8_t tzMinutes = 0;
+            if (ptr + 2 <= valueEnd && ptr[0] >= '0' && ptr[0] <= '9') {
+                char tzMinBuf[3] = {0};
+                strncpy(tzMinBuf, ptr, 2);
+                tzMinutes = (int8_t)atoi(tzMinBuf);
+            }
+
+            dateTimeOut->timezoneOffset = (tzHours * 60 + tzMinutes) * (isNegative ? -1 : 1);
+        }
+    }
+
+    return true;
+}
+
 picoM3U8Result __picoM3U8MasterPlaylistParse(__picoM3U8ParserContext context, picoM3U8MasterPlaylist playlistOut)
 {
     (void)context;
@@ -1425,22 +1763,32 @@ picoM3U8Result __picoM3U8MediaPlaylistParse(__picoM3U8ParserContext context, pic
         return PICO_M3U8_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    bool foundHeader         = false;
-    bool hasTargetDuration   = false;
-    bool discountinuityFound = false;
+    bool foundHeader        = false;
+    bool hasTargetDuration  = false;
+    bool discontinuityFound = false;
     bool endlistFound       = false;
-    picoM3U8Result result    = PICO_M3U8_RESULT_SUCCESS;
+    picoM3U8Result result   = PICO_M3U8_RESULT_SUCCESS;
 
     // defaults according to spec
     playlistOut->mediaSequence         = 0;
     playlistOut->discontinuitySequence = 0;
+
+    picoM3U8MediaSegment currentMediaSegment = (picoM3U8MediaSegment)PICO_MALLOC(sizeof(picoM3U8MediaSegment_t));
+    if (currentMediaSegment == NULL) {
+        return PICO_M3U8_RESULT_ERROR_MALLOC_FAILED;
+    }
+    memset(currentMediaSegment, 0, sizeof(picoM3U8MediaSegment_t));
+
+    picoM3U8MediaSegment mediaSegments = NULL;
+    uint32_t mediaSegmentCount         = 0;
+    size_t mediaSegmentCapacity        = 0;
 
     while (!__picoM3U8ParserContextIsEndOfData(context)) {
         __PICO_M3U8_CHECK(__picoM3U8ParserContextNextLine(context));
 
         if (context->lineType == PICO_M3U8_LINE_TYPE_EMPTY) {
             continue;
-        }  
+        }
 
         if (!foundHeader) {
             if (context->lineType == PICO_M3U8_LINE_TYPE_TAG) {
@@ -1455,7 +1803,177 @@ picoM3U8Result __picoM3U8MediaPlaylistParse(__picoM3U8ParserContext context, pic
         switch (context->lineType) {
             case PICO_M3U8_LINE_TYPE_TAG: {
                 switch (context->currentTag) {
-                    // Media Playlist Tags
+                    // Basic Tags ------------------------------------------
+                    case PICO_M3U8_TAG_EXT_X_VERSION: {
+                        sprintf(buffer, "%.*s", (int)(context->lineEndPtr - context->tagPayloadPtr - 1), context->tagPayloadPtr + 1);
+                        playlistOut->commonInfo.version = atoi(buffer);
+                        break;
+                    }
+                    // Media Segments Tags ------------------------------------------
+                    case PICO_M3U8_TAG_EXTINF: {
+                        sprintf(buffer, "%.*s", (int)(context->lineEndPtr - context->tagPayloadPtr - 1), context->tagPayloadPtr + 1);
+                        currentMediaSegment->duration = (float)atof(buffer);
+                        // However, if the compatibility version number is less than 3, durations MUST be integers.
+                        if (playlistOut->commonInfo.version < 3) {
+                            if (currentMediaSegment->duration != (float)((uint32_t)currentMediaSegment->duration)) {
+                                result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                                goto cleanup;
+                            }
+                        }
+                        break;
+                    }
+                    case PICO_M3U8_TAG_EXT_X_BYTERANGE: {
+                        // The EXT-X-BYTERANGE tag is not valid for playlists with a compatibility version less than 4.
+                        if (playlistOut->commonInfo.version < 4) {
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
+                        sprintf(buffer, "%.*s", (int)(context->lineEndPtr - context->tagPayloadPtr - 1), context->tagPayloadPtr + 1);
+                        if (!__picoM3U8ParseByteRange(context->tagPayloadPtr + 1, context->lineEndPtr, &currentMediaSegment->byteRange)) {
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
+                        currentMediaSegment->hasByteRange = true;
+                        break;
+                    }
+                    case PICO_M3U8_TAG_EXT_X_KEY: {
+                        if (!__picoM3U8ParseKeyAttributes(context->tagPayloadPtr + 1, context->lineEndPtr, &currentMediaSegment->keyAttributes)) {
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
+                        currentMediaSegment->hasKeyAttributes = true;
+                        break;
+                    }
+                    case PICO_M3U8_TAG_EXT_X_MAP: {
+                        // The EXT-X-MAP tag is not valid for playlists with a compatibility version less than 5.
+                        if (playlistOut->commonInfo.version < 5) {
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
+                        const char *start;
+                        const char *end;
+                        // This tag MUST contain the URI attribute
+                        if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "URI", (const char **)&start, (const char **)&end)) {
+                            size_t uriLength = (size_t)(end - start);
+                            if (uriLength - 2 >= sizeof(currentMediaSegment->map.uri)) {
+                                result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                                goto cleanup;
+                            }
+                            strncpy(currentMediaSegment->map.uri, start + 1, uriLength - 2); // Skip quotes
+                            currentMediaSegment->map.uri[uriLength - 2] = '\0';
+                        } else {
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
+
+                        // The BYTE-RANGE attribute is optional
+                        if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "BYTERANGE", (const char **)&start, (const char **)&end)) {
+                            if (!__picoM3U8ParseByteRange(start + 1, end - 1, &currentMediaSegment->map.byteRange)) {
+                                result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                                goto cleanup;
+                            }
+                            currentMediaSegment->map.hasByteRange = true;
+                        } else {
+                            currentMediaSegment->map.hasByteRange = false;
+                        }
+
+                        currentMediaSegment->hasMap = true;
+                        break;
+                    }
+                    case PICO_M3U8_TAG_EXT_X_PROGRAM_DATE_TIME: {
+                        if (!__picoM3U8ParseDateTime(context->tagPayloadPtr + 1, context->lineEndPtr, &currentMediaSegment->programDateTime)) {
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
+                        currentMediaSegment->hasProgramDateTime = true;
+                        break;
+                    }
+                    case PICO_M3U8_TAG_EXT_X_DATE_RANGE: {
+                        const char *start;
+                        const char *end;
+                        if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "ID", (const char **)&start, (const char **)&end)) {
+                            size_t idLength = (size_t)(end - start);
+                            if (idLength - 2 >= sizeof(currentMediaSegment->dateRange.id)) {
+                                result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                                goto cleanup;
+                            }
+                            strncpy(currentMediaSegment->dateRange.id, start + 1, idLength - 2); // Skip quotes
+                            currentMediaSegment->dateRange.id[idLength - 2] = '\0';
+                        } else {
+                            // The ID attribute is required
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
+
+                        // The CLASS attribute is optional
+                        if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "CLASS", (const char **)&start, (const char **)&end)) {
+                            size_t classLength = (size_t)(end - start);
+                            if (classLength - 2 >= sizeof(currentMediaSegment->dateRange.class)) {
+                                result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                                goto cleanup;
+                            }
+                            strncpy(currentMediaSegment->dateRange.class, start + 1, classLength - 2); // Skip quotes
+                            currentMediaSegment->dateRange.class[classLength - 2] = '\0';
+                        }
+
+                        // The START-DATE attribute is required
+                        if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "START-DATE", (const char **)&start, (const char **)&end)) {
+                            if (!__picoM3U8ParseDateTime(start + 1, end - 1, &currentMediaSegment->dateRange.startDate)) {
+                                result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                                goto cleanup;
+                            }
+                        } else {
+                            // The START-DATE attribute is required
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
+
+                        // The END-DATE attribute is optional
+                        if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "END-DATE", (const char **)&start, (const char **)&end)) {
+                            if (!__picoM3U8ParseDateTime(start + 1, end - 1, &currentMediaSegment->dateRange.endDate)) {
+                                result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                                goto cleanup;
+                            }
+                            currentMediaSegment->dateRange.hasEndDate = true;
+                        } else {
+                            currentMediaSegment->dateRange.hasEndDate = false;
+                        }
+
+                        // The DURATION attribute is optional
+                        if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "DURATION", (const char **)&start, (const char **)&end)) {
+                            currentMediaSegment->dateRange.duration = (float)atof(start);
+                        } else {
+                            currentMediaSegment->dateRange.duration = 0.0f;
+                        }
+
+                        // The PLANNED-DURATION attribute is optional
+                        if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "PLANNED-DURATION", (const char **)&start, (const char **)&end)) {
+                            currentMediaSegment->dateRange.plannedDuration = (float)atof(start);
+                        } else {
+                            currentMediaSegment->dateRange.plannedDuration = 0.0f;
+                        }
+
+                        // The END-ON-NEXT attribute is optional
+                        if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "END-ON-NEXT", (const char **)&start, (const char **)&end)) {
+                            currentMediaSegment->dateRange.endOnNext = __picoM3U8ParseYesNo(start, end);
+                            if (!currentMediaSegment->dateRange.endOnNext || currentMediaSegment->dateRange.hasEndDate || currentMediaSegment->dateRange.duration > 0.0f) {
+                                // If END-ON-NEXT is present, it MUST be set to YES, and neither END-DATE nor DURATION attributes can be present
+                                result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                                goto cleanup;
+                            }
+                        } else {
+                            currentMediaSegment->dateRange.endOnNext = false;
+                        }
+
+                        currentMediaSegment->hasDateRange = true;
+                        break;
+                    }
+                    case PICO_M3U8_TAG_EXT_X_DISCONTINUITY: {
+                        currentMediaSegment->discontinuity = true;
+                        discontinuityFound                 = true;
+                        break;
+                    }
+                    // Media Playlist Tags ------------------------------------------
                     case PICO_M3U8_TAG_EXT_X_TARGETDURATION: {
                         sprintf(buffer, "%.*s", (int)(context->lineEndPtr - context->tagPayloadPtr - 1), context->tagPayloadPtr + 1);
                         playlistOut->targetDuration = atoi(buffer);
@@ -1475,9 +1993,9 @@ picoM3U8Result __picoM3U8MediaPlaylistParse(__picoM3U8ParserContext context, pic
                     case PICO_M3U8_TAG_EXT_X_DISCONTINUITY_SEQUENCE: {
                         sprintf(buffer, "%.*s", (int)(context->lineEndPtr - context->tagPayloadPtr - 1), context->tagPayloadPtr + 1);
                         playlistOut->discontinuitySequence = atoi(buffer);
-                        // Discontinuity Sequence tag must appear before any Media Segments 
+                        // Discontinuity Sequence tag must appear before any Media Segments
                         // and before any discontinuity tags
-                        if (playlistOut->mediaSegmentCount > 0 && !discountinuityFound) {
+                        if (playlistOut->mediaSegmentCount > 0 && !discontinuityFound) {
                             result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
                             goto cleanup;
                         }
@@ -1506,8 +2024,8 @@ picoM3U8Result __picoM3U8MediaPlaylistParse(__picoM3U8ParserContext context, pic
                         break;
                     }
                     case PICO_M3U8_TAG_EXT_X_START: {
-                        const char* start;
-                        const char* end;
+                        const char *start;
+                        const char *end;
                         // This tag MUST contain the TIME-OFFSET attribute
                         if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "TIME-OFFSET", (const char **)&start, (const char **)&end)) {
                             playlistOut->commonInfo.startAttributes.timeOffset = (float)atof(start);
@@ -1531,13 +2049,27 @@ picoM3U8Result __picoM3U8MediaPlaylistParse(__picoM3U8ParserContext context, pic
                         goto cleanup;
                     }
                     default:
-                        // fprintf(stderr, "Other Tag Detected: %d %.*s\n", context->currentTag, (int)(context->lineEndPtr - context->lineStartPtr), context->lineStartPtr);
+                        // Ignore unknown tags
                         continue;
                 }
                 break;
             }
             case PICO_M3U8_LINE_TYPE_URI: {
-                fprintf(stderr, "URI Line Detected: %.*s\n", (int)(context->lineEndPtr - context->lineStartPtr), context->lineStartPtr);
+                size_t uriLength = (size_t)(context->lineEndPtr - context->lineStartPtr);
+                if (uriLength >= sizeof(currentMediaSegment->uri)) {
+                    result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                    goto cleanup;
+                }
+                strncpy(currentMediaSegment->uri, context->lineStartPtr, uriLength);
+                currentMediaSegment->uri[uriLength] = '\0';
+                if (!__picoM3U8ListAdd((void **)&mediaSegments, &mediaSegmentCount, sizeof(picoM3U8MediaSegment_t), currentMediaSegment, &mediaSegmentCapacity)) {
+                    result = PICO_M3U8_RESULT_ERROR_MALLOC_FAILED;
+                    goto cleanup;
+                }
+
+                currentMediaSegment->duration     = 0.0f;
+                currentMediaSegment->hasByteRange = false;
+                memset(&currentMediaSegment->uri, 0, sizeof(currentMediaSegment->uri));
                 break;
             }
             default:
@@ -1551,7 +2083,25 @@ picoM3U8Result __picoM3U8MediaPlaylistParse(__picoM3U8ParserContext context, pic
         goto cleanup;
     }
 
+    // Pack the media segments list to fit exactly
+    if (!__picoM3U8ListPack((void **)&mediaSegments, &mediaSegmentCount, sizeof(picoM3U8MediaSegment_t))) {
+        result = PICO_M3U8_RESULT_ERROR_MALLOC_FAILED;
+        goto cleanup;
+    }
+
 cleanup:
+    if (currentMediaSegment != NULL) {
+        PICO_FREE(currentMediaSegment);
+    }
+
+    if (result == PICO_M3U8_RESULT_SUCCESS) {
+        playlistOut->mediaSegments     = mediaSegments;
+        playlistOut->mediaSegmentCount = mediaSegmentCount;
+    } else {
+        if (mediaSegments != NULL) {
+            PICO_FREE(mediaSegments);
+        }
+    }
 
     return result;
 }
@@ -1807,4 +2357,3 @@ const char *picoM3U8ResultToString(picoM3U8Result result)
 #endif // PICO_M3U8_IMPLEMENTATION
 
 #endif // PICO_M3U8_H
- 
