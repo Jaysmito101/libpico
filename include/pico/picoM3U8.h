@@ -940,6 +940,7 @@ typedef enum {
     // Master Playlist Tags
     PICO_M3U8_TAG_EXT_X_MEDIA,
     PICO_M3U8_TAG_EXT_X_STREAM_INF,
+    PICO_M3U8_TAG_EXT_X_I_FRAME_STREAM_INF,
     PICO_M3U8_TAG_EXT_X_SESSION_DATA,
     PICO_M3U8_TAG_EXT_X_SESSION_KEY,
     // Common Tags
@@ -1295,6 +1296,7 @@ picoM3U8Result __picoM3U8ParseTagFromLine(__picoM3U8ParserContext context)
     // Master Playlist Tags
     __PICO_M3U8_MATCH("#EXT-X-MEDIA", PICO_M3U8_TAG_EXT_X_MEDIA);
     __PICO_M3U8_MATCH("#EXT-X-STREAM-INF", PICO_M3U8_TAG_EXT_X_STREAM_INF);
+    __PICO_M3U8_MATCH("#EXT-X-I-FRAME-STREAM-INF", PICO_M3U8_TAG_EXT_X_I_FRAME_STREAM_INF);
     __PICO_M3U8_MATCH("#EXT-X-SESSION-DATA", PICO_M3U8_TAG_EXT_X_SESSION_DATA);
     __PICO_M3U8_MATCH("#EXT-X-SESSION-KEY", PICO_M3U8_TAG_EXT_X_SESSION_KEY);
     // Common Tags
@@ -1812,9 +1814,34 @@ bool __picoM3U8ParseVariantStreamAttributes(const char *valueStart, const char *
     __PICO_M3U8_PARSE_STRING_ATTRIBUTE("VIDEO", variantStreamAttributesOut->streamAttributes.videoGroupId, false);
     __PICO_M3U8_PARSE_STRING_ATTRIBUTE("SUBTITLES", variantStreamAttributesOut->streamAttributes.subtitlesGroupId, false);
     __PICO_M3U8_PARSE_STRING_ATTRIBUTE("CLOSED-CAPTIONS", variantStreamAttributesOut->streamAttributes.closedCaptionsGroupId, false);
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("URI", variantStreamAttributesOut->uri, false);
 
     return true;
 }
+
+bool __picoM3U8ParseSessionDataAttributes(const char *valueStart, const char *valueEnd, picoM3U8SessionData sessionDataOut) {
+    if (valueStart == NULL || valueEnd == NULL || sessionDataOut == NULL) {
+        return false;
+    }
+
+    // Initialize defaults
+    memset(sessionDataOut, 0, sizeof(picoM3U8SessionData_t));
+
+    const char *attrValueStart;
+    const char *attrValueEnd;
+
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("DATA-ID", sessionDataOut->dataId, true);
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("VALUE", sessionDataOut->value, false);
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("LANGUAGE", sessionDataOut->language, false);
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("URI", sessionDataOut->uri, false);
+
+    if (sessionDataOut->value[0] == '\0' && sessionDataOut->uri[0] == '\0') {
+        return false; // Either VALUE or URI must be present
+    }
+
+    return true;
+}
+
 
 // TODO: This function doenst really work well, REPLACE IT WITH A PROPER DATETIME PARSER
 bool __picoM3U8ParseDateTime(const char *valueStart, const char *valueEnd, picoM3U8DateTime dateTimeOut)
@@ -1986,11 +2013,11 @@ picoM3U8Result __picoM3U8MasterPlaylistParse(__picoM3U8ParserContext context, pi
 
     picoM3U8SessionData sessionDataList = NULL;
     uint32_t sessionDataCount           = 0;
-    // size_t sessionDataCapacity          = 0;
+    size_t sessionDataCapacity          = 0;
 
     picoM3U8KeyAttributes sessionKeys = NULL;
     uint32_t sessionKeyCount          = 0;
-    // size_t sessionKeyCapacity         = 0;
+    size_t sessionKeyCapacity         = 0;
 
     if (currentRendition == NULL || currentVariantStream == NULL || currentSessionData == NULL || currentSessionKey == NULL) {
         result = PICO_M3U8_RESULT_ERROR_MALLOC_FAILED;
@@ -2046,6 +2073,41 @@ picoM3U8Result __picoM3U8MasterPlaylistParse(__picoM3U8ParserContext context, pi
                             result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
                             goto cleanup;
                         }
+                        break;
+                    }
+                    case PICO_M3U8_TAG_EXT_X_I_FRAME_STREAM_INF: {
+                        if (!__picoM3U8ParseVariantStreamAttributes(context->tagPayloadPtr + 1, context->lineEndPtr, currentVariantStream)) {
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
+                        currentVariantStream->isIFrameOnly = true;
+                        if (!__picoM3U8ListAdd((void **)&variantStreams, &variantStreamCount, sizeof(picoM3U8VariantStream_t), currentVariantStream, &variantStreamCapacity)) {
+                            result = PICO_M3U8_RESULT_ERROR_MALLOC_FAILED;
+                            goto cleanup;
+                        }
+                        break;
+                    }
+                    case PICO_M3U8_TAG_EXT_X_SESSION_DATA: {
+                        if (!__picoM3U8ParseSessionDataAttributes(context->tagPayloadPtr + 1, context->lineEndPtr, currentSessionData)) {
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
+                        if (!__picoM3U8ListAdd((void **)&sessionDataList, &sessionDataCount, sizeof(picoM3U8SessionData_t), currentSessionData, &sessionDataCapacity)) {
+                            result = PICO_M3U8_RESULT_ERROR_MALLOC_FAILED;
+                            goto cleanup;
+                        }
+                        break;
+                    }
+                    case PICO_M3U8_TAG_EXT_X_SESSION_KEY: {
+                        if (!__picoM3U8ParseKeyAttributes(context->tagPayloadPtr + 1, context->lineEndPtr, currentSessionKey)) {
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
+                        if (!__picoM3U8ListAdd((void **)&sessionKeys, &sessionKeyCount, sizeof(picoM3U8KeyAttributes_t), currentSessionKey, &sessionKeyCapacity)) {
+                            result = PICO_M3U8_RESULT_ERROR_MALLOC_FAILED;
+                            goto cleanup;
+                        }
+                        memset(currentSessionKey, 0, sizeof(picoM3U8KeyAttributes_t));
                         break;
                     }
                     // Common Tags
@@ -2452,6 +2514,7 @@ picoM3U8Result __picoM3U8MediaPlaylistParse(__picoM3U8ParserContext context, pic
                     // a error case for master playlist tags in media playlist
                     case PICO_M3U8_TAG_EXT_X_MEDIA:
                     case PICO_M3U8_TAG_EXT_X_STREAM_INF:
+                    case PICO_M3U8_TAG_EXT_X_I_FRAME_STREAM_INF:
                     case PICO_M3U8_TAG_EXT_X_SESSION_DATA:
                     case PICO_M3U8_TAG_EXT_X_SESSION_KEY: {
                         result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
