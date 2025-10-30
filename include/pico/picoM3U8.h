@@ -2805,7 +2805,6 @@ const char *picoM3U8InstreamIdToString(picoM3U8InstreamId instreamId)
     }
 }
 
-// TODO: Expand this as more error codes are added
 const char *picoM3U8ResultToString(picoM3U8Result result)
 {
     switch (result) {
