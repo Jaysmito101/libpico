@@ -103,7 +103,8 @@ typedef enum {
 } picoM3U8MediaType;
 
 typedef enum {
-    PICO_M3U8_INSTREAM_ID_CC1 = 0,
+    PICO_M3U8_INSTREAM_ID_UNKNOWN = 0,
+    PICO_M3U8_INSTREAM_ID_CC1,
     PICO_M3U8_INSTREAM_ID_CC2,
     PICO_M3U8_INSTREAM_ID_CC3,
     PICO_M3U8_INSTREAM_ID_CC4,
@@ -112,13 +113,15 @@ typedef enum {
 } picoM3U8InstreamIdType;
 
 typedef enum {
-    PICO_M3U8_HDCP_LEVEL_NONE = 0,
+    PICO_M3U8_HDCP_LEVEL_UNKNOWN = 0,
+    PICO_M3U8_HDCP_LEVEL_NONE,
     PICO_M3U8_HDCP_LEVEL_TYPE0,
     PICO_M3U8_HDCP_LEVEL_COUNT
 } picoM3U8HDCPLevel;
 
 typedef enum {
-    PICO_M3U8_KEY_METHOD_NONE = 0,
+    PICO_M3U8_KEY_METHOD_UNKNOWN = 0,
+    PICO_M3U8_KEY_METHOD_NONE,
     PICO_M3U8_KEY_METHOD_AES_128,
     PICO_M3U8_KEY_METHOD_SAMPLE_AES,
     PICO_M3U8_KEY_METHOD_COUNT
@@ -531,8 +534,7 @@ typedef struct {
     // An AUDIO Rendition MAY include the following characteristic:
     // "public.accessibility.describes-video".
     // The CHARACTERISTICS attribute MAY include private UTIs.
-    char characteristics[PICO_M3U8_MAX_MEDIA_CHARACTERISTICS_COUNT][PICO_M3U8_MAX_MEDIA_CHARACTERISTICS_LENGTH];
-    uint8_t characteristicsCount;
+    char characteristics[PICO_M3U8_MAX_MEDIA_CHARACTERISTICS_COUNT * PICO_M3U8_MAX_MEDIA_CHARACTERISTICS_LENGTH];
 
     // The value is a quoted-string that specifies an ordered, backslash-
     // separated ("/") list of parameters.  If the TYPE attribute is
@@ -600,8 +602,7 @@ typedef struct {
     // and H.264 Main Profile Level 3.0 video would have a CODECS value
     // of "mp4a.40.2,avc1.4d401e".
     // Every EXT-X-STREAM-INF tag SHOULD include a CODECS attribute.
-    char codecs[PICO_M3U8_MAX_STREAM_CODECS][PICO_M3U8_MAX_STRING_ITEM_LENGTH];
-    uint8_t codecCount;
+    char codecs[PICO_M3U8_MAX_STREAM_CODECS * PICO_M3U8_MAX_STRING_ITEM_LENGTH];
 
     // The value is a decimal-resolution describing the optimal pixel
     // resolution at which to display all the video in the Variant
@@ -718,7 +719,7 @@ typedef picoM3U8SessionData_t *picoM3U8SessionData;
 typedef struct {
     picoM3U8PlaylistType type;
 
-    picoM3U8CommonInfo commonInfo;
+    picoM3U8CommonInfo_t commonInfo;
 
     // The EXT-X-MEDIA tag is used to relate Media Playlists that contain
     // alternative Renditions of the same content.  For
@@ -863,6 +864,60 @@ const char *picoM3U8InstreamIdToString(picoM3U8InstreamId instreamId);
         }                                                                    \
     }
 
+#define __PICO_M3U8_PARSE_STRING_ATTRIBUTE(attrName, destBuffer, required)                              \
+    {                                                                                                   \
+        if (__picoM3U8ParseAttribute(valueStart, valueEnd, attrName, &attrValueStart, &attrValueEnd)) { \
+            size_t __attrStringLength = (size_t)(attrValueEnd - attrValueStart);                        \
+            if (__attrStringLength - 2 >= sizeof(destBuffer)) {                                         \
+                return false;                                                                           \
+            }                                                                                           \
+            strncpy(destBuffer, attrValueStart + 1, __attrStringLength - 2);                            \
+            destBuffer[__attrStringLength - 2] = '\0';                                                  \
+        } else if (required) {                                                                          \
+            return false;                                                                               \
+        }                                                                                               \
+    }
+
+#define __PICO_M3U8_PARSE_BOOL_ATTRIBUTE(attrName, destBool, required, defaultValue)                    \
+    {                                                                                                   \
+        destBool = defaultValue;                                                                        \
+        if (__picoM3U8ParseAttribute(valueStart, valueEnd, attrName, &attrValueStart, &attrValueEnd)) { \
+            destBool = __picoM3U8ParseYesNo(attrValueStart, attrValueEnd);                              \
+        } else if (required) {                                                                          \
+            return false;                                                                               \
+        }                                                                                               \
+    }
+
+#define __PICO_M3U8_PARSE_UINT32_ATTRIBUTE(attrName, destUint32, required, defaultValue)                \
+    {                                                                                                   \
+        destUint32 = defaultValue;                                                                      \
+        if (__picoM3U8ParseAttribute(valueStart, valueEnd, attrName, &attrValueStart, &attrValueEnd)) { \
+            destUint32 = (uint32_t)atoi(attrValueStart);                                                \
+        } else if (required) {                                                                          \
+            return false;                                                                               \
+        }                                                                                               \
+    }
+
+#define __PICO_M3U8_PARSE_FLOAT_ATTRIBUTE(attrName, destFloat, required, defaultValue)                  \
+    {                                                                                                   \
+        destFloat = defaultValue;                                                                       \
+        if (__picoM3U8ParseAttribute(valueStart, valueEnd, attrName, &attrValueStart, &attrValueEnd)) { \
+            destFloat = (float)atof(attrValueStart);                                                    \
+        } else if (required) {                                                                          \
+            return false;                                                                               \
+        }                                                                                               \
+    }
+
+#define __PICO_M3U8_PARSE_ENUM_ATTRIBUTE(attrName, destEnum, enumParseFunc, required, defaultValue)     \
+    {                                                                                                   \
+        destEnum = defaultValue;                                                                        \
+        if (__picoM3U8ParseAttribute(valueStart, valueEnd, attrName, &attrValueStart, &attrValueEnd)) { \
+            destEnum = enumParseFunc(attrValueStart, attrValueEnd);                                     \
+        } else if (required) {                                                                          \
+            return false;                                                                               \
+        }                                                                                               \
+    }
+
 typedef enum {
     // Basic Tags
     PICO_M3U8_TAG_EXTM3U = 0,
@@ -952,10 +1007,7 @@ void __picoM3U8MediaRenditionDebugPrint(const picoM3U8MediaAttributes rendition)
     PICO_M3U8_LOG("  - Auto Select: %s", picoM3U8YesNoToString(rendition->autoSelect));
     PICO_M3U8_LOG("  - Forced: %s", picoM3U8YesNoToString(rendition->forced));
     PICO_M3U8_LOG("  - Instream ID: %s", picoM3U8InstreamIdToString(rendition->instreamId));
-    PICO_M3U8_LOG("  - Characteristics:");
-    for (uint8_t i = 0; i < rendition->characteristicsCount; i++) {
-        PICO_M3U8_LOG("      - %s", rendition->characteristics[i]);
-    }
+    PICO_M3U8_LOG("  - Characteristics: %s", rendition->characteristics);
     PICO_M3U8_LOG("  - Channels: %s", rendition->channels);
 }
 
@@ -968,10 +1020,7 @@ void __picoM3U8VariantStreamDebugPrint(const picoM3U8VariantStream variantStream
     PICO_M3U8_LOG("Variant Stream:");
     PICO_M3U8_LOG("  - Bandwidth: %d", variantStream->streamAttributes.bandwidth);
     PICO_M3U8_LOG("  - Average Bandwidth: %d", variantStream->streamAttributes.averageBandwidth);
-    PICO_M3U8_LOG("  - Codecs:");
-    for (uint8_t i = 0; i < variantStream->streamAttributes.codecCount; i++) {
-        PICO_M3U8_LOG("      - %s", variantStream->streamAttributes.codecs[i]);
-    }
+    PICO_M3U8_LOG("  - Codecs: %s", variantStream->streamAttributes.codecs);
     PICO_M3U8_LOG("  - Resolution: %dx%d", variantStream->streamAttributes.resolution.width, variantStream->streamAttributes.resolution.height);
     PICO_M3U8_LOG("  - Frame Rate: %.3f", variantStream->streamAttributes.frameRate);
     PICO_M3U8_LOG("  - HDCP Level: %s", picoM3U8HDCPLevelToString(variantStream->streamAttributes.hdcpLevel));
@@ -1101,7 +1150,7 @@ void __picoM3U8MasterPlaylistDebugPrint(const picoM3U8MasterPlaylist playlist)
         return;
     }
 
-    __picoM3U8CommonInfoDebugPrint(playlist->commonInfo);
+    __picoM3U8CommonInfoDebugPrint(&playlist->commonInfo);
 
     PICO_M3U8_LOG("Media Renditions:");
     for (uint8_t i = 0; i < playlist->mediaRenditionCount; i++) {
@@ -1482,6 +1531,129 @@ bool __picoM3U8ParseYesNo(const char *valueStart, const char *valueEnd)
     return false;
 }
 
+picoM3U8KeyMethod __picoM3U8ParseKeyMethod(const char *valueStart, const char *valueEnd)
+{
+    if (valueStart == NULL || valueEnd == NULL) {
+        return PICO_M3U8_KEY_METHOD_NONE;
+    }
+
+    size_t valueLength = (size_t)(valueEnd - valueStart);
+    if (valueLength >= 7 && strncmp(valueStart, "AES-128", 7) == 0) {
+        return PICO_M3U8_KEY_METHOD_AES_128;
+    } else if (valueLength >= 11 && strncmp(valueStart, "SAMPLE-AES", 11) == 0) {
+        return PICO_M3U8_KEY_METHOD_SAMPLE_AES;
+    } else if (valueLength >= 4 && strncmp(valueStart, "NONE", 4) == 0) {
+        return PICO_M3U8_KEY_METHOD_NONE;
+    }
+
+    return PICO_M3U8_KEY_METHOD_NONE;
+}
+
+picoM3U8MediaType __picoM3U8ParseMediaType(const char *valueStart, const char *valueEnd)
+{
+    if (valueStart == NULL || valueEnd == NULL) {
+        return PICO_M3U8_MEDIA_TYPE_UNKNOWN;
+    }
+
+    size_t valueLength = (size_t)(valueEnd - valueStart);
+    if (valueLength >= 5 && strncmp(valueStart, "AUDIO", 5) == 0) {
+        return PICO_M3U8_MEDIA_TYPE_AUDIO;
+    } else if (valueLength >= 5 && strncmp(valueStart, "VIDEO", 5) == 0) {
+        return PICO_M3U8_MEDIA_TYPE_VIDEO;
+    } else if (valueLength >= 11 && strncmp(valueStart, "SUBTITLES", 9) == 0) {
+        return PICO_M3U8_MEDIA_TYPE_SUBTITLES;
+    } else if (valueLength >= 15 && strncmp(valueStart, "CLOSED-CAPTIONS", 15) == 0) {
+        return PICO_M3U8_MEDIA_TYPE_CLOSED_CAPTIONS;
+    }
+
+    return PICO_M3U8_MEDIA_TYPE_UNKNOWN;
+}
+
+picoM3U8HDCPLevel __picoM3U8ParseHDCPLevel(const char *valueStart, const char *valueEnd)
+{
+    if (valueStart == NULL || valueEnd == NULL) {
+        return PICO_M3U8_HDCP_LEVEL_UNKNOWN;
+    }
+
+    size_t valueLength = (size_t)(valueEnd - valueStart);
+    if (valueLength >= 4 && strncmp(valueStart, "TYPE0", 5) == 0) {
+        return PICO_M3U8_HDCP_LEVEL_TYPE0;
+    } else if (valueLength >= 4 && strncmp(valueStart, "NONE", 4) == 0) {
+        return PICO_M3U8_HDCP_LEVEL_NONE;
+    }
+    return PICO_M3U8_HDCP_LEVEL_UNKNOWN;
+}
+
+picoM3U8InstreamId __picoM3U8ParseInstreamId(const char *valueStart, const char *valueEnd)
+{
+    picoM3U8InstreamId instreamId = (picoM3U8InstreamId){PICO_M3U8_INSTREAM_ID_UNKNOWN};
+
+    if (valueStart == NULL || valueEnd == NULL) {
+        return instreamId;
+    }
+
+    size_t valueLength = (size_t)(valueEnd - valueStart);
+    if (valueLength >= 3 && strncmp(valueStart, "CC", 2) == 0) {
+        char ccIdChar = valueStart[2];
+        switch (ccIdChar) {
+            case '1':
+                instreamId.type = PICO_M3U8_INSTREAM_ID_CC1;
+                break;
+            case '2':
+                instreamId.type = PICO_M3U8_INSTREAM_ID_CC2;
+                break;
+            case '3':
+                instreamId.type = PICO_M3U8_INSTREAM_ID_CC3;
+                break;
+            case '4':
+                instreamId.type = PICO_M3U8_INSTREAM_ID_CC4;
+                break;
+            default:
+                instreamId.type = PICO_M3U8_INSTREAM_ID_UNKNOWN;
+                break;
+        }
+    } else if (valueLength >= 4 && strncmp(valueStart, "SERVICE", 7) == 0) {
+        instreamId.service.n = (uint8_t)atoi(valueStart + 7);
+        instreamId.type      = PICO_M3U8_INSTREAM_ID_SERVICE;
+    } else {
+        instreamId.type = PICO_M3U8_INSTREAM_ID_UNKNOWN;
+    }
+
+    return instreamId;
+}
+
+picoM3U8Resolution __picoM3U8ParseResolution(const char *valueStart, const char *valueEnd)
+{
+    picoM3U8Resolution resolution = {0, 0};
+
+    if (valueStart == NULL || valueEnd == NULL) {
+        return resolution;
+    }
+
+    const char *xPtr = strchr(valueStart, 'x');
+    if (xPtr == NULL || xPtr >= valueEnd) {
+        return resolution;
+    }
+
+    char widthBuffer[16] = {0};
+    size_t widthSize     = (size_t)(xPtr - valueStart);
+    if (widthSize >= sizeof(widthBuffer)) {
+        return resolution;
+    }
+    strncpy(widthBuffer, valueStart, widthSize);
+    resolution.width = (uint16_t)atoi(widthBuffer);
+
+    char heightBuffer[16] = {0};
+    size_t heightSize     = (size_t)(valueEnd - xPtr - 1);
+    if (heightSize >= sizeof(heightBuffer)) {
+        return resolution;
+    }
+    strncpy(heightBuffer, xPtr + 1, heightSize);
+    resolution.height = (uint16_t)atoi(heightBuffer);
+
+    return resolution;
+}
+
 bool __picoM3U8ParseByteRange(const char *valueStart, const char *valueEnd, picoM3U8ByteRange *byteRangeOut)
 {
     if (valueStart == NULL || valueEnd == NULL || byteRangeOut == NULL) {
@@ -1536,31 +1708,13 @@ bool __picoM3U8ParseKeyAttributes(const char *valueStart, const char *valueEnd, 
     const char *attrValueStart;
     const char *attrValueEnd;
 
-    // METHOD
-    if (__picoM3U8ParseAttribute(valueStart, valueEnd, "METHOD", &attrValueStart, &attrValueEnd)) {
-        size_t methodLength = (size_t)(attrValueEnd - attrValueStart);
-        if (methodLength >= 7 && strncmp(attrValueStart, "AES-128", 7) == 0) {
-            keyAttributesOut->method = PICO_M3U8_KEY_METHOD_AES_128;
-        } else if (methodLength >= 11 && strncmp(attrValueStart, "SAMPLE-AES", 11) == 0) {
-            keyAttributesOut->method = PICO_M3U8_KEY_METHOD_SAMPLE_AES;
-        } else if (methodLength >= 4 && strncmp(attrValueStart, "NONE", 4) == 0) {
-            keyAttributesOut->method = PICO_M3U8_KEY_METHOD_NONE;
-        } else {
-            return false; // Unknown METHOD
-        }
-    } else {
-        return false; // METHOD is required
-    }
+    __PICO_M3U8_PARSE_ENUM_ATTRIBUTE("METHOD", keyAttributesOut->method, __picoM3U8ParseKeyMethod, true, PICO_M3U8_KEY_METHOD_NONE);
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("KEYFORMAT", keyAttributesOut->keyFormat, false);
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("KEYFORMATVERSIONS", keyAttributesOut->keyFormatVersions, false);
 
-    // URI
-    if (__picoM3U8ParseAttribute(valueStart, valueEnd, "URI", &attrValueStart, &attrValueEnd)) {
-        size_t uriLength = (size_t)(attrValueEnd - attrValueStart);
-        if (uriLength - 2 >= sizeof(keyAttributesOut->uri)) {
-            return false;
-        }
-        strncpy(keyAttributesOut->uri, attrValueStart + 1, uriLength - 2); // Skip quotes
-        keyAttributesOut->uri[uriLength - 2] = '\0';
-    } else if (keyAttributesOut->method != PICO_M3U8_KEY_METHOD_NONE) {
+    memset(keyAttributesOut->uri, 0, sizeof(keyAttributesOut->uri));
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("URI", keyAttributesOut->uri, keyAttributesOut->method != PICO_M3U8_KEY_METHOD_NONE);
+    if (keyAttributesOut->uri[0] == '\0' && keyAttributesOut->method != PICO_M3U8_KEY_METHOD_NONE) {
         return false; // URI is required unless METHOD is NONE
     }
 
@@ -1582,29 +1736,87 @@ bool __picoM3U8ParseKeyAttributes(const char *valueStart, const char *valueEnd, 
         }
     }
 
-    // KEYFORMAT
-    if (__picoM3U8ParseAttribute(valueStart, valueEnd, "KEYFORMAT", &attrValueStart, &attrValueEnd)) {
-        size_t keyFormatLength = (size_t)(attrValueEnd - attrValueStart);
-        if (keyFormatLength - 2 >= sizeof(keyAttributesOut->keyFormat)) {
-            return false;
-        }
-        strncpy(keyAttributesOut->keyFormat, attrValueStart + 1, keyFormatLength - 2); // Skip quotes
-        keyAttributesOut->keyFormat[keyFormatLength - 2] = '\0';
+    return true;
+}
+
+bool __picoM3U8ParseMediaAttributes(const char *valueStart, const char *valueEnd, picoM3U8MediaAttributes mediaAttributesOut)
+{
+    if (valueStart == NULL || valueEnd == NULL || mediaAttributesOut == NULL) {
+        return false;
     }
 
-    // KEYFORMATVERSIONS
-    if (__picoM3U8ParseAttribute(valueStart, valueEnd, "KEYFORMATVERSIONS", &attrValueStart, &attrValueEnd)) {
-        size_t keyFormatVersionsLength = (size_t)(attrValueEnd - attrValueStart);
-        if (keyFormatVersionsLength - 2 >= sizeof(keyAttributesOut->keyFormatVersions)) {
-            return false;
-        }
-        strncpy(keyAttributesOut->keyFormatVersions, attrValueStart + 1, keyFormatVersionsLength - 2); // Skip quotes
-        keyAttributesOut->keyFormatVersions[keyFormatVersionsLength - 2] = '\0';
+    // Initialize defaults
+    memset(mediaAttributesOut, 0, sizeof(picoM3U8MediaAttributes_t));
+    mediaAttributesOut->type = PICO_M3U8_MEDIA_TYPE_UNKNOWN;
+
+    const char *attrValueStart;
+    const char *attrValueEnd;
+
+    __PICO_M3U8_PARSE_ENUM_ATTRIBUTE("TYPE", mediaAttributesOut->type, __picoM3U8ParseMediaType, true, PICO_M3U8_MEDIA_TYPE_UNKNOWN);
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("GROUP-ID", mediaAttributesOut->groupId, true);
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("LANGUAGE", mediaAttributesOut->language, false);
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("ASSOC-LANGUAGE", mediaAttributesOut->assocLanguage, false);
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("NAME", mediaAttributesOut->name, true);
+    __PICO_M3U8_PARSE_BOOL_ATTRIBUTE("DEFAULT", mediaAttributesOut->defaultValue, false, false);
+    __PICO_M3U8_PARSE_BOOL_ATTRIBUTE("AUTOSELECT", mediaAttributesOut->autoSelect, false, false);
+    __PICO_M3U8_PARSE_BOOL_ATTRIBUTE("FORCED", mediaAttributesOut->forced, false, false);
+
+    // We need to do this since the instream ID is not a enum, but a string instead
+    char instreamIdBuffer[16] = {0};
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("INSTREAM-ID", instreamIdBuffer, false);
+    if (instreamIdBuffer[0] != '\0') {
+        mediaAttributesOut->instreamId = __picoM3U8ParseInstreamId(instreamIdBuffer, instreamIdBuffer + strlen(instreamIdBuffer));
     }
+
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("CHARACTERISTICS", mediaAttributesOut->characteristics, false);
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("CHANNELS", mediaAttributesOut->channels, false);
+
+    if (!mediaAttributesOut->autoSelect && mediaAttributesOut->defaultValue) {
+        return false; // autoSelect cannot be NO if default is YES
+    }
+    if (mediaAttributesOut->type != PICO_M3U8_MEDIA_TYPE_SUBTITLES && mediaAttributesOut->forced) {
+        return false; // FORCED is only valid for SUBTITLES
+    }
+    if (mediaAttributesOut->type == PICO_M3U8_MEDIA_TYPE_CLOSED_CAPTIONS && mediaAttributesOut->instreamId.type == PICO_M3U8_INSTREAM_ID_UNKNOWN) {
+        return false; // INSTREAM-ID is required for CLOSED-CAPTIONS
+    }
+    if (mediaAttributesOut->type != PICO_M3U8_MEDIA_TYPE_CLOSED_CAPTIONS && mediaAttributesOut->instreamId.type != PICO_M3U8_INSTREAM_ID_UNKNOWN) {
+        return false; // INSTREAM-ID is only valid for CLOSED-CAPTIONS
+    }
+
+    // Additional attributes can be parsed similarly...
 
     return true;
 }
 
+bool __picoM3U8ParseVariantStreamAttributes(const char *valueStart, const char *valueEnd, picoM3U8VariantStream variantStreamAttributesOut)
+{
+    if (valueStart == NULL || valueEnd == NULL || variantStreamAttributesOut == NULL) {
+        return false;
+    }
+
+    // Initialize defaults
+    memset(variantStreamAttributesOut, 0, sizeof(picoM3U8VariantStream_t));
+
+    const char *attrValueStart;
+    const char *attrValueEnd;
+
+    // The stream attributes
+    __PICO_M3U8_PARSE_UINT32_ATTRIBUTE("BANDWIDTH", variantStreamAttributesOut->streamAttributes.bandwidth, true, 0);
+    __PICO_M3U8_PARSE_UINT32_ATTRIBUTE("AVERAGE-BANDWIDTH", variantStreamAttributesOut->streamAttributes.averageBandwidth, false, 0);
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("CODECS", variantStreamAttributesOut->streamAttributes.codecs, false);
+    __PICO_M3U8_PARSE_FLOAT_ATTRIBUTE("FRAME-RATE", variantStreamAttributesOut->streamAttributes.frameRate, false, 0.0f);
+    __PICO_M3U8_PARSE_ENUM_ATTRIBUTE("HDCP-LEVEL", variantStreamAttributesOut->streamAttributes.hdcpLevel, __picoM3U8ParseHDCPLevel, false, PICO_M3U8_HDCP_LEVEL_UNKNOWN);
+    __PICO_M3U8_PARSE_ENUM_ATTRIBUTE("RESOLUTION", variantStreamAttributesOut->streamAttributes.resolution, __picoM3U8ParseResolution, false, (picoM3U8Resolution){0});
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("AUDIO", variantStreamAttributesOut->streamAttributes.audioGroupId, false);
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("VIDEO", variantStreamAttributesOut->streamAttributes.videoGroupId, false);
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("SUBTITLES", variantStreamAttributesOut->streamAttributes.subtitlesGroupId, false);
+    __PICO_M3U8_PARSE_STRING_ATTRIBUTE("CLOSED-CAPTIONS", variantStreamAttributesOut->streamAttributes.closedCaptionsGroupId, false);
+
+    return true;
+}
+
+// TODO: This function doenst really work well, REPLACE IT WITH A PROPER DATETIME PARSER
 bool __picoM3U8ParseDateTime(const char *valueStart, const char *valueEnd, picoM3U8DateTime dateTimeOut)
 {
     if (valueStart == NULL || valueEnd == NULL || dateTimeOut == NULL) {
@@ -1752,9 +1964,206 @@ bool __picoM3U8ParseDateTime(const char *valueStart, const char *valueEnd, picoM
 
 picoM3U8Result __picoM3U8MasterPlaylistParse(__picoM3U8ParserContext context, picoM3U8MasterPlaylist playlistOut)
 {
-    (void)context;
-    (void)playlistOut;
-    return PICO_M3U8_RESULT_ERROR_UNKNOWN;
+    if (context == NULL || playlistOut == NULL) {
+        return PICO_M3U8_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    bool foundHeader      = false;
+    picoM3U8Result result = PICO_M3U8_RESULT_SUCCESS;
+
+    picoM3U8MediaAttributes currentRendition   = (picoM3U8MediaAttributes)PICO_MALLOC(sizeof(picoM3U8MediaAttributes_t));
+    picoM3U8VariantStream currentVariantStream = (picoM3U8VariantStream)PICO_MALLOC(sizeof(picoM3U8VariantStream_t));
+    picoM3U8SessionData currentSessionData     = (picoM3U8SessionData)PICO_MALLOC(sizeof(picoM3U8SessionData_t));
+    picoM3U8KeyAttributes currentSessionKey    = (picoM3U8KeyAttributes)PICO_MALLOC(sizeof(picoM3U8KeyAttributes_t));
+
+    picoM3U8MediaAttributes renditions = NULL;
+    uint32_t renditionCount            = 0;
+    size_t renditionCapacity           = 0;
+
+    picoM3U8VariantStream variantStreams = NULL;
+    uint32_t variantStreamCount          = 0;
+    size_t variantStreamCapacity         = 0;
+
+    picoM3U8SessionData sessionDataList = NULL;
+    uint32_t sessionDataCount           = 0;
+    // size_t sessionDataCapacity          = 0;
+
+    picoM3U8KeyAttributes sessionKeys = NULL;
+    uint32_t sessionKeyCount          = 0;
+    // size_t sessionKeyCapacity         = 0;
+
+    if (currentRendition == NULL || currentVariantStream == NULL || currentSessionData == NULL || currentSessionKey == NULL) {
+        result = PICO_M3U8_RESULT_ERROR_MALLOC_FAILED;
+        goto cleanup;
+    }
+
+    memset(currentRendition, 0, sizeof(picoM3U8MediaAttributes_t));
+    memset(currentVariantStream, 0, sizeof(picoM3U8VariantStream_t));
+    memset(currentSessionData, 0, sizeof(picoM3U8SessionData_t));
+    memset(currentSessionKey, 0, sizeof(picoM3U8KeyAttributes_t));
+
+    while (!__picoM3U8ParserContextIsEndOfData(context)) {
+        __PICO_M3U8_CHECK(__picoM3U8ParserContextNextLine(context));
+
+        if (context->lineType == PICO_M3U8_LINE_TYPE_EMPTY) {
+            continue;
+        }
+
+        if (!foundHeader) {
+            if (context->lineType == PICO_M3U8_LINE_TYPE_TAG) {
+                foundHeader = true;
+                continue;
+            } else {
+                return PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+            }
+        }
+
+        static char buffer[256];
+        switch (context->lineType) {
+            case PICO_M3U8_LINE_TYPE_TAG: {
+                switch (context->currentTag) {
+                    // Basic Tags ------------------------------------------
+                    case PICO_M3U8_TAG_EXT_X_VERSION: {
+                        sprintf(buffer, "%.*s", (int)(context->lineEndPtr - context->tagPayloadPtr - 1), context->tagPayloadPtr + 1);
+                        playlistOut->commonInfo.version = atoi(buffer);
+                        break;
+                    }
+                    // Master Playlist Tags
+                    case PICO_M3U8_TAG_EXT_X_MEDIA: {
+                        if (!__picoM3U8ParseMediaAttributes(context->tagPayloadPtr + 1, context->lineEndPtr, currentRendition)) {
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
+                        if (!__picoM3U8ListAdd((void **)&renditions, &renditionCount, sizeof(picoM3U8MediaAttributes_t), currentRendition, &renditionCapacity)) {
+                            result = PICO_M3U8_RESULT_ERROR_MALLOC_FAILED;
+                            goto cleanup;
+                        }
+                        memset(currentRendition, 0, sizeof(picoM3U8MediaAttributes_t));
+                        break;
+                    }
+                    case PICO_M3U8_TAG_EXT_X_STREAM_INF: {
+                        if (!__picoM3U8ParseVariantStreamAttributes(context->tagPayloadPtr + 1, context->lineEndPtr, currentVariantStream)) {
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
+                        break;
+                    }
+                    // Common Tags
+                    case PICO_M3U8_TAG_EXT_X_INDEPENDENT_SEGMENTS: {
+                        playlistOut->commonInfo.independentSegments = true;
+                        break;
+                    }
+                    case PICO_M3U8_TAG_EXT_X_START: {
+                        const char *start;
+                        const char *end;
+                        // This tag MUST contain the TIME-OFFSET attribute
+                        if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "TIME-OFFSET", (const char **)&start, (const char **)&end)) {
+                            playlistOut->commonInfo.startAttributes.timeOffset = (float)atof(start);
+                        } else {
+                            result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                            goto cleanup;
+                        }
+                        // The PRECISE attribute is optional
+                        playlistOut->commonInfo.startAttributes.precise = false; // default value as per spec
+                        if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "PRECISE", (const char **)&start, (const char **)&end)) {
+                            playlistOut->commonInfo.startAttributes.precise = __picoM3U8ParseYesNo(start, end);
+                        }
+                        break;
+                    }
+                    // a error case for media playlist & media segment tags in master playlist
+                    case PICO_M3U8_TAG_EXTINF:
+                    case PICO_M3U8_TAG_EXT_X_BYTERANGE:
+                    case PICO_M3U8_TAG_EXT_X_DISCONTINUITY:
+                    case PICO_M3U8_TAG_EXT_X_KEY:
+                    case PICO_M3U8_TAG_EXT_X_MAP:
+                    case PICO_M3U8_TAG_EXT_X_PROGRAM_DATE_TIME:
+                    case PICO_M3U8_TAG_EXT_X_DATE_RANGE:
+                    case PICO_M3U8_TAG_EXT_X_TARGETDURATION:
+                    case PICO_M3U8_TAG_EXT_X_MEDIA_SEQUENCE:
+                    case PICO_M3U8_TAG_EXT_X_ENDLIST:
+                    case PICO_M3U8_TAG_EXT_X_DISCONTINUITY_SEQUENCE:
+                    case PICO_M3U8_TAG_EXT_X_PLAYLIST_TYPE:
+                    case PICO_M3U8_TAG_EXT_X_I_FRAMES_ONLY: {
+                        result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                        goto cleanup;
+                    }
+                    default:
+                        // ignore unknown tags
+                        continue;
+                }
+                break;
+            }
+            case PICO_M3U8_LINE_TYPE_URI: {
+                size_t uriLength = (size_t)(context->lineEndPtr - context->lineStartPtr);
+                if (uriLength >= sizeof(currentVariantStream->uri)) {
+                    result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
+                    goto cleanup;
+                }
+                strncpy(currentVariantStream->uri, context->lineStartPtr, uriLength);
+                currentVariantStream->uri[uriLength] = '\0';
+                if (!__picoM3U8ListAdd((void **)&variantStreams, &variantStreamCount, sizeof(picoM3U8VariantStream_t), currentVariantStream, &variantStreamCapacity)) {
+                    result = PICO_M3U8_RESULT_ERROR_MALLOC_FAILED;
+                    goto cleanup;
+                }
+
+                memset(&currentVariantStream->uri, 0, sizeof(currentVariantStream->uri));
+                break;
+            }
+            default:
+                continue;
+        }
+    }
+
+cleanup:
+    if (currentRendition != NULL) {
+        PICO_FREE(currentRendition);
+    }
+
+    if (currentVariantStream != NULL) {
+        PICO_FREE(currentVariantStream);
+    }
+
+    if (currentSessionData != NULL) {
+        PICO_FREE(currentSessionData);
+    }
+
+    if (currentSessionKey != NULL) {
+        PICO_FREE(currentSessionKey);
+    }
+
+    if (result == PICO_M3U8_RESULT_SUCCESS) {
+        // Pack lists
+        __picoM3U8ListPack((void **)&renditions, &renditionCount, sizeof(picoM3U8MediaAttributes_t));
+        playlistOut->mediaRenditions     = renditions;
+        playlistOut->mediaRenditionCount = (uint8_t)renditionCount;
+
+        __picoM3U8ListPack((void **)&variantStreams, &variantStreamCount, sizeof(picoM3U8VariantStream_t));
+        playlistOut->variantStreams     = variantStreams;
+        playlistOut->variantStreamCount = (uint8_t)variantStreamCount;
+
+        __picoM3U8ListPack((void **)&sessionDataList, &sessionDataCount, sizeof(picoM3U8SessionData_t));
+        playlistOut->sessionData      = sessionDataList;
+        playlistOut->sessionDataCount = (uint8_t)sessionDataCount;
+
+        __picoM3U8ListPack((void **)&sessionKeys, &sessionKeyCount, sizeof(picoM3U8KeyAttributes_t));
+        playlistOut->sessionKeys     = sessionKeys;
+        playlistOut->sessionKeyCount = (uint8_t)sessionKeyCount;
+    } else {
+        if (renditions != NULL) {
+            PICO_FREE(renditions);
+        }
+        if (variantStreams != NULL) {
+            PICO_FREE(variantStreams);
+        }
+        if (sessionDataList != NULL) {
+            PICO_FREE(sessionDataList);
+        }
+        if (sessionKeys != NULL) {
+            PICO_FREE(sessionKeys);
+        }
+    }
+
+    return result;
 }
 
 picoM3U8Result __picoM3U8MediaPlaylistParse(__picoM3U8ParserContext context, picoM3U8MediaPlaylist playlistOut)
