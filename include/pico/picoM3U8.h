@@ -280,7 +280,7 @@ typedef struct {
     // attributes and their associated value semantics.  All Date Ranges
     // with the same CLASS attribute value MUST adhere to these
     // semantics.  This attribute is OPTIONAL.
-    char class[PICO_M3U8_MAX_STRING_ITEM_LENGTH];
+    char className[PICO_M3U8_MAX_STRING_ITEM_LENGTH];
 
     // A quoted-string containing the ISO-8601 date at which the Date
     // Range begins.  This attribute is REQUIRED.
@@ -2376,15 +2376,15 @@ picoM3U8Result __picoM3U8MediaPlaylistParse(__picoM3U8ParserContext context, pic
                             goto cleanup;
                         }
 
-                        // The CLASS attribute is optional
-                        if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "CLASS", (const char **)&start, (const char **)&end)) {
-                            size_t classLength = (size_t)(end - start);
-                            if (classLength - 2 >= sizeof(currentMediaSegment->dateRange.class)) {
+                        // The className attribute is optional
+                        if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "className", (const char **)&start, (const char **)&end)) {
+                            size_t classNameLength = (size_t)(end - start);
+                            if (classNameLength - 2 >= sizeof(currentMediaSegment->dateRange.className)) {
                                 result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;
                                 goto cleanup;
                             }
-                            strncpy(currentMediaSegment->dateRange.class, start + 1, classLength - 2); // Skip quotes
-                            currentMediaSegment->dateRange.class[classLength - 2] = '\0';
+                            strncpy(currentMediaSegment->dateRange.className, start + 1, classNameLength - 2); // Skip quotes
+                            currentMediaSegment->dateRange.className[classNameLength - 2] = '\0';
                         }
 
                         // The START-DATE attribute is required
