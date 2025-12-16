@@ -112,7 +112,7 @@ const char *SAMPLE_PLAYLISTS[] = {
     // ----------------------------
 };
 
-int main()
+int main(void)
 {
     printf("Hello, Pico!\n");
 

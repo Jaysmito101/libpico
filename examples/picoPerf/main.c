@@ -66,7 +66,7 @@ void simulateDataProcessing(int iterations)
     PICO_PERF_POP_SCOPE();
 }
 
-void simulateDatabaseQuery()
+void simulateDatabaseQuery(void)
 {
     PICO_PERF_PUSH_SCOPE("DatabaseQuery");
     
@@ -85,7 +85,7 @@ void simulateDatabaseQuery()
     PICO_PERF_POP_SCOPE();
 }
 
-void simulateFileIO()
+void simulateFileIO(void)
 {
     PICO_PERF_PUSH_SCOPE("FileIO");
     
@@ -106,7 +106,7 @@ void simulateFileIO()
     PICO_PERF_POP_SCOPE();
 }
 
-void simulateNetworkRequest()
+void simulateNetworkRequest(void)
 {
     PICO_PERF_PUSH_SCOPE("NetworkRequest");
     
@@ -129,7 +129,7 @@ void simulateNetworkRequest()
     PICO_PERF_POP_SCOPE();
 }
 
-void complexNestedOperations()
+void complexNestedOperations(void)
 {
     PICO_PERF_PUSH_SCOPE("ComplexNestedOperations");
     
@@ -149,7 +149,7 @@ void complexNestedOperations()
     PICO_PERF_POP_SCOPE(); // ComplexNestedOperations
 }
 
-void simulateServerRequest()
+void simulateServerRequest(void)
 {
     PICO_PERF_PUSH_SCOPE("ServerRequest");
     
@@ -177,7 +177,7 @@ void dumpReportToFile(const char *filename, picoPerfReportFormat format)
     fclose(file);
 }
 
-int main()
+int main(void)
 {
     printf("Hello, Pico!\n");
 
