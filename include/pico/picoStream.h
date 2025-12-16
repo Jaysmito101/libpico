@@ -107,7 +107,7 @@ size_t picoStreamReadLine(picoStream stream, char *buffer, size_t maxLength);
 void picoStreamWriteLine(picoStream stream, const char *string);
 
 
-bool picoStreamIsSystemLittleEndian();
+bool picoStreamIsSystemLittleEndian(void);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_STREAM_IMPLEMENTATION)
 #define PICO_STREAM_IMPLEMENTATION
@@ -644,7 +644,7 @@ void picoStreamWriteLine(picoStream stream, const char *string)
 }
 
 
-bool picoStreamIsSystemLittleEndian()
+bool picoStreamIsSystemLittleEndian(void)
 {
     uint16_t test = 0x1;
     return (*(uint8_t *)&test) == 0x1;

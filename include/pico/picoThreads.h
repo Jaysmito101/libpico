@@ -74,14 +74,14 @@ picoThread picoThreadCreate(picoThreadFunction function, void *arg);
 void picoThreadDestroy(picoThread thread);
 void picoThreadJoin(picoThread thread, uint32_t timeoutMilliseconds);
 void picoThreadSleep(uint32_t milliseconds);
-void picoThreadYield();
+void picoThreadYield(void);
 bool picoThreadJoinable(picoThread thread);
 bool picoThreadIsCurrent(picoThread thread);
 bool picoThreadIsAlive(picoThread thread);
 picoThreadId picoThreadGetId(picoThread thread);
-picoThreadId picoThreadGetCurrentId();
+picoThreadId picoThreadGetCurrentId(void);
 
-picoThreadMutex picoThreadMutexCreate();
+picoThreadMutex picoThreadMutexCreate(void);
 void picoThreadMutexDestroy(picoThreadMutex mutex);
 void picoThreadMutexLock(picoThreadMutex mutex, uint32_t timeoutMilliseconds);
 bool picoThreadMutexTryLock(picoThreadMutex mutex);
@@ -125,7 +125,7 @@ struct picoThreadMutex_t {
     HANDLE mutex;
 };
 
-static void __picoThreadFunctionWrapper(void *arg)
+static unsigned __picoThreadFunctionWrapper(void *arg)
 {
     picoThread thread = (picoThread)arg;
     thread->threadId  = GetCurrentThreadId();
@@ -134,6 +134,7 @@ static void __picoThreadFunctionWrapper(void *arg)
         thread->function(thread->userData);
     }
     thread->isAlive = false;
+    return 0;
 }
 
 picoThread picoThreadCreate(picoThreadFunction function, void *arg)
@@ -187,7 +188,7 @@ void picoThreadSleep(uint32_t milliseconds)
     Sleep(milliseconds);
 }
 
-void picoThreadYield()
+void picoThreadYield(void)
 {
     SwitchToThread();
 }
@@ -224,12 +225,12 @@ picoThreadId picoThreadGetId(picoThread thread)
     return (picoThreadId)thread->threadId;
 }
 
-picoThreadId picoThreadGetCurrentId()
+picoThreadId picoThreadGetCurrentId(void)
 {
     return (picoThreadId)GetCurrentThreadId();
 }
 
-picoThreadMutex picoThreadMutexCreate()
+picoThreadMutex picoThreadMutexCreate(void)
 {
     picoThreadMutex mutex = (picoThreadMutex)PICO_MALLOC(sizeof(picoThreadMutex_t));
     if (!mutex) {
@@ -298,7 +299,7 @@ struct picoThreadMutex_t {
     pthread_mutex_t mutex;
 };
 
-static void *__picoThreadFunctionWrapper(void *arg)
+static void* __picoThreadFunctionWrapper(void *arg)
 {
     picoThread thread = (picoThread)arg;
     thread->isAlive   = true;
@@ -531,6 +532,7 @@ static void __picoThreadPoolWorker(void *arg)
             picoThreadSleep(10); // Sleep briefly if no task
         }
     }
+
 }
 
 picoThreadPool picoThreadPoolCreate(uint32_t threadCount)

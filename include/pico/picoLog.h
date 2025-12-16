@@ -46,21 +46,21 @@ SOFTWARE.
 
 
 
-#if defined(_MSC_VER)
-#define PICO_LOG_FUNC __FUNCSIG__
+#if defined(__clang__) || defined(__APPLE__)
+#define PICO_LOG_FUNC __func__ 
 #define PICO_LOG_FILE __FILE__
 #define PICO_LOG_LINE __LINE__
-#define PICO_LOG_FILENAME (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
+#define PICO_LOG_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #elif defined(__GNUC__) || defined(__MINGW32__) || defined(__MINGW64__)
 #define PICO_LOG_FUNC __func__ 
 #define PICO_LOG_FILE __FILE__
 #define PICO_LOG_LINE __LINE__
 #define PICO_LOG_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-#elif defined(__clang__) || defined(__APPLE__)
-#define PICO_LOG_FUNC __func__ 
+#elif defined(_MSC_VER)
+#define PICO_LOG_FUNC __FUNCSIG__
 #define PICO_LOG_FILE __FILE__
 #define PICO_LOG_LINE __LINE__
-#define PICO_LOG_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+#define PICO_LOG_FILENAME (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
 #else
 #error "Unsupported compiler"
 #endif
@@ -136,27 +136,27 @@ typedef void (*picoLogCustomLogger)(picoLogLevel level, const char *tag, const c
 typedef struct picoLogContext_t picoLogContext_t;
 typedef picoLogContext_t *picoLogContext;
 
-bool picoLogContextCreate();
-void picoLogShutdown();
+bool picoLogContextCreate(void);
+void picoLogShutdown(void);
 void picoLogPushLevel(picoLogLevel level);
-void picoLogPopLevel();
+void picoLogPopLevel(void);
 void picoLogPushTagFilter(const char *tags);
-void picoLogPopTagFilter();
+void picoLogPopTagFilter(void);
 void picoLogPushTarget(picoLogTarget target);
-void picoLogPopTarget();
+void picoLogPopTarget(void);
 void picoLogPushFormat(picoLogFormat format);
-void picoLogPopFormat();
+void picoLogPopFormat(void);
 void picoLogPushCustomLogger(picoLogCustomLogger logger, void *userData);
-void picoLogPopCustomLogger();
+void picoLogPopCustomLogger(void);
 void picoLogPushFileLogger(const char *filePath);
-void picoLogPopFileLogger();
-void picoLogPushFromEnvironment();
+void picoLogPopFileLogger(void);
+void picoLogPushFromEnvironment(void);
 
 // Main logging function
 void picoLog(picoLogLevel level, const char *tag, const char *file, const char *function, uint32_t line, const char *format, ...);
 
 // For DLLs
-picoLogContext picoLogGetContext();
+picoLogContext picoLogGetContext(void);
 void picoLogSetContext(picoLogContext context);
 
 // Utility functions
@@ -221,7 +221,7 @@ typedef picoLogEntry_t *picoLogEntry;
 
 picoLogContext __picoLogGlobalContext = NULL;
 
-static picoLogTimeStamp __picoLogGetCurrentTimestamp()
+static picoLogTimeStamp __picoLogGetCurrentTimestamp(void)
 {
     static picoLogTimeStamp_t timestamp = {0};
 #if defined(_WIN32) || defined(_WIN64)
@@ -251,7 +251,7 @@ static picoLogTimeStamp __picoLogGetCurrentTimestamp()
     return &timestamp;
 }
 
-static picoLogLevel __picoLogGetCurrentLevel()
+static picoLogLevel __picoLogGetCurrentLevel(void)
 {
     if (__picoLogGlobalContext == NULL || __picoLogGlobalContext->levelStackTop == 0) {
         return PICO_LOG_LEVEL_NONE;
@@ -259,7 +259,7 @@ static picoLogLevel __picoLogGetCurrentLevel()
     return __picoLogGlobalContext->levelStack[__picoLogGlobalContext->levelStackTop - 1];
 }
 
-static const char *__picoLogGetCurrentTagFilter()
+static const char *__picoLogGetCurrentTagFilter(void)
 {
     if (__picoLogGlobalContext == NULL || __picoLogGlobalContext->tagFilterStackTop == 0) {
         return "";
@@ -267,7 +267,7 @@ static const char *__picoLogGetCurrentTagFilter()
     return __picoLogGlobalContext->tagFilterStack[__picoLogGlobalContext->tagFilterStackTop - 1];
 }
 
-static picoLogTarget __picoLogGetCurrentTarget()
+static picoLogTarget __picoLogGetCurrentTarget(void)
 {
     if (__picoLogGlobalContext == NULL || __picoLogGlobalContext->targetStackTop == 0) {
         return PICO_LOG_TARGET_CONSOLE;
@@ -275,7 +275,7 @@ static picoLogTarget __picoLogGetCurrentTarget()
     return __picoLogGlobalContext->targetStack[__picoLogGlobalContext->targetStackTop - 1];
 }
 
-static picoLogFormat __picoLogGetCurrentFormat()
+static picoLogFormat __picoLogGetCurrentFormat(void)
 {
     if (__picoLogGlobalContext == NULL || __picoLogGlobalContext->formatStackTop == 0) {
         return PICO_LOG_FORMAT_DEFAULT;
@@ -465,7 +465,7 @@ static const char *__picoLogFormatMessage(picoLogEntry entry)
     return formattedMessage;
 }
 
-bool picoLogContextCreate()
+bool picoLogContextCreate(void)
 {
     if (__picoLogGlobalContext != NULL) {
         PICO_WARN("picoLogContextCreate called but context already exists");
@@ -493,7 +493,7 @@ bool picoLogContextCreate()
     return true;
 }
 
-void picoLogShutdown()
+void picoLogShutdown(void)
 {
     if (__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogShutdown called but context is NULL");
@@ -504,7 +504,7 @@ void picoLogShutdown()
     __picoLogGlobalContext = NULL;
 }
 
-picoLogContext picoLogGetContext()
+picoLogContext picoLogGetContext(void)
 {
     return __picoLogGlobalContext;
 }
@@ -532,7 +532,7 @@ void picoLogPushLevel(picoLogLevel level)
     __picoLogGlobalContext->levelStack[__picoLogGlobalContext->levelStackTop++] = level;
 }
 
-void picoLogPopLevel()
+void picoLogPopLevel(void)
 {
     if (__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPopLevel called but context is NULL");
@@ -559,7 +559,7 @@ void picoLogPushTagFilter(const char *tags)
     __picoLogGlobalContext->tagFilterStack[__picoLogGlobalContext->tagFilterStackTop - 1][255] = '\0';
 }
 
-void picoLogPopTagFilter()
+void picoLogPopTagFilter(void)
 {
     if (__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPopTagFilter called but context is NULL");
@@ -585,7 +585,7 @@ void picoLogPushTarget(picoLogTarget target)
     __picoLogGlobalContext->targetStack[__picoLogGlobalContext->targetStackTop++] = target;
 }
 
-void picoLogPopTarget()
+void picoLogPopTarget(void)
 {
     if (__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPopTarget called but context is NULL");
@@ -611,7 +611,7 @@ void picoLogPushFormat(picoLogFormat format)
     __picoLogGlobalContext->formatStack[__picoLogGlobalContext->formatStackTop++] = format;
 }
 
-void picoLogPopFormat()
+void picoLogPopFormat(void)
 {
     if (__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPopFormat called but context is NULL");
@@ -639,7 +639,7 @@ void picoLogPushCustomLogger(picoLogCustomLogger logger, void *userData)
     __picoLogGlobalContext->customLoggerStackTop++;
 }
 
-void picoLogPopCustomLogger()
+void picoLogPopCustomLogger(void)
 {
     if (__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPopCustomLogger called but context is NULL");
@@ -666,7 +666,7 @@ void picoLogPushFileLogger(const char *filePath)
     __picoLogGlobalContext->logFilePaths[__picoLogGlobalContext->logFilesStackTop - 1][PICO_LOG_MAX_PATH - 1] = '\0';
 }
 
-void picoLogPopFileLogger()
+void picoLogPopFileLogger(void)
 {
     if (__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPopFileLogger called but context is NULL");
@@ -679,7 +679,7 @@ void picoLogPopFileLogger()
     __picoLogGlobalContext->logFilesStackTop--;
 }
 
-void picoLogPushFromEnvironment()
+void picoLogPushFromEnvironment(void)
 {
     if (__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPushFromEnvironment called but context is NULL");

@@ -2549,6 +2549,8 @@ picoM3U8Result __picoM3U8MediaPlaylistParse(__picoM3U8ParserContext context, pic
         }
     }
 
+    (void)endlistFound; // currently not used, but could be stored in playlistOut if needed
+
     // Target Duration is required
     if (!hasTargetDuration) {
         result = PICO_M3U8_RESULT_ERROR_INVALID_PLAYLIST;

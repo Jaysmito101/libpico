@@ -43,21 +43,21 @@ SOFTWARE.
 #define PICO_PERF_MAX_NAME_LENGTH 64
 #endif
 
-#if defined(_MSC_VER)
-#define PICO_PERF_FUNC     __FUNCSIG__
+#if defined(__clang__) || defined(__APPLE__)
+#define PICO_PERF_FUNC     __func__
 #define PICO_PERF_FILE     __FILE__
 #define PICO_PERF_LINE     __LINE__
-#define PICO_PERF_FILENAME (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
+#define PICO_PERF_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #elif defined(__GNUC__) || defined(__MINGW32__) || defined(__MINGW64__)
 #define PICO_PERF_FUNC     __func__
 #define PICO_PERF_FILE     __FILE__
 #define PICO_PERF_LINE     __LINE__
 #define PICO_PERF_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-#elif defined(__clang__) || defined(__APPLE__)
-#define PICO_PERF_FUNC     __func__
+#elif  defined(_MSC_VER)
+#define PICO_PERF_FUNC     __FUNCSIG__
 #define PICO_PERF_FILE     __FILE__
 #define PICO_PERF_LINE     __LINE__
-#define PICO_PERF_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+#define PICO_PERF_FILENAME (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
 #else
 #error "Unsupported compiler"
 #endif
@@ -110,14 +110,14 @@ typedef picoPerfContext_t *picoPerfContext;
 
 typedef uint64_t picoPerfTime;
 
-bool picoPerfCreateContext();
-void picoPerfDestroyContext();
-picoPerfContext picoPerfGetContext();
+bool picoPerfCreateContext(void);
+void picoPerfDestroyContext(void);
+picoPerfContext picoPerfGetContext(void);
 void picoPerfSetContext(picoPerfContext context);
 
-picoPerfTimeStamp picoPerfGetCurrentTimestamp();
-picoPerfTime picoPerfNow();
-uint64_t picoPerfFrequency(); // ticks per second
+picoPerfTimeStamp picoPerfGetCurrentTimestamp(void);
+picoPerfTime picoPerfNow(void);
+uint64_t picoPerfFrequency(void); // ticks per second
 double picoPerfDurationSeconds(picoPerfTime start, picoPerfTime end);
 double picoPerfDurationMilliseconds(picoPerfTime start, picoPerfTime end);
 double picoPerfDurationMicroseconds(picoPerfTime start, picoPerfTime end);
@@ -125,8 +125,8 @@ double picoPerfDurationNanoseconds(picoPerfTime start, picoPerfTime end);
 void picoPerfFormatDuration(picoPerfTime duration, char *buffer, size_t bufferSize);
 void picoPerfSleep(uint32_t milliseconds);
 
-bool picoPerfBeginRecord();
-void picoPerfEndRecord();
+bool picoPerfBeginRecord(void);
+void picoPerfEndRecord(void);
 
 void picoPerfPushScope(const char *name, const char *file, const char *function, uint32_t line);
 void picoPerfPopScope(const char *file, const char *function, uint32_t line);
@@ -453,7 +453,7 @@ static void __picoPerfGetReportXML(FILE *output)
     fprintf(output, "</PicoPerfReport>\n");
 }
 
-bool picoPerfCreateContext()
+bool picoPerfCreateContext(void)
 {
     if (__picoPerfGlobalContext != NULL) {
         return false;
@@ -475,7 +475,7 @@ bool picoPerfCreateContext()
     return true;
 }
 
-void picoPerfDestroyContext()
+void picoPerfDestroyContext(void)
 {
     if (!__picoPerfGlobalContext) {
         return;
@@ -486,7 +486,7 @@ void picoPerfDestroyContext()
     __picoPerfGlobalContext = NULL;
 }
 
-picoPerfContext picoPerfGetContext()
+picoPerfContext picoPerfGetContext(void)
 {
     return __picoPerfGlobalContext;
 }
@@ -500,7 +500,7 @@ void picoPerfSetContext(picoPerfContext context)
     __picoPerfGlobalContext = context;
 }
 
-picoPerfTimeStamp picoPerfGetCurrentTimestamp()
+picoPerfTimeStamp picoPerfGetCurrentTimestamp(void)
 {
     picoPerfTimeStamp ts = {0};
 #if defined(_WIN32) || defined(_WIN64)
@@ -533,7 +533,7 @@ picoPerfTimeStamp picoPerfGetCurrentTimestamp()
     return ts;
 }
 
-picoPerfTime picoPerfNow()
+picoPerfTime picoPerfNow(void)
 {
 #if defined(_WIN32) || defined(_WIN64)
     LARGE_INTEGER counter;
@@ -548,7 +548,7 @@ picoPerfTime picoPerfNow()
 #endif
 }
 
-uint64_t picoPerfFrequency()
+uint64_t picoPerfFrequency(void)
 {
 #if defined(_WIN32) || defined(_WIN64)
     LARGE_INTEGER freq;
@@ -624,7 +624,7 @@ void picoPerfSleep(uint32_t milliseconds)
 #endif
 }
 
-bool picoPerfBeginRecord()
+bool picoPerfBeginRecord(void)
 {
     if (!__picoPerfGlobalContext || __picoPerfGlobalContext->recording) {
         return false;
@@ -643,7 +643,7 @@ bool picoPerfBeginRecord()
     return true;
 }
 
-void picoPerfEndRecord()
+void picoPerfEndRecord(void)
 {
     if (!__picoPerfGlobalContext || !__picoPerfGlobalContext->recording) {
         return;
