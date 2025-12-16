@@ -32,8 +32,11 @@ SOFTWARE.
 
 #ifndef PICO_MALLOC
 #define PICO_MALLOC  malloc
-#define PICO_REALLOC realloc
 #define PICO_FREE    free
+#endif
+
+#ifndef PICO_REALLOC
+#define PICO_REALLOC realloc
 #endif
 
 #ifndef PICO_M3U8_LOG
