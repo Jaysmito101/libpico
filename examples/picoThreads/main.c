@@ -430,6 +430,237 @@ void demonstrateThreadPool(void)
     printf("Thread pool destroyed successfully!\n");
 }
 
+void channelSender(void *arg)
+{
+    picoThreadChannel channel = (picoThreadChannel)arg;
+    
+    for (int i = 1; i <= 10; i++) {
+        printf("[Sender %" PRIu64 "] Sending value: %d\n", 
+               (uint64_t)picoThreadGetCurrentId(), i);
+        
+        if (picoThreadChannelSend(channel, &i)) {
+            printf("[Sender %" PRIu64 "] Successfully sent: %d (pending: %u)\n",
+                   (uint64_t)picoThreadGetCurrentId(), i,
+                   picoThreadChannelGetPendingItemCount(channel));
+        } else {
+            printf("[Sender %" PRIu64 "] Failed to send: %d\n",
+                   (uint64_t)picoThreadGetCurrentId(), i);
+        }
+        
+        picoThreadSleep(100);
+    }
+    
+    printf("[Sender %" PRIu64 "] Finished sending!\n", 
+           (uint64_t)picoThreadGetCurrentId());
+}
+
+void channelReceiver(void *arg)
+{
+    picoThreadChannel channel = (picoThreadChannel)arg;
+    
+    for (int i = 0; i < 10; i++) {
+        int value = 0;
+        printf("[Receiver %" PRIu64 "] Waiting for value...\n",
+               (uint64_t)picoThreadGetCurrentId());
+        
+        if (picoThreadChannelReceive(channel, &value, 5000)) {
+            printf("[Receiver %" PRIu64 "] Received: %d (pending: %u)\n",
+                   (uint64_t)picoThreadGetCurrentId(), value,
+                   picoThreadChannelGetPendingItemCount(channel));
+        } else {
+            printf("[Receiver %" PRIu64 "] Timeout waiting for value\n",
+                   (uint64_t)picoThreadGetCurrentId());
+        }
+        
+        picoThreadSleep(150);
+    }
+    
+    printf("[Receiver %" PRIu64 "] Finished receiving!\n",
+           (uint64_t)picoThreadGetCurrentId());
+}
+
+void demonstrateBoundedChannel(void)
+{
+    printf("Bounded Channel Communication\n");
+    
+    const uint32_t capacity = 5;
+    picoThreadChannel channel = picoThreadChannelCreateBounded(capacity, sizeof(int));
+    
+    if (!channel) {
+        printf("Failed to create bounded channel!\n");
+        return;
+    }
+    
+    printf("Created bounded channel (capacity: %u, item size: %zu bytes)\n",
+           picoThreadChannelGetCapacity(channel), sizeof(int));
+    
+    picoThread sender = picoThreadCreate(channelSender, channel);
+    picoThread receiver = picoThreadCreate(channelReceiver, channel);
+    
+    picoThreadJoin(sender, PICO_THREAD_INFINITE);
+    picoThreadJoin(receiver, PICO_THREAD_INFINITE);
+    
+    picoThreadDestroy(sender);
+    picoThreadDestroy(receiver);
+    
+    printf("Final pending items: %u\n", picoThreadChannelGetPendingItemCount(channel));
+    
+    picoThreadChannelDestroy(channel);
+    printf("Bounded channel demonstration completed!\n");
+}
+
+void unboundedChannelProducer(void *arg)
+{
+    picoThreadChannel channel = (picoThreadChannel)arg;
+    
+    for (int i = 1; i <= 20; i++) {
+        printf("[Producer] Sending item %d\n", i);
+        picoThreadChannelSend(channel, &i);
+        picoThreadSleep(50);
+    }
+    
+    // Send sentinel value to signal completion
+    int sentinel = -1;
+    picoThreadChannelSend(channel, &sentinel);
+    printf("[Producer] Sent sentinel value, done!\n");
+}
+
+void unboundedChannelConsumer(void *arg)
+{
+    picoThreadChannel channel = (picoThreadChannel)arg;
+    int itemsConsumed = 0;
+    
+    picoThreadSleep(500); // Start late to allow buffer to fill
+    
+    while (true) {
+        int value = 0;
+        
+        if (picoThreadChannelTryReceive(channel, &value)) {
+            if (value == -1) {
+                printf("[Consumer] Received sentinel, stopping...\n");
+                break;
+            }
+            itemsConsumed++;
+            printf("[Consumer] Consumed: %d (total: %d, pending: %u)\n",
+                   value, itemsConsumed, picoThreadChannelGetPendingItemCount(channel));
+        } else {
+            printf("[Consumer] No items available, waiting...\n");
+            picoThreadSleep(100);
+        }
+    }
+    
+    printf("[Consumer] Consumed %d items total!\n", itemsConsumed);
+}
+
+void demonstrateUnboundedChannel(void)
+{
+    printf("Unbounded Channel Communication\n");
+    
+    picoThreadChannel channel = picoThreadChannelCreateUnbounded(sizeof(int));
+    
+    if (!channel) {
+        printf("Failed to create unbounded channel!\n");
+        return;
+    }
+    
+    printf("Created unbounded channel (item size: %zu bytes)\n", sizeof(int));
+    
+    picoThread producer = picoThreadCreate(unboundedChannelProducer, channel);
+    picoThread consumer = picoThreadCreate(unboundedChannelConsumer, channel);
+    
+    picoThreadJoin(producer, PICO_THREAD_INFINITE);
+    picoThreadJoin(consumer, PICO_THREAD_INFINITE);
+    
+    picoThreadDestroy(producer);
+    picoThreadDestroy(consumer);
+    
+    picoThreadChannelDestroy(channel);
+    printf("Unbounded channel demonstration completed!\n");
+}
+
+typedef struct {
+    int workerId;
+    char message[64];
+    uint64_t timestamp;
+} WorkMessage;
+
+void multiChannelWorker(void *arg)
+{
+    picoThreadChannel channel = (picoThreadChannel)arg;
+    int workerId = (int)(picoThreadGetCurrentId() % 1000);
+    
+    for (int i = 0; i < 5; i++) {
+        WorkMessage msg;
+        msg.workerId = workerId;
+        msg.timestamp = (uint64_t)(i * 100);
+        snprintf(msg.message, sizeof(msg.message), "Task %d from worker %d", i + 1, workerId);
+        
+        printf("[Worker %d] Sending: %s\n", workerId, msg.message);
+        picoThreadChannelSend(channel, &msg);
+        
+        picoThreadSleep(100 + (workerId % 3) * 50);
+    }
+}
+
+void multiChannelCollector(void *arg)
+{
+    picoThreadChannel channel = (picoThreadChannel)arg;
+    int totalReceived = 0;
+    int consecutiveTimeouts = 0;
+    
+    while (consecutiveTimeouts < 3) {
+        WorkMessage msg;
+        
+        if (picoThreadChannelReceive(channel, &msg, 500)) {
+            totalReceived++;
+            consecutiveTimeouts = 0;
+            printf("[Collector] Received from worker %d: %s (timestamp: %" PRIu64 ")\n",
+                   msg.workerId, msg.message, msg.timestamp);
+        } else {
+            consecutiveTimeouts++;
+            printf("[Collector] Timeout %d/3, pending: %u\n",
+                   consecutiveTimeouts, picoThreadChannelGetPendingItemCount(channel));
+        }
+    }
+    
+    printf("[Collector] Collected %d messages total!\n", totalReceived);
+}
+
+void demonstrateMultipleProducers(void)
+{
+    printf("Multiple Producers, Single Consumer Pattern\n");
+    
+    picoThreadChannel channel = picoThreadChannelCreateBounded(10, sizeof(WorkMessage));
+    
+    if (!channel) {
+        printf("Failed to create channel!\n");
+        return;
+    }
+    
+    printf("Created channel for WorkMessage (size: %zu bytes)\n", sizeof(WorkMessage));
+    
+    const int workerCount = 4;
+    picoThread workers[4];
+    
+    picoThread collector = picoThreadCreate(multiChannelCollector, channel);
+    
+    for (int i = 0; i < workerCount; i++) {
+        workers[i] = picoThreadCreate(multiChannelWorker, channel);
+        picoThreadSleep(50);
+    }
+    
+    for (int i = 0; i < workerCount; i++) {
+        picoThreadJoin(workers[i], PICO_THREAD_INFINITE);
+        picoThreadDestroy(workers[i]);
+    }
+    
+    picoThreadJoin(collector, PICO_THREAD_INFINITE);
+    picoThreadDestroy(collector);
+    
+    picoThreadChannelDestroy(channel);
+    printf("Multiple producers demonstration completed!\n");
+}
+
 int main(void)
 {
     printf("Hello, Pico!\n");
@@ -441,6 +672,9 @@ int main(void)
     demonstrateYieldAndSleep();
     demonstrateProducerConsumer();
     demonstrateThreadPool();
+    demonstrateBoundedChannel();
+    demonstrateUnboundedChannel();
+    demonstrateMultipleProducers();
 
     printf("Goodbye, Pico!\n");
     return 0;
