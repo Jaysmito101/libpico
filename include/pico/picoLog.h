@@ -44,36 +44,32 @@ SOFTWARE.
 #define PICO_FREE(ptr)  free(ptr)
 #endif
 
-
-
 #if defined(__clang__) || defined(__APPLE__)
-#define PICO_LOG_FUNC __func__ 
-#define PICO_LOG_FILE __FILE__
-#define PICO_LOG_LINE __LINE__
+#define PICO_LOG_FUNC     __func__
+#define PICO_LOG_FILE     __FILE__
+#define PICO_LOG_LINE     __LINE__
 #define PICO_LOG_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #elif defined(__GNUC__) || defined(__MINGW32__) || defined(__MINGW64__)
-#define PICO_LOG_FUNC __func__ 
-#define PICO_LOG_FILE __FILE__
-#define PICO_LOG_LINE __LINE__
+#define PICO_LOG_FUNC     __func__
+#define PICO_LOG_FILE     __FILE__
+#define PICO_LOG_LINE     __LINE__
 #define PICO_LOG_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #elif defined(_MSC_VER)
-#define PICO_LOG_FUNC __FUNCSIG__
-#define PICO_LOG_FILE __FILE__
-#define PICO_LOG_LINE __LINE__
+#define PICO_LOG_FUNC     __FUNCSIG__
+#define PICO_LOG_FILE     __FILE__
+#define PICO_LOG_LINE     __LINE__
 #define PICO_LOG_FILENAME (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
 #else
 #error "Unsupported compiler"
 #endif
 
-
 // To tag a translation unit do the following at the top of the file before including picolog:
-// #define PICO_LOG_TAG "MyTag" 
+// #define PICO_LOG_TAG "MyTag"
 // other wise it will try to figure out the tag from the file name
 
 #ifndef PICO_LOG_TAG
 #define PICO_LOG_TAG PICO_LOG_FILENAME
 #endif
-
 
 #define PICO_LOG(level, ...) PICO_LOG_IF_ENABLED(picoLog(level, PICO_LOG_TAG, PICO_LOG_FILE, PICO_LOG_FUNC, PICO_LOG_LINE, __VA_ARGS__))
 #define PICO_DEBUG(...)      PICO_LOG(PICO_LOG_LEVEL_DEBUG, __VA_ARGS__)
@@ -82,8 +78,8 @@ SOFTWARE.
 #define PICO_WARN(...)       PICO_LOG(PICO_LOG_LEVEL_WARN, __VA_ARGS__)
 #define PICO_ERROR(...)      PICO_LOG(PICO_LOG_LEVEL_ERROR, __VA_ARGS__)
 
-#define PICO_LOG_INIT()        PICO_LOG_IF_ENABLED(picoLogContextCreate())
-#define PICO_LOG_SHUTDOWN()    PICO_LOG_IF_ENABLED(picoLogShutdown())
+#define PICO_LOG_INIT()      PICO_LOG_IF_ENABLED(picoLogContextCreate())
+#define PICO_LOG_SHUTDOWN()  PICO_LOG_IF_ENABLED(picoLogShutdown())
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -179,6 +175,9 @@ picoLogTarget picoLogStringToTarget(const char *targetStr);
 #else
 #include <limits.h>
 #include <sys/time.h>
+#ifdef PICO_LOG_THREAD_SAFE
+#include <pthread.h>
+#endif
 #define PICO_LOG_MAX_PATH PATH_MAX
 #endif
 
@@ -187,6 +186,28 @@ picoLogTarget picoLogStringToTarget(const char *targetStr);
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#ifdef PICO_LOG_THREAD_SAFE
+#if defined(_WIN32) || defined(_WIN64)
+#define PICO_LOG_MUTEX_TYPE                    CRITICAL_SECTION
+#define PICO_LOG_INIT_MUTEX(mutex)             InitializeCriticalSection(&(mutex))
+#define PICO_LOG_DESTROY_MUTEX(mutex)          DeleteCriticalSection(&(mutex))
+#define PICO_LOG_BEGIN_CRITICAL_SECTION(mutex) EnterCriticalSection(&(mutex))
+#define PICO_LOG_END_CRITICAL_SECTION(mutex)   LeaveCriticalSection(&(mutex))
+#else
+#define PICO_LOG_MUTEX_TYPE                    pthread_mutex_t
+#define PICO_LOG_INIT_MUTEX(mutex)             pthread_mutex_init(&(mutex), NULL)
+#define PICO_LOG_DESTROY_MUTEX(mutex)          pthread_mutex_destroy(&(mutex))
+#define PICO_LOG_BEGIN_CRITICAL_SECTION(mutex) pthread_mutex_lock(&(mutex))
+#define PICO_LOG_END_CRITICAL_SECTION(mutex)   pthread_mutex_unlock(&(mutex))
+#endif
+#else
+#define PICO_LOG_MUTEX_TYPE                    int
+#define PICO_LOG_INIT_MUTEX(mutex)             (void)0
+#define PICO_LOG_DESTROY_MUTEX(mutex)          (void)0
+#define PICO_LOG_BEGIN_CRITICAL_SECTION(mutex) (void)0
+#define PICO_LOG_END_CRITICAL_SECTION(mutex)   (void)0
+#endif
 
 struct picoLogContext_t {
     picoLogLevel levelStack[PICO_LOG_CONFIG_STACK_SIZE];
@@ -207,6 +228,8 @@ struct picoLogContext_t {
 
     char logFilePaths[PICO_LOG_CONFIG_STACK_SIZE][PICO_LOG_MAX_PATH];
     uint32_t logFilesStackTop;
+
+    PICO_LOG_MUTEX_TYPE mutex;
 };
 
 typedef struct
@@ -375,12 +398,12 @@ static void __picoLogDispatchToConsoleLoggers(picoLogEntry entry)
     }
 
 #elif defined(__unix__) || defined(__APPLE__)
-    const char *colorReset   = "\033[0m";
-    const char *colorRed     = "\033[31m";
-    const char *colorYellow  = "\033[33m";
-    const char *colorGreen   = "\033[32m";
-    const char *colorCyan    = "\033[36m";
-    const char *colorBlue    = "\033[34m";
+    const char *colorReset  = "\033[0m";
+    const char *colorRed    = "\033[31m";
+    const char *colorYellow = "\033[33m";
+    const char *colorGreen  = "\033[32m";
+    const char *colorCyan   = "\033[36m";
+    const char *colorBlue   = "\033[34m";
 
     switch (entry->level) {
         case PICO_LOG_LEVEL_DEBUG:
@@ -402,7 +425,7 @@ static void __picoLogDispatchToConsoleLoggers(picoLogEntry entry)
             fprintf(stdout, "%s\n", entry->message);
             break;
     }
-#else 
+#else
 #warning "Unsupported platform for console colors"
     if (entry->level & PICO_LOG_LEVEL_ERROR) {
         fprintf(stderr, "%s", entry->message);
@@ -415,7 +438,7 @@ static void __picoLogDispatchToConsoleLoggers(picoLogEntry entry)
 static const char *__picoLogFormatMessage(picoLogEntry entry)
 {
     static char formattedMessage[PICO_LOG_MAX_MESSAGE_LENGTH * 2] = {0};
-    picoLogFormat format = __picoLogGetCurrentFormat();
+    picoLogFormat format                                          = __picoLogGetCurrentFormat();
     switch (format) {
         case PICO_LOG_FORMAT_DEFAULT:
             snprintf(formattedMessage, sizeof(formattedMessage), "[%04u-%02u-%02u %02u:%02u:%02u.%03u] [%s] [%s]: %s",
@@ -490,6 +513,8 @@ bool picoLogContextCreate(void)
     __picoLogGlobalContext->formatStack[0] = PICO_LOG_FORMAT_DEFAULT;
     __picoLogGlobalContext->formatStackTop = 1;
 
+    PICO_LOG_INIT_MUTEX(__picoLogGlobalContext->mutex);
+
     return true;
 }
 
@@ -499,6 +524,8 @@ void picoLogShutdown(void)
         PICO_WARN("picoLogShutdown called but context is NULL");
         return;
     }
+
+    PICO_LOG_DESTROY_MUTEX(__picoLogGlobalContext->mutex);
 
     PICO_FREE(__picoLogGlobalContext);
     __picoLogGlobalContext = NULL;
@@ -525,11 +552,14 @@ void picoLogPushLevel(picoLogLevel level)
         PICO_WARN("picoLogPushLevel called but context is NULL");
         return;
     }
+    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
     if (__picoLogGlobalContext->levelStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
         PICO_ERROR("picoLogPushLevel stack overflow");
+        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
         return;
     }
     __picoLogGlobalContext->levelStack[__picoLogGlobalContext->levelStackTop++] = level;
+    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
 }
 
 void picoLogPopLevel(void)
@@ -538,11 +568,14 @@ void picoLogPopLevel(void)
         PICO_WARN("picoLogPopLevel called but context is NULL");
         return;
     }
+    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
     if (__picoLogGlobalContext->levelStackTop == 0) {
         PICO_ERROR("picoLogPopLevel stack underflow");
+        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
         return;
     }
     __picoLogGlobalContext->levelStackTop--;
+    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
 }
 
 void picoLogPushTagFilter(const char *tags)
@@ -551,12 +584,15 @@ void picoLogPushTagFilter(const char *tags)
         PICO_WARN("picoLogPushTagFilter called but context is NULL");
         return;
     }
+    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
     if (__picoLogGlobalContext->tagFilterStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
         PICO_ERROR("picoLogPushTagFilter stack overflow");
+        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
         return;
     }
     strncpy(__picoLogGlobalContext->tagFilterStack[__picoLogGlobalContext->tagFilterStackTop++], tags, 255);
     __picoLogGlobalContext->tagFilterStack[__picoLogGlobalContext->tagFilterStackTop - 1][255] = '\0';
+    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
 }
 
 void picoLogPopTagFilter(void)
@@ -565,11 +601,14 @@ void picoLogPopTagFilter(void)
         PICO_WARN("picoLogPopTagFilter called but context is NULL");
         return;
     }
+    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
     if (__picoLogGlobalContext->tagFilterStackTop == 0) {
         PICO_ERROR("picoLogPopTagFilter stack underflow");
+        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
         return;
     }
     __picoLogGlobalContext->tagFilterStackTop--;
+    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
 }
 
 void picoLogPushTarget(picoLogTarget target)
@@ -578,11 +617,14 @@ void picoLogPushTarget(picoLogTarget target)
         PICO_WARN("picoLogPushTarget called but context is NULL");
         return;
     }
+    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
     if (__picoLogGlobalContext->targetStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
         PICO_ERROR("picoLogPushTarget stack overflow");
+        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
         return;
     }
     __picoLogGlobalContext->targetStack[__picoLogGlobalContext->targetStackTop++] = target;
+    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
 }
 
 void picoLogPopTarget(void)
@@ -591,11 +633,14 @@ void picoLogPopTarget(void)
         PICO_WARN("picoLogPopTarget called but context is NULL");
         return;
     }
+    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
     if (__picoLogGlobalContext->targetStackTop == 0) {
         PICO_ERROR("picoLogPopTarget stack underflow");
+        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
         return;
     }
     __picoLogGlobalContext->targetStackTop--;
+    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
 }
 
 void picoLogPushFormat(picoLogFormat format)
@@ -604,11 +649,14 @@ void picoLogPushFormat(picoLogFormat format)
         PICO_WARN("picoLogPushFormat called but context is NULL");
         return;
     }
+    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
     if (__picoLogGlobalContext->formatStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
         PICO_ERROR("picoLogPushFormat stack overflow");
+        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
         return;
     }
     __picoLogGlobalContext->formatStack[__picoLogGlobalContext->formatStackTop++] = format;
+    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
 }
 
 void picoLogPopFormat(void)
@@ -617,11 +665,14 @@ void picoLogPopFormat(void)
         PICO_WARN("picoLogPopFormat called but context is NULL");
         return;
     }
+    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
     if (__picoLogGlobalContext->formatStackTop == 0) {
         PICO_ERROR("picoLogPopFormat stack underflow");
+        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
         return;
     }
     __picoLogGlobalContext->formatStackTop--;
+    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
 }
 
 void picoLogPushCustomLogger(picoLogCustomLogger logger, void *userData)
@@ -630,13 +681,16 @@ void picoLogPushCustomLogger(picoLogCustomLogger logger, void *userData)
         PICO_WARN("picoLogPushCustomLogger called but context is NULL");
         return;
     }
+    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
     if (__picoLogGlobalContext->customLoggerStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
         PICO_ERROR("picoLogPushCustomLogger stack overflow");
+        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
         return;
     }
     __picoLogGlobalContext->customLoggerStack[__picoLogGlobalContext->customLoggerStackTop]         = logger;
     __picoLogGlobalContext->customLoggerUserDataStack[__picoLogGlobalContext->customLoggerStackTop] = userData;
     __picoLogGlobalContext->customLoggerStackTop++;
+    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
 }
 
 void picoLogPopCustomLogger(void)
@@ -645,11 +699,14 @@ void picoLogPopCustomLogger(void)
         PICO_WARN("picoLogPopCustomLogger called but context is NULL");
         return;
     }
+    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
     if (__picoLogGlobalContext->customLoggerStackTop == 0) {
         PICO_ERROR("picoLogPopCustomLogger stack underflow");
+        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
         return;
     }
     __picoLogGlobalContext->customLoggerStackTop--;
+    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
 }
 
 void picoLogPushFileLogger(const char *filePath)
@@ -658,12 +715,15 @@ void picoLogPushFileLogger(const char *filePath)
         PICO_WARN("picoLogPushFileLogger called but context is NULL");
         return;
     }
+    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
     if (__picoLogGlobalContext->logFilesStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
         PICO_ERROR("picoLogPushFileLogger stack overflow");
+        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
         return;
     }
     strncpy(__picoLogGlobalContext->logFilePaths[__picoLogGlobalContext->logFilesStackTop++], filePath, PICO_LOG_MAX_PATH - 1);
     __picoLogGlobalContext->logFilePaths[__picoLogGlobalContext->logFilesStackTop - 1][PICO_LOG_MAX_PATH - 1] = '\0';
+    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
 }
 
 void picoLogPopFileLogger(void)
@@ -672,11 +732,14 @@ void picoLogPopFileLogger(void)
         PICO_WARN("picoLogPopFileLogger called but context is NULL");
         return;
     }
+    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
     if (__picoLogGlobalContext->logFilesStackTop == 0) {
         PICO_ERROR("picoLogPopFileLogger stack underflow");
+        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
         return;
     }
     __picoLogGlobalContext->logFilesStackTop--;
+    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
 }
 
 void picoLogPushFromEnvironment(void)
@@ -722,14 +785,18 @@ void picoLog(picoLogLevel level, const char *tag, const char *file, const char *
         return;
     }
 
+    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+
     static char messageBuffer[PICO_LOG_MAX_MESSAGE_LENGTH];
 
     if (!(level & __picoLogGetCurrentLevel())) {
+        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
         return;
     }
 
     const char *currentTagFilter = __picoLogGetCurrentTagFilter();
     if (currentTagFilter[0] != '\0' && tag != NULL && strstr(currentTagFilter, tag) == NULL) {
+        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
         return;
     }
 
@@ -753,6 +820,8 @@ void picoLog(picoLogLevel level, const char *tag, const char *file, const char *
 
     // Clear message buffer for next use
     messageBuffer[0] = '\0';
+
+    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
 }
 
 const char *picoLogLevelToString(picoLogLevel level)
