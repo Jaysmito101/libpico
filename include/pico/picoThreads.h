@@ -58,7 +58,7 @@ SOFTWARE.
 
 #ifndef PICO_THREAD_NO_CHANNELS
 
-#ifndef PICO_THREAD_CHANNELS_POLL_INTERVAL_MS 
+#ifndef PICO_THREAD_CHANNELS_POLL_INTERVAL_MS
 #define PICO_THREAD_CHANNELS_POLL_INTERVAL_MS 10
 #endif
 
@@ -115,7 +115,7 @@ void picoThreadMutexUnlock(picoThreadMutex mutex);
 picoThreadPool picoThreadPoolCreate(uint32_t threadCount);
 void picoThreadPoolDestroy(picoThreadPool pool);
 // This method will wait if the task queue is full
-void picoThreadPoolAddTask(picoThreadPool pool, picoThreadFunction function, void *arg, uint32_t timeoutMilliseconds); 
+void picoThreadPoolAddTask(picoThreadPool pool, picoThreadFunction function, void *arg, uint32_t timeoutMilliseconds);
 void picoThreadPoolWaitAll(picoThreadPool pool);
 // void picoThreadPoolForEach(picoThreadPool pool, void **items, uint32_t itemCount, void (*function)(void *item, void *userData), void *userData);
 uint32_t picoThreadPoolGetThreadCount(picoThreadPool pool);
@@ -134,6 +134,8 @@ bool picoThreadChannelReceive(picoThreadChannel channel, void *outItem, uint32_t
 bool picoThreadChannelTryReceive(picoThreadChannel channel, void *outItem);
 uint32_t picoThreadChannelGetPendingItemCount(picoThreadChannel channel);
 uint32_t picoThreadChannelGetCapacity(picoThreadChannel channel);
+void picoThreadChannelFlush(picoThreadChannel channel);
+void picoThreadChannelSetItemDestructor(picoThreadChannel channel, void (*destructor)(void *item, void *context), void *context);
 
 #endif // PICO_THREAD_NO_CHANNELS
 
@@ -322,7 +324,6 @@ void picoThreadMutexUnlock(picoThreadMutex mutex)
 #include <time.h>
 #include <unistd.h>
 
-
 struct picoThread_t {
     pthread_t handle;
     bool joinable;
@@ -335,7 +336,7 @@ struct picoThreadMutex_t {
     pthread_mutex_t mutex;
 };
 
-static void* __picoThreadFunctionWrapper(void *arg)
+static void *__picoThreadFunctionWrapper(void *arg)
 {
     picoThread thread = (picoThread)arg;
     thread->isAlive   = true;
@@ -568,7 +569,6 @@ static void __picoThreadPoolWorker(void *arg)
             picoThreadSleep(10); // Sleep briefly if no task
         }
     }
-
 }
 
 picoThreadPool picoThreadPoolCreate(uint32_t threadCount)
@@ -591,11 +591,11 @@ picoThreadPool picoThreadPoolCreate(uint32_t threadCount)
     }
 
     for (uint32_t i = 0; i < threadCount; i++) {
-        pool->workerArgs[i].pool  = pool;
-        pool->workerArgs[i].index = i;
+        pool->workerArgs[i].pool    = pool;
+        pool->workerArgs[i].index   = i;
         pool->workerArgs[i].running = true;
-        pool->threads[i] = picoThreadCreate(__picoThreadPoolWorker, &pool->workerArgs[i]);
-        pool->busy[i]    = false;
+        pool->threads[i]            = picoThreadCreate(__picoThreadPoolWorker, &pool->workerArgs[i]);
+        pool->busy[i]               = false;
     }
 
     return pool;
@@ -709,6 +709,8 @@ struct picoThreadChannel_t {
     uint32_t count;
     picoThreadMutex mutex;
     bool isBounded;
+    void (*itemDestructor)(void *item, void *context);
+    void *destructorContext;
 };
 
 picoThreadChannel picoThreadChannelCreateBounded(uint32_t capacity, uint32_t itemSize)
@@ -722,17 +724,19 @@ picoThreadChannel picoThreadChannelCreateBounded(uint32_t capacity, uint32_t ite
         return NULL;
     }
 
-    channel->buffer   = (uint8_t *)PICO_MALLOC(capacity * itemSize);
+    channel->buffer = (uint8_t *)PICO_MALLOC(capacity * itemSize);
     if (!channel->buffer) {
         PICO_FREE(channel);
         return NULL;
     }
 
-    channel->capacity  = capacity;
-    channel->itemSize  = itemSize;
-    channel->count     = 0;
-    channel->mutex     = picoThreadMutexCreate();
-    channel->isBounded = true;
+    channel->capacity          = capacity;
+    channel->itemSize          = itemSize;
+    channel->count             = 0;
+    channel->mutex             = picoThreadMutexCreate();
+    channel->isBounded         = true;
+    channel->itemDestructor    = NULL;
+    channel->destructorContext = NULL;
 
     return channel;
 }
@@ -748,12 +752,14 @@ picoThreadChannel picoThreadChannelCreateUnbounded(uint32_t itemSize)
         return NULL;
     }
 
-    channel->buffer   = NULL;
-    channel->capacity  = 0;
-    channel->itemSize  = itemSize;
-    channel->count     = 0;
-    channel->mutex     = picoThreadMutexCreate();
-    channel->isBounded = false;
+    channel->buffer            = NULL;
+    channel->capacity          = 0;
+    channel->itemSize          = itemSize;
+    channel->count             = 0;
+    channel->mutex             = picoThreadMutexCreate();
+    channel->isBounded         = false;
+    channel->itemDestructor    = NULL;
+    channel->destructorContext = NULL;
 
     return channel;
 }
@@ -763,6 +769,8 @@ void picoThreadChannelDestroy(picoThreadChannel channel)
     if (!channel) {
         return;
     }
+
+    picoThreadChannelFlush(channel);
 
     if (channel->buffer) {
         PICO_FREE(channel->buffer);
@@ -806,13 +814,13 @@ bool picoThreadChannelSend(picoThreadChannel channel, const void *item)
     return true;
 }
 
-bool picoThreadChannelReceive(picoThreadChannel channel, void *outItem, uint32_t timeoutMilliseconds) 
+bool picoThreadChannelReceive(picoThreadChannel channel, void *outItem, uint32_t timeoutMilliseconds)
 {
     if (!channel || !outItem) {
         return false;
     }
 
-    uint32_t elapsed            = 0;
+    uint32_t elapsed = 0;
 
     while (elapsed < timeoutMilliseconds) {
         picoThreadMutexLock(channel->mutex, PICO_THREAD_INFINITE);
@@ -863,6 +871,33 @@ uint32_t picoThreadChannelGetCapacity(picoThreadChannel channel)
         return 0;
     }
     return channel->capacity;
+}
+
+void picoThreadChannelFlush(picoThreadChannel channel)
+{
+    if (!channel) {
+        return;
+    }
+    picoThreadMutexLock(channel->mutex, PICO_THREAD_INFINITE);
+    for (uint32_t i = 0; i < channel->count; i++) {
+        if (channel->itemDestructor) {
+            uint8_t *item = channel->buffer + (channel->itemSize * i);
+            channel->itemDestructor((void *)item, channel->destructorContext);
+        }
+    }
+    channel->count = 0;
+    picoThreadMutexUnlock(channel->mutex);
+}
+
+void picoThreadChannelSetItemDestructor(picoThreadChannel channel, void (*destructor)(void *item, void *context), void *context)
+{
+    if (!channel) {
+        return;
+    }
+    picoThreadMutexLock(channel->mutex, PICO_THREAD_INFINITE);
+    channel->itemDestructor    = destructor;
+    channel->destructorContext = context;
+    picoThreadMutexUnlock(channel->mutex);
 }
 
 #endif // PICO_THREAD_NO_CHANNELS
