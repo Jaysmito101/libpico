@@ -34,6 +34,7 @@ SOFTWARE.
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 #ifndef PICO_MALLOC
 #define PICO_MALLOC malloc
@@ -92,6 +93,9 @@ typedef enum {
 typedef struct picoMpegTS_t picoMpegTS_t;
 typedef picoMpegTS_t *picoMpegTS;
 
+typedef struct picoMpegTSPacket_t picoMpegTSPacket_t;
+typedef picoMpegTSPacket_t *picoMpegTSPacket;
+
 picoMpegTS picoMpegTSCreate(void);
 void picoMpegTSDestroy(picoMpegTS mpegts);
 
@@ -100,6 +104,9 @@ picoMpegTSResult picoMpegTSAddBuffer(picoMpegTS mpegts, const uint8_t *buffer, s
 picoMpegTSResult picoMpegTSAddFile(picoMpegTS mpegts, const char *filename);
 picoMpegTSPacketType picoMpegTSDetectPacketType(const uint8_t *data, size_t size);
 picoMpegTSPacketType picoMpegTSDetectPacketTypeFromFile(const char *filename);
+
+picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket packetOut);
+void picoMpegTSPacketDebugPrint(picoMpegTSPacket packet);
 
 const char *picoMpegTSPacketTypeToString(picoMpegTSPacketType type);
 const char *picoMpegTSResultToString(picoMpegTSResult result);
@@ -113,7 +120,7 @@ struct picoMpegTS_t {
     uint8_t reserved;
 };
 
-typedef struct {
+struct picoMpegTSPacket_t {
     bool errorIndicator;
     bool payloadUnitStartIndicator;
     bool transportPriority;
@@ -121,8 +128,10 @@ typedef struct {
     uint8_t scramblingControl;
     uint8_t continuityCounter;
     picoMpegTSAdaptionFieldControl adaptionFieldControl;
-} picoMpegTSPacket_t;
-typedef picoMpegTSPacket_t *picoMpegTSPacket;
+
+    uint8_t payload[184];
+    uint8_t payloadSize;
+};
 
 // static bool __picoMpegTSIsLittleEndian(void)
 // {
@@ -130,20 +139,8 @@ typedef picoMpegTSPacket_t *picoMpegTSPacket;
 //     return (*(uint8_t *)&test) == 0x1;
 // }
 
-static void __picoMpegTSPacketDebugPrint(picoMpegTSPacket packet)
-{
-    PICO_ASSERT(packet != NULL);
-    PICO_MPEGTS_LOG("MPEG-TS Packet:\n");
-    PICO_MPEGTS_LOG("  PID: %s [0x%04X]\n", picoMpegTSPIDToString(packet->pid), packet->pid);
-    PICO_MPEGTS_LOG("  Error Indicator: %s\n", packet->errorIndicator ? "true" : "false");
-    PICO_MPEGTS_LOG("  Payload Unit Start Indicator: %s\n", packet->payloadUnitStartIndicator ? "true" : "false");
-    PICO_MPEGTS_LOG("  Transport Priority: %s\n", packet->transportPriority ? "true" : "false");
-    PICO_MPEGTS_LOG("  Scrambling Control: %u\n", packet->scramblingControl);
-    PICO_MPEGTS_LOG("  Continuity Counter: %u\n", packet->continuityCounter);
-    PICO_MPEGTS_LOG("  Adaptation Field Control: %s\n", picoMpegTSAdaptionFieldControlToString(packet->adaptionFieldControl));
-}
 
-static picoMpegTSResult __picoMpegTSParsePacket(picoMpegTSPacket packet, const uint8_t *data)
+picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket packet)
 {
     PICO_ASSERT(packet != NULL);
     PICO_ASSERT(data != NULL);
@@ -162,7 +159,39 @@ static picoMpegTSResult __picoMpegTSParsePacket(picoMpegTSPacket packet, const u
     packet->adaptionFieldControl      = (picoMpegTSAdaptionFieldControl)((flags & 0x30) >> 4);
     packet->continuityCounter         = flags & 0x0F;
 
+    size_t payloadOffset = 4;
+    if (packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_ADAPTATION_ONLY ||
+        packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_BOTH) {
+        uint8_t adaptationFieldLength = data[4];
+        payloadOffset += 1 + adaptationFieldLength;
+    }
+
+    if (packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_PAYLOAD_ONLY ||
+        packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_BOTH) {
+        size_t payloadSize = 188 - payloadOffset;
+        if (payloadSize > sizeof(packet->payload)) {
+            payloadSize = sizeof(packet->payload);
+        }
+        memcpy(packet->payload, &data[payloadOffset], payloadSize);
+        packet->payloadSize = (uint8_t)payloadSize;
+    } else {
+        packet->payloadSize = 0;
+    }
     return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
+void picoMpegTSPacketDebugPrint(picoMpegTSPacket packet)
+{
+    PICO_ASSERT(packet != NULL);
+    PICO_MPEGTS_LOG("MPEG-TS Packet:\n");
+    PICO_MPEGTS_LOG("  PID: %s [0x%04X]\n", picoMpegTSPIDToString(packet->pid), packet->pid);
+    PICO_MPEGTS_LOG("  Error Indicator: %s\n", packet->errorIndicator ? "true" : "false");
+    PICO_MPEGTS_LOG("  Payload Unit Start Indicator: %s\n", packet->payloadUnitStartIndicator ? "true" : "false");
+    PICO_MPEGTS_LOG("  Transport Priority: %s\n", packet->transportPriority ? "true" : "false");
+    PICO_MPEGTS_LOG("  Scrambling Control: %u\n", packet->scramblingControl);
+    PICO_MPEGTS_LOG("  Continuity Counter: %u\n", packet->continuityCounter);
+    PICO_MPEGTS_LOG("  Adaptation Field Control: %s\n", picoMpegTSAdaptionFieldControlToString(packet->adaptionFieldControl));
+    PICO_MPEGTS_LOG("  Payload Size: %u bytes\n", packet->payloadSize);
 }
 
 picoMpegTS picoMpegTSCreate(void)
@@ -189,12 +218,12 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
     PICO_ASSERT(data != NULL);
 
     picoMpegTSPacket_t packet;
-    picoMpegTSResult result = __picoMpegTSParsePacket(&packet, data);
+    picoMpegTSResult result = picoMpegTSParsePacket(data, &packet);
     if (result != PICO_MPEGTS_RESULT_SUCCESS) {
         return result;
     }
 
-    __picoMpegTSPacketDebugPrint(&packet);
+    picoMpegTSPacketDebugPrint(&packet);
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
