@@ -93,9 +93,166 @@ typedef enum {
 typedef struct picoMpegTS_t picoMpegTS_t;
 typedef picoMpegTS_t *picoMpegTS;
 
-typedef struct{
+typedef struct {
+    // Also called the Legal Time Window flag. This is a 1-bit field 
+    // which when set to '1' indicates the presence of the ltw_offset field.
+    bool ltwFlag;
+    // This is a 1-bit field which when set to '1' indicates that 
+    // the value of the ltw_offset shall be valid. 
+    // A value of '0' indicates that the value in 
+    // the ltw_offset field is undefined.
+    bool ltwValidFlag;
+    // This is a 15-bit field, the value of which is defined 
+    // only if the ltw_valid flag has a value of '1'
+    uint16_t ltwOffset;
+
+    // This is a 1-bit field which when set to '1' 
+    // indicates the presence of the piecewise_rate field.
+    bool piecewiseRateFlag;
+
+    // The meaning of this 22-bit field is only defined 
+    // when both the ltw_flag and the ltw_valid_flag are set
+    // to '1'. When defined, it is a positive integer specifying 
+    // a hypothetical bitrate R which is used to define the 
+    // end times of the Legal Time Windows of transport stream 
+    // packets of the same PID that follow this packet but do 
+    // not include the legal_time_window_offset field.
+    uint32_t piecewiseRate;
+
+    // This is a 1-bit flag which when set to '1' indicates that
+    // the splice_type and DTS_next_AU fields are present. 
+    // A value of '0' indicates that neither splice_type nor 
+    // DTS_next_AU fields are present. This field shall be set
+    // to '0' in transport stream packets in which the 
+    // splicing_point_flag is set to '0'. Once it is set 
+    // to '1' in a transport stream packet in which the 
+    // splice_countdown is positive, it shall be set to '1' 
+    // in all the subsequent transport stream packets of the
+    // same PID that have the splicing_point_flag set to '1', 
+    // until the packet in which the splice_countdown reaches zero
+    // (including this packet).
+    bool seamlessSpliceFlag;
+
+    // This is a 4-bit field. From the first occurrence of this 
+    // field onwards, it shall have the same value in all the
+    // subsequent transport stream packets of the same PID in 
+    // which it is present, until the packet in which the splice_countdown
+    // reaches zero (including this packet). If the elementary stream 
+    // carried in that PID is not a Rec. ITU-T H.262 | ISO/IEC13818-2 video 
+    // stream, then this field shall have the value '1111' (unspecified).
+    uint8_t spliceType;
+    uint64_t dtsNextAU;
+
+    // This 1-bit field when set to '0' signals the presence of one or 
+    // several af_descriptor() constructs in the adaptation header. 
+    // When this flag is set to '1' it indicates that the 
+    // af_descriptor() is not present in the adaptation header.
+    bool afDescriptorNotPresentFlag;
+} picoMpegTSPacketAdaptionFieldExtension_t;
+typedef picoMpegTSPacketAdaptionFieldExtension_t *picoMpegTSAdaptionFieldExtension;
+
+typedef struct {
+    // Clock reference base
+    uint64_t base;
+
+    // Clock reference extension
+    uint16_t extension;
+} picoMpegTSAdaptionFieldClockReference_t;
+typedef picoMpegTSAdaptionFieldClockReference_t *picoMpegTSAdaptionFieldPCR_t;
+
+
+typedef struct {
+    // This is a 1-bit field which when set to '1' indicates
+    // that the discontinuity state is true for the current 
+    // transport stream packet. When the discontinuity_indicator 
+    // is set to '0' or is not present, the discontinuity state is
+    // false. The discontinuity indicator is used to indicate
+    // two types of discontinuities, system time-base 
+    // discontinuities and continuity_counter discontinuities.
     bool discontinuityIndicator;
+
+    // The random_access_indicator is a 1-bit field that indicates
+    // that the current transport stream packet, and possibly
+    // subsequent transport stream packets with the same PID,
+    // contain some information to aid random access at this point.
     bool randomAccessIndicator;
+
+    // The elementary_stream_priority_indicator is a 1-bit field.
+    // It indicates, among packets with the same PID, the priority
+    // of the elementary stream data carried within the payload 
+    // of this transport stream packet. A '1' indicates that the 
+    // payload has a higher priority than the payloads of other 
+    // transport stream packets.
+    bool elementaryStreamPriorityIndicator;
+
+    // The PCR_flag is a 1-bit flag. A value of '1' indicates
+    // that the adaptation_field contains a PCR field coded in
+    // two parts. A value of '0' indicates that the adaptation 
+    // field does not contain any PCR field.
+    bool pcrFlag;
+    // The program_clock_reference (PCR) is a 42-bit field coded in two parts.
+    // The first part, program_clock_reference_base, is a 33-bit field 
+    // whose value is given by PCR_base(i), as given in 1. 
+    // The second part, program_clock_reference_extension, is a 9-bit field whose value
+    // is given by PCR_ext(i), as given in 2. The PCR indicates the intended
+    // time of arrival of the byte containing the last bit of the 
+    // program_clock_reference_base at the input of the system target decoder.
+    // Equation 1: PCR_base(i) = ((system_clock_frequency * t(i))DIV 300) MOD 2^33
+    // Equation 2: PCR_ext(i) = (system_clock_frequency * t(i)DIV 1) MOD 300
+    picoMpegTSAdaptionFieldClockReference_t pcr;
+
+    // The OPCR_flag is a 1-bit flag. A value of '1' indicates
+    // that the adaptation_field contains an OPCR field coded in
+    // two parts. A value of '0' indicates that the adaptation
+    // field does not contain any OPCR field.
+    bool opcrFlag;
+    // The optional original program reference (OPCR) is a 42-bit field
+    // coded in two parts. These two parts, the base and the extension, are coded
+    // identically to the two corresponding parts of the PCR field. 
+    // The presence of the OPCR is indicated by the OPCR_flag.
+    picoMpegTSAdaptionFieldClockReference_t opcr;
+
+    // The splicing_point_flag is a 1-bit flag. When set to '1',
+    // a splice_countdown field shall be present in this adaptation 
+    // field, specifying the occurrence of a splicing point. 
+    // A value of '0' indicates that a splice_countdown
+    // field is not present in the adaptation field.
+    bool splicingPointFlag;
+    // The splice_countdown is an 8-bit field, representing a value 
+    // which may be positive or negative. A positive value specifies the 
+    // remaining number of transport stream packets, of the same PID, 
+    // following the associated transport stream packet until a splicing 
+    // point is reached. Duplicate transport stream packets and transport 
+    // stream packets which only contain adaptation fields are excluded.
+    // The splicing point is located immediately after the last byte of the
+    // transport stream packet in which the associated splice_countdown field 
+    // reaches zero. In the transport stream packet where the splice_countdown 
+    // reaches zero, the last data byte of the transport stream packet 
+    // payload shall be the last byte of a coded audio frame or a coded picture. 
+    // In the case of video, the corresponding access unit may or 
+    // may not be terminated by a sequence_end_code. Transport stream
+    // packets with the same PID, which follow, may contain data from a different
+    // elementary stream of the same type.
+    uint8_t spliceCountdown;
+
+    // The transport_private_data_flag is a 1-bit flag.
+    // A value of'1' indicates that the adaptation field contains
+    // one or more private_data bytes. A value of '0' indicates 
+    // the adaptation field does not contain any private_data bytes.
+    bool transportPrivateDataFlag;
+    // The transport_private_data_length is an 8-bit field specifying the number of
+    // private_data bytes immediately following the transport private_data_length field. 
+    // The number of private_data bytes shall be such that private data 
+    // does not extend beyond the adaptation field.
+    uint8_t transportPrivateDataLength;
+    uint8_t transportPrivateData[183];
+
+    // The adaptation_field_extension_flag is a 1-bit field
+    // which when set to '1' indicates the presence of an adaptation 
+    // field extension. A value of '0' indicates that an adaptation 
+    // field extension is not present in the adaptation field.
+    bool adaptationFieldExtensionFlag;
+    picoMpegTSPacketAdaptionFieldExtension_t adaptationFieldExtension;
 } picoMpegTSPacketAdaptationField_t;
 typedef picoMpegTSPacketAdaptationField_t *picoMpegTSPacketAdaptationField;
 
@@ -184,7 +341,10 @@ picoMpegTSPacketType picoMpegTSDetectPacketType(const uint8_t *data, size_t size
 picoMpegTSPacketType picoMpegTSDetectPacketTypeFromFile(const char *filename);
 
 picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket packetOut);
+
 void picoMpegTSPacketDebugPrint(picoMpegTSPacket packet);
+void picoMpegTSPacketAdaptationFieldDebugPrint(picoMpegTSPacketAdaptationField adaptationField);
+void picoMpegTSPacketAdaptationFieldExtensionDebugPrint(picoMpegTSAdaptionFieldExtension adaptationFieldExtension);
 
 const char *picoMpegTSPacketTypeToString(picoMpegTSPacketType type);
 const char *picoMpegTSResultToString(picoMpegTSResult result);
@@ -245,6 +405,57 @@ picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket pac
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
+void picoMpegTSPacketAdaptationFieldExtensionDebugPrint(picoMpegTSAdaptionFieldExtension afExt)
+{
+    PICO_ASSERT(afExt != NULL);
+    PICO_MPEGTS_LOG("Adaptation Field Extension:\n");
+    PICO_MPEGTS_LOG("  LTW Flag: %s\n", afExt->ltwFlag ? "true" : "false");
+    if (afExt->ltwFlag) {
+        PICO_MPEGTS_LOG("    LTW Valid Flag: %s\n", afExt->ltwValidFlag ? "true" : "false");
+        if (afExt->ltwValidFlag) {
+            PICO_MPEGTS_LOG("    LTW Offset: %u\n", afExt->ltwOffset);
+        }
+    }
+    PICO_MPEGTS_LOG("  Piecewise Rate Flag: %s\n", afExt->piecewiseRateFlag ? "true" : "false");
+    if (afExt->piecewiseRateFlag) {
+        PICO_MPEGTS_LOG("    Piecewise Rate: %u\n", afExt->piecewiseRate);
+    }
+    PICO_MPEGTS_LOG("  Seamless Splice Flag: %s\n", afExt->seamlessSpliceFlag ? "true" : "false");
+    if (afExt->seamlessSpliceFlag) {
+        PICO_MPEGTS_LOG("    Splice Type: %u\n", afExt->spliceType);
+        PICO_MPEGTS_LOG("    DTS Next AU: %llx\n", afExt->dtsNextAU);
+    }
+    PICO_MPEGTS_LOG("  AF Descriptor Not Present Flag: %s\n", afExt->afDescriptorNotPresentFlag ? "true" : "false");
+}
+
+void picoMpegTSPacketAdaptationFieldDebugPrint(picoMpegTSPacketAdaptationField af)
+{
+    PICO_ASSERT(af != NULL);
+    PICO_MPEGTS_LOG("Adaptation Field:\n");
+    PICO_MPEGTS_LOG("  Discontinuity Indicator: %s\n", af->discontinuityIndicator ? "true" : "false");
+    PICO_MPEGTS_LOG("  Random Access Indicator: %s\n", af->randomAccessIndicator ? "true" : "false");
+    PICO_MPEGTS_LOG("  Elementary Stream Priority Indicator: %s\n", af->elementaryStreamPriorityIndicator ? "true" : "false");
+    PICO_MPEGTS_LOG("  PCR Flag: %s\n", af->pcrFlag ? "true" : "false");
+    if (af->pcrFlag) {
+        PICO_MPEGTS_LOG("    PCR Base: %llu\n", af->pcr.base);
+        PICO_MPEGTS_LOG("    PCR Extension: %u\n", af->pcr.extension);
+    }
+    PICO_MPEGTS_LOG("  OPCR Flag: %s\n", af->opcrFlag ? "true" : "false");
+    if (af->opcrFlag) {
+        PICO_MPEGTS_LOG("    OPCR Base: %llu\n", af->opcr.base);
+        PICO_MPEGTS_LOG("    OPCR Extension: %u\n", af->opcr.extension);
+    }
+    PICO_MPEGTS_LOG("  Splicing Point Flag: %s\n", af->splicingPointFlag ? "true" : "false");
+    if (af->splicingPointFlag) {
+        PICO_MPEGTS_LOG("    Splice Countdown: %u\n", af->spliceCountdown);
+    }
+    PICO_MPEGTS_LOG("  Transport Private Data Flag: %s\n", af->transportPrivateDataFlag ? "true" : "false");
+    if (af->transportPrivateDataFlag) {
+        PICO_MPEGTS_LOG("    Transport Private Data Length: %u\n", af->transportPrivateDataLength);
+    }
+    PICO_MPEGTS_LOG("  Adaptation Field Extension Flag: %s\n", af->adaptationFieldExtensionFlag ? "true" : "false");
+}
+
 void picoMpegTSPacketDebugPrint(picoMpegTSPacket packet)
 {
     PICO_ASSERT(packet != NULL);
@@ -257,6 +468,7 @@ void picoMpegTSPacketDebugPrint(picoMpegTSPacket packet)
     PICO_MPEGTS_LOG("  Continuity Counter: %u\n", packet->continuityCounter);
     PICO_MPEGTS_LOG("  Adaptation Field Control: %s\n", picoMpegTSAdaptionFieldControlToString(packet->adaptionFieldControl));
     PICO_MPEGTS_LOG("  Payload Size: %u bytes\n", packet->payloadSize);
+
 }
 
 picoMpegTS picoMpegTSCreate(void)
