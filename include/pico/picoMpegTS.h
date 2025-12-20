@@ -93,7 +93,85 @@ typedef enum {
 typedef struct picoMpegTS_t picoMpegTS_t;
 typedef picoMpegTS_t *picoMpegTS;
 
-typedef struct picoMpegTSPacket_t picoMpegTSPacket_t;
+typedef struct{
+    bool discontinuityIndicator;
+    bool randomAccessIndicator;
+} picoMpegTSPacketAdaptationField_t;
+typedef picoMpegTSPacketAdaptationField_t *picoMpegTSPacketAdaptationField;
+
+typedef struct {
+    // The transport_error_indicator is a 1-bit flag.
+    // When set to '1' it indicates that at least
+    // 1 uncorrectable bit error exists in the associated 
+    // transport stream packet. This bit may be set to '1'
+    // by entities external to the transport layer.
+    // When set to '1' this bit shall not be reset
+    // to '0' unless the bit value(s) in error have 
+    // been corrected.
+    bool errorIndicator;
+
+    // The payload_unit_start_indicator is a 1-bit flag
+    // which has normative meaning for transport stream 
+    // packets that carry PES packets or transport stream
+    // section data.
+    bool payloadUnitStartIndicator;
+
+    // The transport_priority is a 1-bit indicator. When set
+    // to '1' it indicates that the associated packet is
+    // of greater priority than other packets having the same 
+    // PID which do not have the bit set to '1'. The transport mechanism
+    // can use this to prioritize its data within an
+    // elementary stream. Depending on the application the
+    // transport_priority field may be coded regardless of 
+    // the PID or within one PID only. This field may be 
+    // changed by channel-specific encoders or decoders.
+    bool transportPriority;
+
+    // The PID is a 13-bit field, indicating the type of the
+    // data stored in the packet payload. PID value 0x0000 is reserved
+    // for the program association table. PID value 0x0001 
+    // is reserved for the conditional access table. 
+    // PID value 0x0002 is reserved for the transport stream 
+    // description table, PID value 0x0003 is reserved for
+    //  IPMP control information table and PID values
+    //  0x0004-0x000F are reserved. PID value 0x1FFF is
+    //  reserved for null packets.
+    uint16_t pid;
+
+    // This 2-bit field indicates the scrambling mode of
+    // the transport stream packet payload. The transport stream
+    // packet header, and the adaptation field when present,
+    // shall not be scrambled. In the case of a null packet the
+    // value of the transport_scrambling_control field 
+    // shall be set to '00'.
+    uint8_t scramblingControl;
+
+    // The continuity_counter is a 4-bit field incrementing
+    // with each transport stream packet with the same PID. 
+    // The continuity_counter wraps around to 0 after its
+    // maximum value. The continuity_counter shall not be
+    // incremented when the adaptation_field_control of
+    // the packet equals '00' or '10'.
+    uint8_t continuityCounter;
+
+    // This 2-bit field indicates whether this transport 
+    // stream packet header is followed by an adaptation 
+    // field and/or payload.
+    picoMpegTSAdaptionFieldControl adaptionFieldControl;
+
+    // Whether the adaptation field is present in this packet
+    // derived from adaptionFieldControl
+    bool hasAdaptationField;
+
+    // Adaptation field of the packet
+    picoMpegTSPacketAdaptationField_t adaptionField;    
+
+    // Payload data of the packet
+    uint8_t payload[184];
+
+    // Size of the payload data in bytes (0 - 184)
+    uint8_t payloadSize;
+} picoMpegTSPacket_t ;
 typedef picoMpegTSPacket_t *picoMpegTSPacket;
 
 picoMpegTS picoMpegTSCreate(void);
@@ -118,19 +196,6 @@ const char *picoMpegTSAdaptionFieldControlToString(picoMpegTSAdaptionFieldContro
 
 struct picoMpegTS_t {
     uint8_t reserved;
-};
-
-struct picoMpegTSPacket_t {
-    bool errorIndicator;
-    bool payloadUnitStartIndicator;
-    bool transportPriority;
-    uint16_t pid;
-    uint8_t scramblingControl;
-    uint8_t continuityCounter;
-    picoMpegTSAdaptionFieldControl adaptionFieldControl;
-
-    uint8_t payload[184];
-    uint8_t payloadSize;
 };
 
 // static bool __picoMpegTSIsLittleEndian(void)
