@@ -35,6 +35,10 @@ SOFTWARE.
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+#define PICO_IMPLEMENTATION
 
 #ifndef PICO_MALLOC
 #define PICO_MALLOC malloc
@@ -190,6 +194,7 @@ typedef struct {
     // two parts. A value of '0' indicates that the adaptation 
     // field does not contain any PCR field.
     bool pcrFlag;
+    
     // The program_clock_reference (PCR) is a 42-bit field coded in two parts.
     // The first part, program_clock_reference_base, is a 33-bit field 
     // whose value is given by PCR_base(i), as given in 1. 
@@ -206,6 +211,7 @@ typedef struct {
     // two parts. A value of '0' indicates that the adaptation
     // field does not contain any OPCR field.
     bool opcrFlag;
+
     // The optional original program reference (OPCR) is a 42-bit field
     // coded in two parts. These two parts, the base and the extension, are coded
     // identically to the two corresponding parts of the PCR field. 
@@ -218,6 +224,7 @@ typedef struct {
     // A value of '0' indicates that a splice_countdown
     // field is not present in the adaptation field.
     bool splicingPointFlag;
+
     // The splice_countdown is an 8-bit field, representing a value 
     // which may be positive or negative. A positive value specifies the 
     // remaining number of transport stream packets, of the same PID, 
@@ -240,6 +247,7 @@ typedef struct {
     // one or more private_data bytes. A value of '0' indicates 
     // the adaptation field does not contain any private_data bytes.
     bool transportPrivateDataFlag;
+
     // The transport_private_data_length is an 8-bit field specifying the number of
     // private_data bytes immediately following the transport private_data_length field. 
     // The number of private_data bytes shall be such that private data 
@@ -358,12 +366,174 @@ struct picoMpegTS_t {
     uint8_t reserved;
 };
 
-// static bool __picoMpegTSIsLittleEndian(void)
-// {
-//     uint16_t test = 0x1;
-//     return (*(uint8_t *)&test) == 0x1;
-// }
+static picoMpegTSResult __picoMpegTSParsePacketAdaptationFieldExtenstion(const uint8_t *data, uint8_t dataSize, picoMpegTSAdaptionFieldExtension afExt)
+{
+    PICO_ASSERT(afExt != NULL);
+    PICO_ASSERT(data != NULL);
 
+    if (dataSize < 1) {
+        return PICO_MPEGTS_INVALID_DATA;
+    }
+
+    {
+        uint8_t flags = data[0];
+        afExt->ltwFlag               = (flags & 0x80) != 0;
+        afExt->piecewiseRateFlag     = (flags & 0x40) != 0;
+        afExt->seamlessSpliceFlag    = (flags & 0x20) != 0;
+        afExt->afDescriptorNotPresentFlag = (flags & 0x10) != 0;
+        dataSize -= 1;
+        data += 1;
+    }
+    
+    if (afExt->ltwFlag) {
+        if (dataSize < 2) {
+            return PICO_MPEGTS_INVALID_DATA;
+        }
+        {
+            // 1 bit valid + 15 bits offset
+            uint16_t ltw = (uint16_t)(data[0] << 8) | data[1];
+            afExt->ltwValidFlag = (ltw & 0x8000) != 0;
+            afExt->ltwOffset    = ltw & 0x7FFF;
+            data += 2;
+            dataSize -= 2;
+        }
+    }
+
+    if (afExt->piecewiseRateFlag) {
+        if (dataSize < 3) {
+            return PICO_MPEGTS_INVALID_DATA;
+        }
+        {
+            // 2 reserved + 22 bits rate
+            uint32_t pwr = (uint32_t)(data[0] << 16) | (uint32_t)(data[1] << 8) | data[2];
+            afExt->piecewiseRate = pwr & 0x3FFFFF;
+            data += 3;
+            dataSize -= 3;
+        }
+    }
+
+    if (afExt->seamlessSpliceFlag) {
+        if (dataSize < 5) {
+            return PICO_MPEGTS_INVALID_DATA;
+        }
+        {
+            // Splice_type (4 bits) | DTS_next_AU[32..30] (3 bits) | marker_bit (1 bit)
+            // DTS_next_AU[29..15] (15 bits) | marker_bit (1 bit)
+            // DTS_next_AU[14..0] (15 bits) | marker_bit (1 bit)
+            uint8_t spliceType = (data[0] >> 4) & 0x0F;
+            afExt->spliceType = spliceType;
+            
+            uint64_t dtsHigh   = (uint64_t)((data[0] >> 1) & 0x07) << 30;  // DTS_next_AU[32..30]
+            uint64_t dtsMid    = (uint64_t)((data[1] << 7) | (data[2] >> 1)) << 15;  // DTS_next_AU[29..15]
+            uint64_t dtsLow    = (uint64_t)((data[3] << 7) | (data[4] >> 1));  // DTS_next_AU[14..0]
+            afExt->dtsNextAU = dtsHigh | dtsMid | dtsLow;
+            
+            data += 5;
+            dataSize -= 5;
+        }
+    }
+
+    if (!afExt->afDescriptorNotPresentFlag) {
+        // we skip af_descriptor() parsing for now
+        PICO_MPEGTS_LOG("picoMpegTS: af_descriptor() parsing not implemented yet.\n");
+    }
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
+static picoMpegTSResult __picoMpegTSParsePacketAdaptationField(const uint8_t *data, uint8_t dataSize, picoMpegTSPacketAdaptationField af)
+{
+    PICO_ASSERT(af != NULL);
+    PICO_ASSERT(data != NULL);
+
+    if (dataSize < 1) {
+        return PICO_MPEGTS_INVALID_DATA;
+    }
+
+    {
+        uint8_t flags = data[0];
+        af->discontinuityIndicator            = (flags & 0x80) != 0;
+        af->randomAccessIndicator             = (flags & 0x40) != 0;
+        af->elementaryStreamPriorityIndicator = (flags & 0x20) != 0;
+        af->pcrFlag                           = (flags & 0x10) != 0;
+        af->opcrFlag                          = (flags & 0x08) != 0;
+        af->splicingPointFlag                 = (flags & 0x04) != 0;
+        af->transportPrivateDataFlag          = (flags & 0x02) != 0;
+        af->adaptationFieldExtensionFlag      = (flags & 0x01) != 0;
+        dataSize -= 1;
+        data += 1;
+    }
+
+    if (af->pcrFlag) {
+        if (dataSize < 6) {
+            return PICO_MPEGTS_INVALID_DATA;
+        }
+        // 33 bits base + 6 reserved + 9 bits extension
+        af->pcr.base      = ((uint64_t)data[0] << 25) | ((uint64_t)data[1] << 17) | ((uint64_t)data[2] << 9) | ((uint64_t)data[3] << 1) | ((data[4] & 0x80) >> 7);
+        af->pcr.extension = ((data[4] & 0x01) << 8) | data[5];
+        data += 6;
+        dataSize -= 6;
+    }
+
+    if (af->opcrFlag) {
+        if (dataSize < 6) {
+            return PICO_MPEGTS_INVALID_DATA;
+        }
+        // 33 bits base + 6 reserved + 9 bits extension
+        af->opcr.base      = ((uint64_t)data[0] << 25) | ((uint64_t)data[1] << 17) | ((uint64_t)data[2] << 9) | ((uint64_t)data[3] << 1) | ((data[4] & 0x80) >> 7);
+        af->opcr.extension = ((data[4] & 0x01) << 8) | data[5];
+        data += 6;
+        dataSize -= 6;
+    }
+
+    if (af->splicingPointFlag) {
+        if (dataSize < 1) {
+            return PICO_MPEGTS_INVALID_DATA;
+        }
+        af->spliceCountdown = data[0];
+        data += 1;
+        dataSize -= 1;
+    }
+
+    if (af->transportPrivateDataFlag) {
+        if (dataSize < 1) {
+            return PICO_MPEGTS_INVALID_DATA;
+        }
+        af->transportPrivateDataLength = data[0];
+        data += 1;
+        dataSize -= 1;
+
+        if (dataSize < af->transportPrivateDataLength) {
+            return PICO_MPEGTS_INVALID_DATA;
+        }
+        memcpy(af->transportPrivateData, data, af->transportPrivateDataLength);
+        data += af->transportPrivateDataLength;
+        dataSize -= af->transportPrivateDataLength;
+    }
+
+    if (af->adaptationFieldExtensionFlag) {
+        if (dataSize < 1) {
+            return PICO_MPEGTS_INVALID_DATA;
+        }
+        uint8_t afExtLength = data[0];
+        data += 1;
+        dataSize -= 1;
+
+        if (dataSize < afExtLength) {
+            return PICO_MPEGTS_INVALID_DATA;
+        }
+        picoMpegTSResult extResult = __picoMpegTSParsePacketAdaptationFieldExtenstion(data, afExtLength, &af->adaptationFieldExtension);
+        if (extResult != PICO_MPEGTS_RESULT_SUCCESS) {
+            return extResult;
+        }
+        data += afExtLength;
+        dataSize -= afExtLength;
+    }
+
+    // rest is stuffing bytes
+
+    return PICO_MPEGTS_RESULT_SUCCESS;    
+}
 
 picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket packet)
 {
@@ -389,6 +559,12 @@ picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket pac
         packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_BOTH) {
         uint8_t adaptationFieldLength = data[4];
         payloadOffset += 1 + adaptationFieldLength;
+        if (adaptationFieldLength > 0) {
+            picoMpegTSResult afResult = __picoMpegTSParsePacketAdaptationField(&data[5], adaptationFieldLength, &packet->adaptionField);
+            if (afResult != PICO_MPEGTS_RESULT_SUCCESS) {
+                return afResult;
+            }
+        }
     }
 
     if (packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_PAYLOAD_ONLY ||
@@ -468,6 +644,10 @@ void picoMpegTSPacketDebugPrint(picoMpegTSPacket packet)
     PICO_MPEGTS_LOG("  Continuity Counter: %u\n", packet->continuityCounter);
     PICO_MPEGTS_LOG("  Adaptation Field Control: %s\n", picoMpegTSAdaptionFieldControlToString(packet->adaptionFieldControl));
     PICO_MPEGTS_LOG("  Payload Size: %u bytes\n", packet->payloadSize);
+    if (packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_ADAPTATION_ONLY ||
+        packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_BOTH) {
+        picoMpegTSPacketAdaptationFieldDebugPrint(&packet->adaptionField);
+    }
 
 }
 
@@ -501,6 +681,7 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
     }
 
     picoMpegTSPacketDebugPrint(&packet);
+    PICO_MPEGTS_LOG("----------------------------------\n");
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
