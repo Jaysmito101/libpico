@@ -38,6 +38,7 @@ SOFTWARE.
 #include <stdlib.h>
 #include <stdio.h>
 
+#define PICO_IMPLEMENTATION
 
 #ifndef PICO_INITIAL_PARSED_PACKETS_CAPACITY
 #define PICO_INITIAL_PARSED_PACKETS_CAPACITY 1024
@@ -352,6 +353,7 @@ picoMpegTSResult picoMpegTSAddBuffer(picoMpegTS mpegts, const uint8_t *buffer, s
 picoMpegTSResult picoMpegTSAddFile(picoMpegTS mpegts, const char *filename);
 picoMpegTSPacketType picoMpegTSDetectPacketType(const uint8_t *data, size_t size);
 picoMpegTSPacketType picoMpegTSDetectPacketTypeFromFile(const char *filename);
+picoMpegTSResult picoMpegTSFlush(picoMpegTS mpegts);
 
 picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket packetOut);
 
@@ -372,6 +374,9 @@ struct picoMpegTS_t {
     picoMpegTSPacket parsedPackets;
     size_t parsedPacketCount;
     size_t parsedPacketCapacity;
+
+    uint8_t payloadAccumulator[65536  * 2];
+    size_t payloadAccumulatorSize;
 };
 
 static picoMpegTSResult __picoMpegTSParsePacketAdaptationFieldExtenstion(const uint8_t *data, uint8_t dataSize, picoMpegTSAdaptionFieldExtension afExt)
@@ -597,6 +602,9 @@ picoMpegTS picoMpegTSCreate(bool storeParsedPackets)
         return NULL;
     }
 
+    mpegts->payloadAccumulatorSize = 0;
+    memset(mpegts->payloadAccumulator, 0, sizeof(mpegts->payloadAccumulator));
+
     mpegts->storeParsedPackets = storeParsedPackets;
     if (storeParsedPackets) {
         mpegts->parsedPackets      = (picoMpegTSPacket)PICO_MALLOC(sizeof(picoMpegTSPacket_t) * PICO_INITIAL_PARSED_PACKETS_CAPACITY);
@@ -637,6 +645,16 @@ picoMpegTSResult picoMpegTSGetParsedPackets(picoMpegTS mpegts, picoMpegTSPacket 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
+picoMpegTSResult picoMpegTSFlush(picoMpegTS mpegts)
+{
+    PICO_ASSERT(mpegts != NULL);
+
+    mpegts->payloadAccumulatorSize = 0;
+    memset(mpegts->payloadAccumulator, 0, sizeof(mpegts->payloadAccumulator));
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
 // NOTE: Irrespective of type of packet we just use the first 188 bytes for parsing
 // the rest of the portion isnt important for most use-cases and is
 // out of the scope of this library for now
@@ -664,6 +682,12 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
         }
         memcpy(&mpegts->parsedPackets[mpegts->parsedPacketCount++], &packet, sizeof(picoMpegTSPacket_t));
     }
+
+    if (packet.payloadUnitStartIndicator) {
+        picoMpegTSFlush(mpegts);
+    }
+    memcpy(&mpegts->payloadAccumulator[mpegts->payloadAccumulatorSize], packet.payload, packet.payloadSize);
+    mpegts->payloadAccumulatorSize += packet.payloadSize;
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -693,6 +717,8 @@ picoMpegTSResult picoMpegTSAddBuffer(picoMpegTS mpegts, const uint8_t *buffer, s
 
         offset += packetSize;
     }
+    
+    picoMpegTSFlush(mpegts);
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
