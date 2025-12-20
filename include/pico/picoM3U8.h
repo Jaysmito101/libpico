@@ -1058,7 +1058,7 @@ void __picoM3U8KeyDebugPrint(const picoM3U8KeyAttributes sessionKey)
     PICO_M3U8_LOG("Session Key:");
     PICO_M3U8_LOG("  - Method: %s", picoM3U8KeyMethodToString(sessionKey->method));
     PICO_M3U8_LOG("  - URI: %s", sessionKey->uri);
-    static char buffer[16];
+    char buffer[16];
     for (uint8_t i = 0; i < 128 / 8; i++) {
         snprintf(buffer + i * 2, 3, "%02X", sessionKey->iv[i]);
     }
@@ -1666,7 +1666,7 @@ bool __picoM3U8ParseByteRange(const char *valueStart, const char *valueEnd, pico
     }
 
     const char *atSignPtr        = strchr(valueStart, '@');
-    static char lengthBuffer[16] = {0};
+    char lengthBuffer[16] = {0};
     if (atSignPtr != NULL && atSignPtr < valueEnd) {
         size_t lengthSize = (size_t)(atSignPtr - valueStart);
         if (lengthSize >= sizeof(lengthBuffer)) {
@@ -2048,7 +2048,7 @@ picoM3U8Result __picoM3U8MasterPlaylistParse(__picoM3U8ParserContext context, pi
             }
         }
 
-        static char buffer[256];
+        char buffer[256];
         switch (context->lineType) {
             case PICO_M3U8_LINE_TYPE_TAG: {
                 switch (context->currentTag) {
@@ -2273,7 +2273,7 @@ picoM3U8Result __picoM3U8MediaPlaylistParse(__picoM3U8ParserContext context, pic
             }
         }
 
-        static char buffer[256];
+        char buffer[256];
         switch (context->lineType) {
             case PICO_M3U8_LINE_TYPE_TAG: {
                 switch (context->currentTag) {
