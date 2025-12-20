@@ -76,6 +76,13 @@ typedef enum {
 } picoMpegTSPacketPID;
 
 typedef enum {
+    PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_RESERVED        = 0x00,
+    PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_PAYLOAD_ONLY    = 0x01,
+    PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_ADAPTATION_ONLY = 0x02,
+    PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_BOTH            = 0x03,
+} picoMpegTSAdaptionFieldControl;
+
+typedef enum {
     PICO_MPEGTS_RESULT_SUCCESS = 0,
     PICO_MPEGTS_FILE_NOT_FOUND,
     PICO_MPEGTS_MALLOC_ERROR,
@@ -96,7 +103,8 @@ picoMpegTSPacketType picoMpegTSDetectPacketTypeFromFile(const char *filename);
 
 const char *picoMpegTSPacketTypeToString(picoMpegTSPacketType type);
 const char *picoMpegTSResultToString(picoMpegTSResult result);
-const char* picoMpegTSPIDToString(uint16_t pid);
+const char *picoMpegTSPIDToString(uint16_t pid);
+const char *picoMpegTSAdaptionFieldControlToString(picoMpegTSAdaptionFieldControl afc);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_MPEGTS_IMPLEMENTATION)
 #define PICO_MPEGTS_IMPLEMENTATION
@@ -112,7 +120,7 @@ typedef struct {
     uint16_t pid;
     uint8_t scramblingControl;
     uint8_t continuityCounter;
-    bool hasAdaptationField;
+    picoMpegTSAdaptionFieldControl adaptionFieldControl;
 } picoMpegTSPacket_t;
 typedef picoMpegTSPacket_t *picoMpegTSPacket;
 
@@ -132,7 +140,7 @@ static void __picoMpegTSPacketDebugPrint(picoMpegTSPacket packet)
     PICO_MPEGTS_LOG("  Transport Priority: %s\n", packet->transportPriority ? "true" : "false");
     PICO_MPEGTS_LOG("  Scrambling Control: %u\n", packet->scramblingControl);
     PICO_MPEGTS_LOG("  Continuity Counter: %u\n", packet->continuityCounter);
-    PICO_MPEGTS_LOG("  Has Adaptation Field: %s\n", packet->hasAdaptationField ? "true" : "false");
+    PICO_MPEGTS_LOG("  Adaptation Field Control: %s\n", picoMpegTSAdaptionFieldControlToString(packet->adaptionFieldControl));
 }
 
 static picoMpegTSResult __picoMpegTSParsePacket(picoMpegTSPacket packet, const uint8_t *data)
@@ -151,7 +159,7 @@ static picoMpegTSResult __picoMpegTSParsePacket(picoMpegTSPacket packet, const u
     packet->pid                       = header & 0x1FFF;
     uint8_t flags                     = data[3];
     packet->scramblingControl         = (flags & 0xC0) >> 6;
-    packet->hasAdaptationField        = (flags & 0x20) != 0;
+    packet->adaptionFieldControl      = (picoMpegTSAdaptionFieldControl)((flags & 0x30) >> 4);
     packet->continuityCounter         = flags & 0x0F;
 
     return PICO_MPEGTS_RESULT_SUCCESS;
@@ -355,7 +363,7 @@ const char *picoMpegTSResultToString(picoMpegTSResult result)
     }
 }
 
-const char* picoMpegTSPIDToString(uint16_t pid)
+const char *picoMpegTSPIDToString(uint16_t pid)
 {
     if (pid == PICO_MPEGTS_PID_PAT) {
         return "Program Association Table (PAT)";
@@ -375,6 +383,22 @@ const char* picoMpegTSPIDToString(uint16_t pid)
         return "Null Packet";
     } else {
         return "Unknown PID";
+    }
+}
+
+const char *picoMpegTSAdaptionFieldControlToString(picoMpegTSAdaptionFieldControl afc)
+{
+    switch (afc) {
+        case PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_RESERVED:
+            return "Reserved";
+        case PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_PAYLOAD_ONLY:
+            return "Payload Only";
+        case PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_ADAPTATION_ONLY:
+            return "Adaptation Field Only";
+        case PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_BOTH:
+            return "Adaptation Field and Payload";
+        default:
+            return "Unknown";
     }
 }
 
