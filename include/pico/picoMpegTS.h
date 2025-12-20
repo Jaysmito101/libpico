@@ -38,7 +38,10 @@ SOFTWARE.
 #include <stdlib.h>
 #include <stdio.h>
 
-#define PICO_IMPLEMENTATION
+
+#ifndef PICO_INITIAL_PARSED_PACKETS_CAPACITY
+#define PICO_INITIAL_PARSED_PACKETS_CAPACITY 1024
+#endif
 
 #ifndef PICO_MALLOC
 #define PICO_MALLOC malloc
@@ -92,6 +95,7 @@ typedef enum {
     PICO_MPEGTS_FILE_NOT_FOUND,
     PICO_MPEGTS_MALLOC_ERROR,
     PICO_MPEGTS_INVALID_DATA,
+    PICO_MPEGTS_INVALID_ARGUMENTS,
 } picoMpegTSResult;
 
 typedef struct picoMpegTS_t picoMpegTS_t;
@@ -194,7 +198,7 @@ typedef struct {
     // two parts. A value of '0' indicates that the adaptation 
     // field does not contain any PCR field.
     bool pcrFlag;
-    
+
     // The program_clock_reference (PCR) is a 42-bit field coded in two parts.
     // The first part, program_clock_reference_base, is a 33-bit field 
     // whose value is given by PCR_base(i), as given in 1. 
@@ -339,8 +343,9 @@ typedef struct {
 } picoMpegTSPacket_t ;
 typedef picoMpegTSPacket_t *picoMpegTSPacket;
 
-picoMpegTS picoMpegTSCreate(void);
+picoMpegTS picoMpegTSCreate(bool storeParsedPackets);
 void picoMpegTSDestroy(picoMpegTS mpegts);
+picoMpegTSResult picoMpegTSGetParsedPackets(picoMpegTS mpegts, picoMpegTSPacket *packetsOut, size_t *packetCountOut);
 
 picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data);
 picoMpegTSResult picoMpegTSAddBuffer(picoMpegTS mpegts, const uint8_t *buffer, size_t size);
@@ -363,7 +368,10 @@ const char *picoMpegTSAdaptionFieldControlToString(picoMpegTSAdaptionFieldContro
 #define PICO_MPEGTS_IMPLEMENTATION
 
 struct picoMpegTS_t {
-    uint8_t reserved;
+    bool storeParsedPackets;
+    picoMpegTSPacket parsedPackets;
+    size_t parsedPacketCount;
+    size_t parsedPacketCapacity;
 };
 
 static picoMpegTSResult __picoMpegTSParsePacketAdaptationFieldExtenstion(const uint8_t *data, uint8_t dataSize, picoMpegTSAdaptionFieldExtension afExt)
@@ -581,81 +589,25 @@ picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket pac
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-void picoMpegTSPacketAdaptationFieldExtensionDebugPrint(picoMpegTSAdaptionFieldExtension afExt)
-{
-    PICO_ASSERT(afExt != NULL);
-    PICO_MPEGTS_LOG("Adaptation Field Extension:\n");
-    PICO_MPEGTS_LOG("  LTW Flag: %s\n", afExt->ltwFlag ? "true" : "false");
-    if (afExt->ltwFlag) {
-        PICO_MPEGTS_LOG("    LTW Valid Flag: %s\n", afExt->ltwValidFlag ? "true" : "false");
-        if (afExt->ltwValidFlag) {
-            PICO_MPEGTS_LOG("    LTW Offset: %u\n", afExt->ltwOffset);
-        }
-    }
-    PICO_MPEGTS_LOG("  Piecewise Rate Flag: %s\n", afExt->piecewiseRateFlag ? "true" : "false");
-    if (afExt->piecewiseRateFlag) {
-        PICO_MPEGTS_LOG("    Piecewise Rate: %u\n", afExt->piecewiseRate);
-    }
-    PICO_MPEGTS_LOG("  Seamless Splice Flag: %s\n", afExt->seamlessSpliceFlag ? "true" : "false");
-    if (afExt->seamlessSpliceFlag) {
-        PICO_MPEGTS_LOG("    Splice Type: %u\n", afExt->spliceType);
-        PICO_MPEGTS_LOG("    DTS Next AU: %llx\n", afExt->dtsNextAU);
-    }
-    PICO_MPEGTS_LOG("  AF Descriptor Not Present Flag: %s\n", afExt->afDescriptorNotPresentFlag ? "true" : "false");
-}
 
-void picoMpegTSPacketAdaptationFieldDebugPrint(picoMpegTSPacketAdaptationField af)
-{
-    PICO_ASSERT(af != NULL);
-    PICO_MPEGTS_LOG("Adaptation Field:\n");
-    PICO_MPEGTS_LOG("  Discontinuity Indicator: %s\n", af->discontinuityIndicator ? "true" : "false");
-    PICO_MPEGTS_LOG("  Random Access Indicator: %s\n", af->randomAccessIndicator ? "true" : "false");
-    PICO_MPEGTS_LOG("  Elementary Stream Priority Indicator: %s\n", af->elementaryStreamPriorityIndicator ? "true" : "false");
-    PICO_MPEGTS_LOG("  PCR Flag: %s\n", af->pcrFlag ? "true" : "false");
-    if (af->pcrFlag) {
-        PICO_MPEGTS_LOG("    PCR Base: %llu\n", af->pcr.base);
-        PICO_MPEGTS_LOG("    PCR Extension: %u\n", af->pcr.extension);
-    }
-    PICO_MPEGTS_LOG("  OPCR Flag: %s\n", af->opcrFlag ? "true" : "false");
-    if (af->opcrFlag) {
-        PICO_MPEGTS_LOG("    OPCR Base: %llu\n", af->opcr.base);
-        PICO_MPEGTS_LOG("    OPCR Extension: %u\n", af->opcr.extension);
-    }
-    PICO_MPEGTS_LOG("  Splicing Point Flag: %s\n", af->splicingPointFlag ? "true" : "false");
-    if (af->splicingPointFlag) {
-        PICO_MPEGTS_LOG("    Splice Countdown: %u\n", af->spliceCountdown);
-    }
-    PICO_MPEGTS_LOG("  Transport Private Data Flag: %s\n", af->transportPrivateDataFlag ? "true" : "false");
-    if (af->transportPrivateDataFlag) {
-        PICO_MPEGTS_LOG("    Transport Private Data Length: %u\n", af->transportPrivateDataLength);
-    }
-    PICO_MPEGTS_LOG("  Adaptation Field Extension Flag: %s\n", af->adaptationFieldExtensionFlag ? "true" : "false");
-}
-
-void picoMpegTSPacketDebugPrint(picoMpegTSPacket packet)
-{
-    PICO_ASSERT(packet != NULL);
-    PICO_MPEGTS_LOG("MPEG-TS Packet:\n");
-    PICO_MPEGTS_LOG("  PID: %s [0x%04X]\n", picoMpegTSPIDToString(packet->pid), packet->pid);
-    PICO_MPEGTS_LOG("  Error Indicator: %s\n", packet->errorIndicator ? "true" : "false");
-    PICO_MPEGTS_LOG("  Payload Unit Start Indicator: %s\n", packet->payloadUnitStartIndicator ? "true" : "false");
-    PICO_MPEGTS_LOG("  Transport Priority: %s\n", packet->transportPriority ? "true" : "false");
-    PICO_MPEGTS_LOG("  Scrambling Control: %u\n", packet->scramblingControl);
-    PICO_MPEGTS_LOG("  Continuity Counter: %u\n", packet->continuityCounter);
-    PICO_MPEGTS_LOG("  Adaptation Field Control: %s\n", picoMpegTSAdaptionFieldControlToString(packet->adaptionFieldControl));
-    PICO_MPEGTS_LOG("  Payload Size: %u bytes\n", packet->payloadSize);
-    if (packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_ADAPTATION_ONLY ||
-        packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_BOTH) {
-        picoMpegTSPacketAdaptationFieldDebugPrint(&packet->adaptionField);
-    }
-
-}
-
-picoMpegTS picoMpegTSCreate(void)
+picoMpegTS picoMpegTSCreate(bool storeParsedPackets)
 {
     picoMpegTS mpegts = (picoMpegTS)PICO_MALLOC(sizeof(picoMpegTS_t));
-    if (!mpegts)
+    if (!mpegts) {
         return NULL;
+    }
+
+    mpegts->storeParsedPackets = storeParsedPackets;
+    if (storeParsedPackets) {
+        mpegts->parsedPackets      = (picoMpegTSPacket)PICO_MALLOC(sizeof(picoMpegTSPacket_t) * PICO_INITIAL_PARSED_PACKETS_CAPACITY);
+        if (!mpegts->parsedPackets) {
+            PICO_FREE(mpegts);
+            return NULL;
+        }
+        mpegts->parsedPacketCount    = 0;
+        mpegts->parsedPacketCapacity = PICO_INITIAL_PARSED_PACKETS_CAPACITY;
+    }
+
 
     return mpegts;
 }
@@ -663,7 +615,26 @@ picoMpegTS picoMpegTSCreate(void)
 void picoMpegTSDestroy(picoMpegTS mpegts)
 {
     PICO_ASSERT(mpegts != NULL);
+    if (mpegts->storeParsedPackets && mpegts->parsedPackets) {
+        PICO_FREE(mpegts->parsedPackets);
+    }
     PICO_FREE(mpegts);
+}
+
+picoMpegTSResult picoMpegTSGetParsedPackets(picoMpegTS mpegts, picoMpegTSPacket *packetsOut, size_t *packetCountOut)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(packetsOut != NULL);
+    PICO_ASSERT(packetCountOut != NULL);
+
+    if (!mpegts->storeParsedPackets) {
+        return PICO_MPEGTS_INVALID_ARGUMENTS;
+    }
+
+    *packetsOut     = mpegts->parsedPackets;
+    *packetCountOut = mpegts->parsedPacketCount;
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
 // NOTE: Irrespective of type of packet we just use the first 188 bytes for parsing
@@ -680,8 +651,19 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
         return result;
     }
 
-    picoMpegTSPacketDebugPrint(&packet);
-    PICO_MPEGTS_LOG("----------------------------------\n");
+    // add packet to parsed packets if needed
+    if (mpegts->storeParsedPackets) {
+        if (mpegts->parsedPacketCount >= mpegts->parsedPacketCapacity) {
+            size_t newCapacity = mpegts->parsedPacketCapacity * 2;
+            picoMpegTSPacket newBuffer = (picoMpegTSPacket)PICO_REALLOC(mpegts->parsedPackets, sizeof(picoMpegTSPacket_t) * newCapacity);
+            if (!newBuffer) {
+                return PICO_MPEGTS_MALLOC_ERROR;
+            }
+            mpegts->parsedPackets      = newBuffer;
+            mpegts->parsedPacketCapacity = newCapacity;
+        }
+        memcpy(&mpegts->parsedPackets[mpegts->parsedPacketCount++], &packet, sizeof(picoMpegTSPacket_t));
+    }
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -845,6 +827,8 @@ const char *picoMpegTSResultToString(picoMpegTSResult result)
             return "MEMORY_ALLOCATION_ERROR";
         case PICO_MPEGTS_INVALID_DATA:
             return "INVALID_DATA";
+        case PICO_MPEGTS_INVALID_ARGUMENTS:
+            return "INVALID_ARGUMENTS";
         default:
             return "UNKNOWN_ERROR";
     }
@@ -887,6 +871,77 @@ const char *picoMpegTSAdaptionFieldControlToString(picoMpegTSAdaptionFieldContro
         default:
             return "Unknown";
     }
+}
+
+
+void picoMpegTSPacketAdaptationFieldExtensionDebugPrint(picoMpegTSAdaptionFieldExtension afExt)
+{
+    PICO_ASSERT(afExt != NULL);
+    PICO_MPEGTS_LOG("Adaptation Field Extension:\n");
+    PICO_MPEGTS_LOG("  LTW Flag: %s\n", afExt->ltwFlag ? "true" : "false");
+    if (afExt->ltwFlag) {
+        PICO_MPEGTS_LOG("    LTW Valid Flag: %s\n", afExt->ltwValidFlag ? "true" : "false");
+        if (afExt->ltwValidFlag) {
+            PICO_MPEGTS_LOG("    LTW Offset: %u\n", afExt->ltwOffset);
+        }
+    }
+    PICO_MPEGTS_LOG("  Piecewise Rate Flag: %s\n", afExt->piecewiseRateFlag ? "true" : "false");
+    if (afExt->piecewiseRateFlag) {
+        PICO_MPEGTS_LOG("    Piecewise Rate: %u\n", afExt->piecewiseRate);
+    }
+    PICO_MPEGTS_LOG("  Seamless Splice Flag: %s\n", afExt->seamlessSpliceFlag ? "true" : "false");
+    if (afExt->seamlessSpliceFlag) {
+        PICO_MPEGTS_LOG("    Splice Type: %u\n", afExt->spliceType);
+        PICO_MPEGTS_LOG("    DTS Next AU: %llx\n", afExt->dtsNextAU);
+    }
+    PICO_MPEGTS_LOG("  AF Descriptor Not Present Flag: %s\n", afExt->afDescriptorNotPresentFlag ? "true" : "false");
+}
+
+void picoMpegTSPacketAdaptationFieldDebugPrint(picoMpegTSPacketAdaptationField af)
+{
+    PICO_ASSERT(af != NULL);
+    PICO_MPEGTS_LOG("Adaptation Field:\n");
+    PICO_MPEGTS_LOG("  Discontinuity Indicator: %s\n", af->discontinuityIndicator ? "true" : "false");
+    PICO_MPEGTS_LOG("  Random Access Indicator: %s\n", af->randomAccessIndicator ? "true" : "false");
+    PICO_MPEGTS_LOG("  Elementary Stream Priority Indicator: %s\n", af->elementaryStreamPriorityIndicator ? "true" : "false");
+    PICO_MPEGTS_LOG("  PCR Flag: %s\n", af->pcrFlag ? "true" : "false");
+    if (af->pcrFlag) {
+        PICO_MPEGTS_LOG("    PCR Base: %llu\n", af->pcr.base);
+        PICO_MPEGTS_LOG("    PCR Extension: %u\n", af->pcr.extension);
+    }
+    PICO_MPEGTS_LOG("  OPCR Flag: %s\n", af->opcrFlag ? "true" : "false");
+    if (af->opcrFlag) {
+        PICO_MPEGTS_LOG("    OPCR Base: %llu\n", af->opcr.base);
+        PICO_MPEGTS_LOG("    OPCR Extension: %u\n", af->opcr.extension);
+    }
+    PICO_MPEGTS_LOG("  Splicing Point Flag: %s\n", af->splicingPointFlag ? "true" : "false");
+    if (af->splicingPointFlag) {
+        PICO_MPEGTS_LOG("    Splice Countdown: %u\n", af->spliceCountdown);
+    }
+    PICO_MPEGTS_LOG("  Transport Private Data Flag: %s\n", af->transportPrivateDataFlag ? "true" : "false");
+    if (af->transportPrivateDataFlag) {
+        PICO_MPEGTS_LOG("    Transport Private Data Length: %u\n", af->transportPrivateDataLength);
+    }
+    PICO_MPEGTS_LOG("  Adaptation Field Extension Flag: %s\n", af->adaptationFieldExtensionFlag ? "true" : "false");
+}
+
+void picoMpegTSPacketDebugPrint(picoMpegTSPacket packet)
+{
+    PICO_ASSERT(packet != NULL);
+    PICO_MPEGTS_LOG("MPEG-TS Packet:\n");
+    PICO_MPEGTS_LOG("  PID: %s [0x%04X]\n", picoMpegTSPIDToString(packet->pid), packet->pid);
+    PICO_MPEGTS_LOG("  Error Indicator: %s\n", packet->errorIndicator ? "true" : "false");
+    PICO_MPEGTS_LOG("  Payload Unit Start Indicator: %s\n", packet->payloadUnitStartIndicator ? "true" : "false");
+    PICO_MPEGTS_LOG("  Transport Priority: %s\n", packet->transportPriority ? "true" : "false");
+    PICO_MPEGTS_LOG("  Scrambling Control: %u\n", packet->scramblingControl);
+    PICO_MPEGTS_LOG("  Continuity Counter: %u\n", packet->continuityCounter);
+    PICO_MPEGTS_LOG("  Adaptation Field Control: %s\n", picoMpegTSAdaptionFieldControlToString(packet->adaptionFieldControl));
+    PICO_MPEGTS_LOG("  Payload Size: %u bytes\n", packet->payloadSize);
+    if (packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_ADAPTATION_ONLY ||
+        packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_BOTH) {
+        picoMpegTSPacketAdaptationFieldDebugPrint(&packet->adaptionField);
+    }
+
 }
 
 #endif // PICO_IMPLEMENTATION
