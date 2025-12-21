@@ -90,6 +90,12 @@ typedef enum {
 } picoMpegTSPacketType;
 
 typedef enum {
+    PICO_MPEGTS_FILTER_TYPE_PES     = 0,
+    PICO_MPEGTS_FILTER_TYPE_SECTION = 1,
+    PICO_MPEGTS_FILTER_TYPE_NULL    = 2,
+} picoMpegTSFilterType;
+
+typedef enum {
     PICO_MPEGTS_PID_PAT            = 0x0000, // Program Association Table
     PICO_MPEGTS_PID_CAT            = 0x0001, // Conditional Access Table
     PICO_MPEGTS_PID_TSDT           = 0x0002, // Transport Stream Description Table
@@ -431,6 +437,7 @@ const char *picoMpegTSResultToString(picoMpegTSResult result);
 const char *picoMpegTSPIDToString(uint16_t pid);
 const char *picoMpegTSTableIDToString(uint8_t tableID);
 const char *picoMpegTSAdaptionFieldControlToString(picoMpegTSAdaptionFieldControl afc);
+const char *picoMpegTSFilterTypeToString(picoMpegTSFilterType type);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_MPEGTS_IMPLEMENTATION)
 #define PICO_MPEGTS_IMPLEMENTATION
@@ -769,6 +776,15 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
 
 // ------------- NAT Filter Functions ---------------
 
+typedef union {
+    struct {
+        uint16_t sectionLength;
+        uint8_t tableID;
+        uint8_t sectionSyntaxIndicator;
+    };
+    uint32_t raw;
+} picoMpegTSFilterContextNAT_t;
+
 static void __picoMpegTSFilterContextNATDestructor(picoMpegTSFilterContext context)
 {
     PICO_ASSERT(context != NULL);
@@ -798,7 +814,8 @@ static picoMpegTSResult __picoMpegTSFilterCreateNAT(picoMpegTS mpegts, uint16_t 
         mpegts,
         __picoMpegTSFilterNAT,
         __picoMpegTSFilterContextNATDestructor,
-        NULL);
+        (void *)0);
+
     if (!natFilterContext) {
         PICO_MPEGTS_LOG("picoMpegTS: Failed to create NAT filter context for PID 0x%04X\n", pid);
         return PICO_MPEGTS_RESULT_MALLOC_ERROR;
@@ -815,7 +832,6 @@ static picoMpegTSResult __picoMpegTSRegisterPSIFilters(picoMpegTS mpegts)
 
     // register NAT filter
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterCreateNAT(mpegts, PICO_MPEGTS_PID_PAT));
-        
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -1271,6 +1287,20 @@ const char *picoMpegTSAdaptionFieldControlToString(picoMpegTSAdaptionFieldContro
             return "Adaptation Field and Payload";
         default:
             return "Unknown";
+    }
+}
+
+const char *picoMpegTSFilterTypeToString(picoMpegTSFilterType filterType)
+{
+    switch (filterType) {
+        case PICO_MPEGTS_FILTER_TYPE_PES:
+            return "PES Filter";
+        case PICO_MPEGTS_FILTER_TYPE_SECTION:
+            return "Section Filter";
+        case PICO_MPEGTS_FILTER_TYPE_NULL:
+            return "Null Filter";
+        default:
+            return "Unknown Filter Type";
     }
 }
 
