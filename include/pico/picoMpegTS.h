@@ -39,6 +39,8 @@ SOFTWARE.
 #include <stdlib.h>
 #include <string.h>
 
+#define PICO_IMPLEMENTATION
+
 #ifndef PICO_INITIAL_PARSED_PACKETS_CAPACITY
 #define PICO_INITIAL_PARSED_PACKETS_CAPACITY 1024
 #endif
@@ -430,10 +432,13 @@ typedef struct picoMpegTSFilterContext_t picoMpegTSFilterContext_t;
 typedef struct picoMpegTSFilterContext_t *picoMpegTSFilterContext;
 
 typedef picoMpegTSResult (*picoMpegTSFilterFunc)(picoMpegTS mpegts, picoMpegTSPacket packet, picoMpegTSFilterContext context);
+typedef void (*picoMpegTSFilterContextDestructorFunc)(picoMpegTSFilterContext context);
 
 struct picoMpegTSFilterContext_t {
     picoMpegTSFilterFunc filterFunc;
+    picoMpegTSFilterContextDestructorFunc destructorFunc;
     void *userContext;
+
     uint8_t *payloadAccumulator;
     size_t payloadAccumulatorSize;
     size_t payloadAccumulatorCapacity;
@@ -628,6 +633,35 @@ static bool __picoMpegTSIsPIDCustom(uint16_t pid)
     return (pid >= PICO_MPEGTS_PID_CUSTOM_START && pid <= PICO_MPEGTS_PID_CUSTOM_END);
 }
 
+static picoMpegTSFilterContext __picoMpegTSCreateFilterContext(
+    picoMpegTS mpegts,
+    picoMpegTSFilterFunc filterFunc,
+    picoMpegTSFilterContextDestructorFunc destructorFunc,
+    void *userContext)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(filterFunc != NULL);
+
+    picoMpegTSFilterContext context = (picoMpegTSFilterContext)PICO_MALLOC(sizeof(picoMpegTSFilterContext_t));
+    if (!context) {
+        return NULL;
+    }
+
+    memset(context, 0, sizeof(picoMpegTSFilterContext_t));
+    context->filterFunc     = filterFunc;
+    context->destructorFunc = destructorFunc;
+    context->userContext    = userContext;
+
+    context->payloadAccumulator         = NULL;
+    context->payloadAccumulatorSize     = 0;
+    context->payloadAccumulatorCapacity = 0;
+
+    context->lastContinuityCounter   = 16; // invalid initial value
+    context->continuityErrorDetected = false;
+
+    return context;
+}
+
 static picoMpegTSFilterContext __picoMpegTSCreatePESFilterContext(picoMpegTS mpegts, uint16_t pid)
 {
     PICO_ASSERT(mpegts != NULL);
@@ -643,11 +677,69 @@ static void __picoMpegTSDestroyFilterContext(picoMpegTS mpegts, picoMpegTSFilter
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(context != NULL);
 
+    if (context->destructorFunc) {
+        context->destructorFunc(context);
+    }
+
     if (context->payloadAccumulator) {
         PICO_FREE(context->payloadAccumulator);
     }
     PICO_FREE(context);
 }
+
+static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext filterContext, picoMpegTS mpegts, picoMpegTSPacket packet)
+{
+    PICO_ASSERT(filterContext != NULL);
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(packet != NULL);
+
+    // append the packet payload to the accumulator
+    if (packet->payloadSize > 0) {
+        // ensure capacity
+        size_t requiredCapacity = filterContext->payloadAccumulatorSize + packet->payloadSize;
+        if (requiredCapacity > filterContext->payloadAccumulatorCapacity) {
+            size_t newCapacity = filterContext->payloadAccumulatorCapacity == 0 ? 256 : filterContext->payloadAccumulatorCapacity;
+            while (newCapacity < requiredCapacity) {
+                newCapacity *= 2;
+            }
+            uint8_t *newAccumulator = (uint8_t *)PICO_REALLOC(filterContext->payloadAccumulator, newCapacity);
+            if (!newAccumulator) {
+                return PICO_MPEGTS_RESULT_MALLOC_ERROR;
+            }
+            filterContext->payloadAccumulator         = newAccumulator;
+            filterContext->payloadAccumulatorCapacity = newCapacity;
+        }
+        // copy payload
+        memcpy(&filterContext->payloadAccumulator[filterContext->payloadAccumulatorSize], packet->payload, packet->payloadSize);
+        filterContext->payloadAccumulatorSize += packet->payloadSize;
+    }
+
+    // // Validate continuity counter if enabled
+    // // Per ITU-T H.222.0: The continuity_counter shall not be incremented when
+    // // adaptation_field_control equals '00' (reserved) or '10' (adaptation field only, no payload)
+    bool hasPayload = (packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_PAYLOAD_ONLY ||
+                       packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_BOTH);
+    if (hasPayload) {
+        if (filterContext->lastContinuityCounter != 16) {
+
+            uint8_t expectedCC = (filterContext->lastContinuityCounter + 1) & 0x0F; // it is 4-bit, wraps at 16
+            if (packet->continuityCounter != expectedCC) {
+                // check for duplicate packet (same CC is allowed for duplicates)
+                if (packet->continuityCounter != filterContext->lastContinuityCounter) {
+                    filterContext->continuityErrorDetected |= true;
+                    mpegts->hasContinuityError             |= true;
+                    PICO_MPEGTS_LOG("Continuity counter error on PID 0x%04X: expected %u, got %u\n",
+                                    packet->pid, expectedCC, packet->continuityCounter);
+                }
+            }
+        }
+        filterContext->lastContinuityCounter = packet->continuityCounter;
+    }
+
+    return filterContext->filterFunc(mpegts, packet, filterContext);
+}
+
+// ---------------------------------- Public functions implementation ---------------------------------
 
 picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket packet)
 {
@@ -764,32 +856,6 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
         return result;
     }
 
-    // // Validate continuity counter if enabled
-    // // Per ITU-T H.222.0: The continuity_counter shall not be incremented when
-    // // adaptation_field_control equals '00' (reserved) or '10' (adaptation field only, no payload)
-    // if (packet.pid != PICO_MPEGTS_PID_NULL_PACKET) {
-    //     uint8_t lastCC  = mpegts->lastContinuityCounter[packet.pid];
-    //     bool hasPayload = (packet.adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_PAYLOAD_ONLY ||
-    //                        packet.adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_BOTH);
-
-    //     if (lastCC != PICO_MPEGTS_CC_UNINITIALIZED && hasPayload) {
-    //         uint8_t expectedCC = (lastCC + 1) & 0x0F; // it is 4-bit, wraps at 16
-    //         if (packet.continuityCounter != expectedCC) {
-    //             // check for duplicate packet (same CC is allowed for duplicates)
-    //             if (packet.continuityCounter != lastCC) {
-    //                 mpegts->continuityErrorCount++;
-    //                 PICO_MPEGTS_LOG("Continuity counter error on PID 0x%04X: expected %u, got %u\n",
-    //                                 packet.pid, expectedCC, packet.continuityCounter);
-    //             }
-    //         }
-    //     }
-
-    //     // update the last continuity counter for this PID
-    //     if (hasPayload) {
-    //         mpegts->lastContinuityCounter[packet.pid] = packet.continuityCounter;
-    //     }
-    // }
-
     // add packet to parsed packets if needed
     if (mpegts->storeParsedPackets) {
         if (mpegts->parsedPacketCount >= mpegts->parsedPacketCapacity) {
@@ -813,7 +879,7 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
     }
 
     if (filterContext) {
-        return filterContext->filterFunc(mpegts, &packet, filterContext);
+        return __picoMpegTSFilterContextApply(filterContext, mpegts, &packet);
     }
 
     // if the packet is of custom PID without a filter, then we
@@ -826,7 +892,7 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
         if (!mpegts->pidFilters[packet.pid]) {
             return PICO_MPEGTS_RESULT_MALLOC_ERROR;
         }
-        return mpegts->pidFilters[packet.pid]->filterFunc(mpegts, &packet, mpegts->pidFilters[packet.pid]);
+        return __picoMpegTSFilterContextApply(mpegts->pidFilters[packet.pid], mpegts, &packet);
     }
 
     mpegts->ignoredPacketCount++;
