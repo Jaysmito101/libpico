@@ -26,6 +26,7 @@ SOFTWARE.
  * This has been purely implemented based of the ITU-T H.222.0 v9 (08/2023) specification.
  * Source: https://www.itu.int/rec/T-REC-H.222.0-202308-S/en
  * And some references from: https://tsduck.io/docs/mpegts-introduction.pdf
+ * And also: https://github.com/FFmpeg/FFmpeg/blob/master/libavformat/mpegts.c
  * - Jaysmito Mukherjee (jaysmito101@gmail.com)
  */
 
@@ -34,9 +35,9 @@ SOFTWARE.
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define PICO_IMPLEMENTATION
 
@@ -80,14 +81,25 @@ typedef enum {
 } picoMpegTSPacketType;
 
 typedef enum {
-    PICO_MPEGTS_PID_PAT            = 0x0000,
-    PICO_MPEGTS_PID_CAT            = 0x0001,
-    PICO_MPEGTS_PID_TSDT           = 0x0002,
-    PICO_MPEGTS_PID_IPMP           = 0x0003,
-    PICO_MPEGTS_PID_ASI            = 0x0004,
-    PICO_MPEGTS_PID_RESERVED_START = 0x0005,
+    PICO_MPEGTS_PID_PAT            = 0x0000, // Program Association Table
+    PICO_MPEGTS_PID_CAT            = 0x0001, // Conditional Access Table 
+    PICO_MPEGTS_PID_TSDT           = 0x0002, // Transport Stream Description Table
+    PICO_MPEGTS_PID_IPMP           = 0x0003, // IPMP Control Information
+    PICO_MPEGTS_PID_ASI            = 0x0004, // Auxiliary Section Information
+    PICO_MPEGTS_PID_RESERVED_START = 0x0005, // PIDs from 0x0005 to 0x000F are reserved
     PICO_MPEGTS_PID_RESERVED_END   = 0x000F,
-    PICO_MPEGTS_PID_CUSTOM_START   = 0x0010,
+    PICO_MPEGTS_PID_NIT            = 0x0010, // Network Information Table
+    PICO_MPEGTS_PID_SDT_BAT        = 0x0011, // Service Description Table / Bouquet Association Table
+    PICO_MPEGTS_PID_EIT            = 0x0012, // Event Information Table
+    PICO_MPEGTS_PID_RST            = 0x0013, // Running Status Table
+    PICO_MPEGTS_PID_TDT_TOT        = 0x0014, // Time and Date Table / Time Offset Table
+    PICO_MPEGTS_PID_NET_SYNC       = 0x0015,
+    PICO_MPEGTS_PID_RNT            = 0x0016, // RAR Notification Table
+    PICO_MPEGTS_PID_LINK_LOCAL     = 0x001C,
+    PICO_MPEGTS_PID_MEASUREMENT    = 0x001D,
+    PICO_MPEGTS_PID_DIT            = 0x001E, // Discontinuity Information Table
+    PICO_MPEGTS_PID_SIT            = 0x001F, // Selection Information Table
+    PICO_MPEGTS_PID_CUSTOM_START   = 0x0020, // Custom PIDs can start from here (these may be assigned dynamically)
     PICO_MPEGTS_PID_CUSTOM_END     = 0x1FFE,
     PICO_MPEGTS_PID_NULL_PACKET    = 0x1FFF,
 } picoMpegTSPacketPID;
@@ -901,23 +913,48 @@ const char *picoMpegTSResultToString(picoMpegTSResult result)
 
 const char *picoMpegTSPIDToString(uint16_t pid)
 {
-    if (pid == PICO_MPEGTS_PID_PAT) {
+    switch (pid) {
+        case PICO_MPEGTS_PID_PAT:
         return "Program Association Table (PAT)";
-    } else if (pid == PICO_MPEGTS_PID_CAT) {
+        case PICO_MPEGTS_PID_CAT:
         return "Conditional Access Table (CAT)";
-    } else if (pid == PICO_MPEGTS_PID_TSDT) {
+        case PICO_MPEGTS_PID_TSDT:
         return "Transport Stream Description Table (TSDT)";
-    } else if (pid == PICO_MPEGTS_PID_IPMP) {
+        case PICO_MPEGTS_PID_IPMP:
         return "IPMP Control Information";
-    } else if (pid == PICO_MPEGTS_PID_ASI) {
-        return "Adaptive Streaming Information (ASI)";
-    } else if (pid >= PICO_MPEGTS_PID_RESERVED_START && pid <= PICO_MPEGTS_PID_RESERVED_END) {
-        return "Reserved PID";
-    } else if (pid >= PICO_MPEGTS_PID_CUSTOM_START && pid <= PICO_MPEGTS_PID_CUSTOM_END) {
-        return "Custom PID";
-    } else if (pid == PICO_MPEGTS_PID_NULL_PACKET) {
+        case PICO_MPEGTS_PID_ASI:
+            return "Auxiliary Section Information (ASI)";
+        case PICO_MPEGTS_PID_NIT:
+            return "Network Information Table (NIT)";
+        case PICO_MPEGTS_PID_SDT_BAT:
+            return "Service Description Table / Bouquet Association Table (SDT/BAT)";
+        case PICO_MPEGTS_PID_EIT:
+            return "Event Information Table (EIT)";
+        case PICO_MPEGTS_PID_RST:
+            return "Running Status Table (RST)";
+        case PICO_MPEGTS_PID_TDT_TOT:
+            return "Time and Date Table / Time Offset Table (TDT/TOT)";
+        case PICO_MPEGTS_PID_NET_SYNC:
+            return "Network Sync";
+        case PICO_MPEGTS_PID_RNT:
+            return "RAR Notification Table (RNT)";
+        case PICO_MPEGTS_PID_LINK_LOCAL:
+            return "Link Local";
+        case PICO_MPEGTS_PID_MEASUREMENT:
+            return "Measurement";
+        case PICO_MPEGTS_PID_DIT:
+            return "Discontinuity Information Table (DIT)";
+        case PICO_MPEGTS_PID_SIT:
+            return "Selection Information Table (SIT)";
+        case PICO_MPEGTS_PID_NULL_PACKET:
         return "Null Packet";
-    } else {
+        default:
+            if (pid >= PICO_MPEGTS_PID_RESERVED_START && pid <= PICO_MPEGTS_PID_RESERVED_END) {
+                return "Reserved";
+            }
+            if (pid >= PICO_MPEGTS_PID_CUSTOM_START && pid <= PICO_MPEGTS_PID_CUSTOM_END) {
+                return "Custom PID";
+            }
         return "Unknown PID";
     }
 }
