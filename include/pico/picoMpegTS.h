@@ -39,12 +39,9 @@ SOFTWARE.
 #include <stdlib.h>
 #include <string.h>
 
-#define PICO_IMPLEMENTATION
-
 #ifndef PICO_INITIAL_PARSED_PACKETS_CAPACITY
 #define PICO_INITIAL_PARSED_PACKETS_CAPACITY 1024
 #endif
-
 
 // Maximum number of PIDs (13-bit PID = 0x0000 to 0x1FFF)
 #ifndef PICO_MPEGTS_MAX_PIDS
@@ -73,6 +70,8 @@ SOFTWARE.
     } while (0)
 #endif
 
+#define PICO_MPEGTS_MAX_PID_COUNT 8192
+
 typedef enum {
     PICO_MPEGTS_PACKET_TYPE_DEFAULT = 188,
     PICO_MPEGTS_PACKET_TYPE_M2TS    = 192,
@@ -82,7 +81,7 @@ typedef enum {
 
 typedef enum {
     PICO_MPEGTS_PID_PAT            = 0x0000, // Program Association Table
-    PICO_MPEGTS_PID_CAT            = 0x0001, // Conditional Access Table 
+    PICO_MPEGTS_PID_CAT            = 0x0001, // Conditional Access Table
     PICO_MPEGTS_PID_TSDT           = 0x0002, // Transport Stream Description Table
     PICO_MPEGTS_PID_IPMP           = 0x0003, // IPMP Control Information
     PICO_MPEGTS_PID_ASI            = 0x0004, // Auxiliary Section Information
@@ -113,68 +112,70 @@ typedef enum {
 
 typedef enum {
     PICO_MPEGTS_RESULT_SUCCESS = 0,
-    PICO_MPEGTS_FILE_NOT_FOUND,
-    PICO_MPEGTS_MALLOC_ERROR,
-    PICO_MPEGTS_INVALID_DATA,
-    PICO_MPEGTS_INVALID_ARGUMENTS,
+    PICO_MPEGTS_RESULT_FILE_NOT_FOUND,
+    PICO_MPEGTS_RESULT_MALLOC_ERROR,
+    PICO_MPEGTS_RESULT_INVALID_DATA,
+    PICO_MPEGTS_RESULT_INVALID_ARGUMENTS,
+    PICO_MPEGTS_RESULT_UNKNOWN_PID_PACKET,
+    PICO_MPEGTS_RESULT_UNKNOWN_ERROR,
 } picoMpegTSResult;
 
 typedef struct picoMpegTS_t picoMpegTS_t;
 typedef picoMpegTS_t *picoMpegTS;
 
 typedef struct {
-    // Also called the Legal Time Window flag. This is a 1-bit field 
+    // Also called the Legal Time Window flag. This is a 1-bit field
     // which when set to '1' indicates the presence of the ltw_offset field.
     bool ltwFlag;
-    // This is a 1-bit field which when set to '1' indicates that 
-    // the value of the ltw_offset shall be valid. 
-    // A value of '0' indicates that the value in 
+    // This is a 1-bit field which when set to '1' indicates that
+    // the value of the ltw_offset shall be valid.
+    // A value of '0' indicates that the value in
     // the ltw_offset field is undefined.
     bool ltwValidFlag;
-    // This is a 15-bit field, the value of which is defined 
+    // This is a 15-bit field, the value of which is defined
     // only if the ltw_valid flag has a value of '1'
     uint16_t ltwOffset;
 
-    // This is a 1-bit field which when set to '1' 
+    // This is a 1-bit field which when set to '1'
     // indicates the presence of the piecewise_rate field.
     bool piecewiseRateFlag;
 
-    // The meaning of this 22-bit field is only defined 
+    // The meaning of this 22-bit field is only defined
     // when both the ltw_flag and the ltw_valid_flag are set
-    // to '1'. When defined, it is a positive integer specifying 
-    // a hypothetical bitrate R which is used to define the 
-    // end times of the Legal Time Windows of transport stream 
-    // packets of the same PID that follow this packet but do 
+    // to '1'. When defined, it is a positive integer specifying
+    // a hypothetical bitrate R which is used to define the
+    // end times of the Legal Time Windows of transport stream
+    // packets of the same PID that follow this packet but do
     // not include the legal_time_window_offset field.
     uint32_t piecewiseRate;
 
     // This is a 1-bit flag which when set to '1' indicates that
-    // the splice_type and DTS_next_AU fields are present. 
-    // A value of '0' indicates that neither splice_type nor 
+    // the splice_type and DTS_next_AU fields are present.
+    // A value of '0' indicates that neither splice_type nor
     // DTS_next_AU fields are present. This field shall be set
-    // to '0' in transport stream packets in which the 
-    // splicing_point_flag is set to '0'. Once it is set 
-    // to '1' in a transport stream packet in which the 
-    // splice_countdown is positive, it shall be set to '1' 
+    // to '0' in transport stream packets in which the
+    // splicing_point_flag is set to '0'. Once it is set
+    // to '1' in a transport stream packet in which the
+    // splice_countdown is positive, it shall be set to '1'
     // in all the subsequent transport stream packets of the
-    // same PID that have the splicing_point_flag set to '1', 
+    // same PID that have the splicing_point_flag set to '1',
     // until the packet in which the splice_countdown reaches zero
     // (including this packet).
     bool seamlessSpliceFlag;
 
-    // This is a 4-bit field. From the first occurrence of this 
+    // This is a 4-bit field. From the first occurrence of this
     // field onwards, it shall have the same value in all the
-    // subsequent transport stream packets of the same PID in 
+    // subsequent transport stream packets of the same PID in
     // which it is present, until the packet in which the splice_countdown
-    // reaches zero (including this packet). If the elementary stream 
-    // carried in that PID is not a Rec. ITU-T H.262 | ISO/IEC13818-2 video 
+    // reaches zero (including this packet). If the elementary stream
+    // carried in that PID is not a Rec. ITU-T H.262 | ISO/IEC13818-2 video
     // stream, then this field shall have the value '1111' (unspecified).
     uint8_t spliceType;
     uint64_t dtsNextAU;
 
-    // This 1-bit field when set to '0' signals the presence of one or 
-    // several af_descriptor() constructs in the adaptation header. 
-    // When this flag is set to '1' it indicates that the 
+    // This 1-bit field when set to '0' signals the presence of one or
+    // several af_descriptor() constructs in the adaptation header.
+    // When this flag is set to '1' it indicates that the
     // af_descriptor() is not present in the adaptation header.
     bool afDescriptorNotPresentFlag;
 } picoMpegTSPacketAdaptionFieldExtension_t;
@@ -189,14 +190,13 @@ typedef struct {
 } picoMpegTSAdaptionFieldClockReference_t;
 typedef picoMpegTSAdaptionFieldClockReference_t *picoMpegTSAdaptionFieldPCR_t;
 
-
 typedef struct {
     // This is a 1-bit field which when set to '1' indicates
-    // that the discontinuity state is true for the current 
-    // transport stream packet. When the discontinuity_indicator 
+    // that the discontinuity state is true for the current
+    // transport stream packet. When the discontinuity_indicator
     // is set to '0' or is not present, the discontinuity state is
     // false. The discontinuity indicator is used to indicate
-    // two types of discontinuities, system time-base 
+    // two types of discontinuities, system time-base
     // discontinuities and continuity_counter discontinuities.
     bool discontinuityIndicator;
 
@@ -208,24 +208,24 @@ typedef struct {
 
     // The elementary_stream_priority_indicator is a 1-bit field.
     // It indicates, among packets with the same PID, the priority
-    // of the elementary stream data carried within the payload 
-    // of this transport stream packet. A '1' indicates that the 
-    // payload has a higher priority than the payloads of other 
+    // of the elementary stream data carried within the payload
+    // of this transport stream packet. A '1' indicates that the
+    // payload has a higher priority than the payloads of other
     // transport stream packets.
     bool elementaryStreamPriorityIndicator;
 
     // The PCR_flag is a 1-bit flag. A value of '1' indicates
     // that the adaptation_field contains a PCR field coded in
-    // two parts. A value of '0' indicates that the adaptation 
+    // two parts. A value of '0' indicates that the adaptation
     // field does not contain any PCR field.
     bool pcrFlag;
 
     // The program_clock_reference (PCR) is a 42-bit field coded in two parts.
-    // The first part, program_clock_reference_base, is a 33-bit field 
-    // whose value is given by PCR_base(i), as given in 1. 
+    // The first part, program_clock_reference_base, is a 33-bit field
+    // whose value is given by PCR_base(i), as given in 1.
     // The second part, program_clock_reference_extension, is a 9-bit field whose value
     // is given by PCR_ext(i), as given in 2. The PCR indicates the intended
-    // time of arrival of the byte containing the last bit of the 
+    // time of arrival of the byte containing the last bit of the
     // program_clock_reference_base at the input of the system target decoder.
     // Equation 1: PCR_base(i) = ((system_clock_frequency * t(i))DIV 300) MOD 2^33
     // Equation 2: PCR_ext(i) = (system_clock_frequency * t(i)DIV 1) MOD 300
@@ -239,29 +239,29 @@ typedef struct {
 
     // The optional original program reference (OPCR) is a 42-bit field
     // coded in two parts. These two parts, the base and the extension, are coded
-    // identically to the two corresponding parts of the PCR field. 
+    // identically to the two corresponding parts of the PCR field.
     // The presence of the OPCR is indicated by the OPCR_flag.
     picoMpegTSAdaptionFieldClockReference_t opcr;
 
     // The splicing_point_flag is a 1-bit flag. When set to '1',
-    // a splice_countdown field shall be present in this adaptation 
-    // field, specifying the occurrence of a splicing point. 
+    // a splice_countdown field shall be present in this adaptation
+    // field, specifying the occurrence of a splicing point.
     // A value of '0' indicates that a splice_countdown
     // field is not present in the adaptation field.
     bool splicingPointFlag;
 
-    // The splice_countdown is an 8-bit field, representing a value 
-    // which may be positive or negative. A positive value specifies the 
-    // remaining number of transport stream packets, of the same PID, 
-    // following the associated transport stream packet until a splicing 
-    // point is reached. Duplicate transport stream packets and transport 
+    // The splice_countdown is an 8-bit field, representing a value
+    // which may be positive or negative. A positive value specifies the
+    // remaining number of transport stream packets, of the same PID,
+    // following the associated transport stream packet until a splicing
+    // point is reached. Duplicate transport stream packets and transport
     // stream packets which only contain adaptation fields are excluded.
     // The splicing point is located immediately after the last byte of the
-    // transport stream packet in which the associated splice_countdown field 
-    // reaches zero. In the transport stream packet where the splice_countdown 
-    // reaches zero, the last data byte of the transport stream packet 
-    // payload shall be the last byte of a coded audio frame or a coded picture. 
-    // In the case of video, the corresponding access unit may or 
+    // transport stream packet in which the associated splice_countdown field
+    // reaches zero. In the transport stream packet where the splice_countdown
+    // reaches zero, the last data byte of the transport stream packet
+    // payload shall be the last byte of a coded audio frame or a coded picture.
+    // In the case of video, the corresponding access unit may or
     // may not be terminated by a sequence_end_code. Transport stream
     // packets with the same PID, which follow, may contain data from a different
     // elementary stream of the same type.
@@ -269,20 +269,20 @@ typedef struct {
 
     // The transport_private_data_flag is a 1-bit flag.
     // A value of'1' indicates that the adaptation field contains
-    // one or more private_data bytes. A value of '0' indicates 
+    // one or more private_data bytes. A value of '0' indicates
     // the adaptation field does not contain any private_data bytes.
     bool transportPrivateDataFlag;
 
     // The transport_private_data_length is an 8-bit field specifying the number of
-    // private_data bytes immediately following the transport private_data_length field. 
-    // The number of private_data bytes shall be such that private data 
+    // private_data bytes immediately following the transport private_data_length field.
+    // The number of private_data bytes shall be such that private data
     // does not extend beyond the adaptation field.
     uint8_t transportPrivateDataLength;
     uint8_t transportPrivateData[183];
 
     // The adaptation_field_extension_flag is a 1-bit field
-    // which when set to '1' indicates the presence of an adaptation 
-    // field extension. A value of '0' indicates that an adaptation 
+    // which when set to '1' indicates the presence of an adaptation
+    // field extension. A value of '0' indicates that an adaptation
     // field extension is not present in the adaptation field.
     bool adaptationFieldExtensionFlag;
     picoMpegTSPacketAdaptionFieldExtension_t adaptationFieldExtension;
@@ -292,36 +292,36 @@ typedef picoMpegTSPacketAdaptationField_t *picoMpegTSPacketAdaptationField;
 typedef struct {
     // The transport_error_indicator is a 1-bit flag.
     // When set to '1' it indicates that at least
-    // 1 uncorrectable bit error exists in the associated 
+    // 1 uncorrectable bit error exists in the associated
     // transport stream packet. This bit may be set to '1'
     // by entities external to the transport layer.
     // When set to '1' this bit shall not be reset
-    // to '0' unless the bit value(s) in error have 
+    // to '0' unless the bit value(s) in error have
     // been corrected.
     bool errorIndicator;
 
     // The payload_unit_start_indicator is a 1-bit flag
-    // which has normative meaning for transport stream 
+    // which has normative meaning for transport stream
     // packets that carry PES packets or transport stream
     // section data.
     bool payloadUnitStartIndicator;
 
     // The transport_priority is a 1-bit indicator. When set
     // to '1' it indicates that the associated packet is
-    // of greater priority than other packets having the same 
+    // of greater priority than other packets having the same
     // PID which do not have the bit set to '1'. The transport mechanism
     // can use this to prioritize its data within an
     // elementary stream. Depending on the application the
-    // transport_priority field may be coded regardless of 
-    // the PID or within one PID only. This field may be 
+    // transport_priority field may be coded regardless of
+    // the PID or within one PID only. This field may be
     // changed by channel-specific encoders or decoders.
     bool transportPriority;
 
     // The PID is a 13-bit field, indicating the type of the
     // data stored in the packet payload. PID value 0x0000 is reserved
-    // for the program association table. PID value 0x0001 
-    // is reserved for the conditional access table. 
-    // PID value 0x0002 is reserved for the transport stream 
+    // for the program association table. PID value 0x0001
+    // is reserved for the conditional access table.
+    // PID value 0x0002 is reserved for the transport stream
     // description table, PID value 0x0003 is reserved for
     //  IPMP control information table and PID values
     //  0x0004-0x000F are reserved. PID value 0x1FFF is
@@ -332,20 +332,20 @@ typedef struct {
     // the transport stream packet payload. The transport stream
     // packet header, and the adaptation field when present,
     // shall not be scrambled. In the case of a null packet the
-    // value of the transport_scrambling_control field 
+    // value of the transport_scrambling_control field
     // shall be set to '00'.
     uint8_t scramblingControl;
 
     // The continuity_counter is a 4-bit field incrementing
-    // with each transport stream packet with the same PID. 
+    // with each transport stream packet with the same PID.
     // The continuity_counter wraps around to 0 after its
     // maximum value. The continuity_counter shall not be
     // incremented when the adaptation_field_control of
     // the packet equals '00' or '10'.
     uint8_t continuityCounter;
 
-    // This 2-bit field indicates whether this transport 
-    // stream packet header is followed by an adaptation 
+    // This 2-bit field indicates whether this transport
+    // stream packet header is followed by an adaptation
     // field and/or payload.
     picoMpegTSAdaptionFieldControl adaptionFieldControl;
 
@@ -354,14 +354,14 @@ typedef struct {
     bool hasAdaptationField;
 
     // Adaptation field of the packet
-    picoMpegTSPacketAdaptationField_t adaptionField;    
+    picoMpegTSPacketAdaptationField_t adaptionField;
 
     // Payload data of the packet
     uint8_t payload[184];
 
     // Size of the payload data in bytes (0 - 184)
     uint8_t payloadSize;
-} picoMpegTSPacket_t ;
+} picoMpegTSPacket_t;
 typedef picoMpegTSPacket_t *picoMpegTSPacket;
 
 picoMpegTS picoMpegTSCreate(bool storeParsedPackets);
@@ -373,7 +373,6 @@ picoMpegTSResult picoMpegTSAddBuffer(picoMpegTS mpegts, const uint8_t *buffer, s
 picoMpegTSResult picoMpegTSAddFile(picoMpegTS mpegts, const char *filename);
 picoMpegTSPacketType picoMpegTSDetectPacketType(const uint8_t *data, size_t size);
 picoMpegTSPacketType picoMpegTSDetectPacketTypeFromFile(const char *filename);
-picoMpegTSResult picoMpegTSFlush(picoMpegTS mpegts);
 
 picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket packetOut);
 
@@ -389,17 +388,33 @@ const char *picoMpegTSAdaptionFieldControlToString(picoMpegTSAdaptionFieldContro
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_MPEGTS_IMPLEMENTATION)
 #define PICO_MPEGTS_IMPLEMENTATION
 
+// the filter function
+typedef struct picoMpegTSFilterContext_t picoMpegTSFilterContext_t;
+typedef struct picoMpegTSFilterContext_t *picoMpegTSFilterContext;
+
+typedef picoMpegTSResult (*picoMpegTSFilterFunc)(picoMpegTS mpegts, picoMpegTSPacket packet, picoMpegTSFilterContext context);
+
+struct picoMpegTSFilterContext_t {
+    picoMpegTSFilterFunc filterFunc;
+    void *userContext;
+    uint8_t *payloadAccumulator;
+    size_t payloadAccumulatorSize;
+    size_t payloadAccumulatorCapacity;
+
+    uint8_t lastContinuityCounter;
+    bool continuityErrorDetected;
+};
+
 struct picoMpegTS_t {
     bool storeParsedPackets;
     picoMpegTSPacket parsedPackets;
     size_t parsedPacketCount;
     size_t parsedPacketCapacity;
 
-    uint8_t payloadAccumulator[65536  * 2];
-    size_t payloadAccumulatorSize;
+    bool hasContinuityError;
+    uint32_t ignoredPacketCount;
 
-    uint8_t lastContinuityCounter[PICO_MPEGTS_MAX_PIDS]; 
-    size_t continuityErrorCount;
+    picoMpegTSFilterContext pidFilters[PICO_MPEGTS_MAX_PID_COUNT];
 };
 
 static picoMpegTSResult __picoMpegTSParsePacketAdaptationFieldExtenstion(const uint8_t *data, uint8_t dataSize, picoMpegTSAdaptionFieldExtension afExt)
@@ -408,26 +423,26 @@ static picoMpegTSResult __picoMpegTSParsePacketAdaptationFieldExtenstion(const u
     PICO_ASSERT(data != NULL);
 
     if (dataSize < 1) {
-        return PICO_MPEGTS_INVALID_DATA;
+        return PICO_MPEGTS_RESULT_INVALID_DATA;
     }
 
     {
-        uint8_t flags = data[0];
-        afExt->ltwFlag               = (flags & 0x80) != 0;
-        afExt->piecewiseRateFlag     = (flags & 0x40) != 0;
-        afExt->seamlessSpliceFlag    = (flags & 0x20) != 0;
+        uint8_t flags                     = data[0];
+        afExt->ltwFlag                    = (flags & 0x80) != 0;
+        afExt->piecewiseRateFlag          = (flags & 0x40) != 0;
+        afExt->seamlessSpliceFlag         = (flags & 0x20) != 0;
         afExt->afDescriptorNotPresentFlag = (flags & 0x10) != 0;
         dataSize -= 1;
         data += 1;
     }
-    
+
     if (afExt->ltwFlag) {
         if (dataSize < 2) {
-            return PICO_MPEGTS_INVALID_DATA;
+            return PICO_MPEGTS_RESULT_INVALID_DATA;
         }
         {
             // 1 bit valid + 15 bits offset
-            uint16_t ltw = (uint16_t)(data[0] << 8) | data[1];
+            uint16_t ltw        = (uint16_t)(data[0] << 8) | data[1];
             afExt->ltwValidFlag = (ltw & 0x8000) != 0;
             afExt->ltwOffset    = ltw & 0x7FFF;
             data += 2;
@@ -437,11 +452,11 @@ static picoMpegTSResult __picoMpegTSParsePacketAdaptationFieldExtenstion(const u
 
     if (afExt->piecewiseRateFlag) {
         if (dataSize < 3) {
-            return PICO_MPEGTS_INVALID_DATA;
+            return PICO_MPEGTS_RESULT_INVALID_DATA;
         }
         {
             // 2 reserved + 22 bits rate
-            uint32_t pwr = (uint32_t)(data[0] << 16) | (uint32_t)(data[1] << 8) | data[2];
+            uint32_t pwr         = (uint32_t)(data[0] << 16) | (uint32_t)(data[1] << 8) | data[2];
             afExt->piecewiseRate = pwr & 0x3FFFFF;
             data += 3;
             dataSize -= 3;
@@ -450,20 +465,20 @@ static picoMpegTSResult __picoMpegTSParsePacketAdaptationFieldExtenstion(const u
 
     if (afExt->seamlessSpliceFlag) {
         if (dataSize < 5) {
-            return PICO_MPEGTS_INVALID_DATA;
+            return PICO_MPEGTS_RESULT_INVALID_DATA;
         }
         {
             // Splice_type (4 bits) | DTS_next_AU[32..30] (3 bits) | marker_bit (1 bit)
             // DTS_next_AU[29..15] (15 bits) | marker_bit (1 bit)
             // DTS_next_AU[14..0] (15 bits) | marker_bit (1 bit)
             uint8_t spliceType = (data[0] >> 4) & 0x0F;
-            afExt->spliceType = spliceType;
-            
-            uint64_t dtsHigh   = (uint64_t)((data[0] >> 1) & 0x07) << 30;  // DTS_next_AU[32..30]
-            uint64_t dtsMid    = (uint64_t)((data[1] << 7) | (data[2] >> 1)) << 15;  // DTS_next_AU[29..15]
-            uint64_t dtsLow    = (uint64_t)((data[3] << 7) | (data[4] >> 1));  // DTS_next_AU[14..0]
+            afExt->spliceType  = spliceType;
+
+            uint64_t dtsHigh = (uint64_t)((data[0] >> 1) & 0x07) << 30;           // DTS_next_AU[32..30]
+            uint64_t dtsMid  = (uint64_t)((data[1] << 7) | (data[2] >> 1)) << 15; // DTS_next_AU[29..15]
+            uint64_t dtsLow  = (uint64_t)((data[3] << 7) | (data[4] >> 1));       // DTS_next_AU[14..0]
             afExt->dtsNextAU = dtsHigh | dtsMid | dtsLow;
-            
+
             data += 5;
             dataSize -= 5;
         }
@@ -483,11 +498,11 @@ static picoMpegTSResult __picoMpegTSParsePacketAdaptationField(const uint8_t *da
     PICO_ASSERT(data != NULL);
 
     if (dataSize < 1) {
-        return PICO_MPEGTS_INVALID_DATA;
+        return PICO_MPEGTS_RESULT_INVALID_DATA;
     }
 
     {
-        uint8_t flags = data[0];
+        uint8_t flags                         = data[0];
         af->discontinuityIndicator            = (flags & 0x80) != 0;
         af->randomAccessIndicator             = (flags & 0x40) != 0;
         af->elementaryStreamPriorityIndicator = (flags & 0x20) != 0;
@@ -502,7 +517,7 @@ static picoMpegTSResult __picoMpegTSParsePacketAdaptationField(const uint8_t *da
 
     if (af->pcrFlag) {
         if (dataSize < 6) {
-            return PICO_MPEGTS_INVALID_DATA;
+            return PICO_MPEGTS_RESULT_INVALID_DATA;
         }
         // 33 bits base + 6 reserved + 9 bits extension
         af->pcr.base      = ((uint64_t)data[0] << 25) | ((uint64_t)data[1] << 17) | ((uint64_t)data[2] << 9) | ((uint64_t)data[3] << 1) | ((data[4] & 0x80) >> 7);
@@ -513,7 +528,7 @@ static picoMpegTSResult __picoMpegTSParsePacketAdaptationField(const uint8_t *da
 
     if (af->opcrFlag) {
         if (dataSize < 6) {
-            return PICO_MPEGTS_INVALID_DATA;
+            return PICO_MPEGTS_RESULT_INVALID_DATA;
         }
         // 33 bits base + 6 reserved + 9 bits extension
         af->opcr.base      = ((uint64_t)data[0] << 25) | ((uint64_t)data[1] << 17) | ((uint64_t)data[2] << 9) | ((uint64_t)data[3] << 1) | ((data[4] & 0x80) >> 7);
@@ -524,7 +539,7 @@ static picoMpegTSResult __picoMpegTSParsePacketAdaptationField(const uint8_t *da
 
     if (af->splicingPointFlag) {
         if (dataSize < 1) {
-            return PICO_MPEGTS_INVALID_DATA;
+            return PICO_MPEGTS_RESULT_INVALID_DATA;
         }
         af->spliceCountdown = data[0];
         data += 1;
@@ -533,14 +548,14 @@ static picoMpegTSResult __picoMpegTSParsePacketAdaptationField(const uint8_t *da
 
     if (af->transportPrivateDataFlag) {
         if (dataSize < 1) {
-            return PICO_MPEGTS_INVALID_DATA;
+            return PICO_MPEGTS_RESULT_INVALID_DATA;
         }
         af->transportPrivateDataLength = data[0];
         data += 1;
         dataSize -= 1;
 
         if (dataSize < af->transportPrivateDataLength) {
-            return PICO_MPEGTS_INVALID_DATA;
+            return PICO_MPEGTS_RESULT_INVALID_DATA;
         }
         memcpy(af->transportPrivateData, data, af->transportPrivateDataLength);
         data += af->transportPrivateDataLength;
@@ -549,14 +564,14 @@ static picoMpegTSResult __picoMpegTSParsePacketAdaptationField(const uint8_t *da
 
     if (af->adaptationFieldExtensionFlag) {
         if (dataSize < 1) {
-            return PICO_MPEGTS_INVALID_DATA;
+            return PICO_MPEGTS_RESULT_INVALID_DATA;
         }
         uint8_t afExtLength = data[0];
         data += 1;
         dataSize -= 1;
 
         if (dataSize < afExtLength) {
-            return PICO_MPEGTS_INVALID_DATA;
+            return PICO_MPEGTS_RESULT_INVALID_DATA;
         }
         picoMpegTSResult extResult = __picoMpegTSParsePacketAdaptationFieldExtenstion(data, afExtLength, &af->adaptationFieldExtension);
         if (extResult != PICO_MPEGTS_RESULT_SUCCESS) {
@@ -568,7 +583,33 @@ static picoMpegTSResult __picoMpegTSParsePacketAdaptationField(const uint8_t *da
 
     // rest is stuffing bytes
 
-    return PICO_MPEGTS_RESULT_SUCCESS;    
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
+static bool __picoMpegTSIsPIDCustom(uint16_t pid)
+{
+    return (pid >= PICO_MPEGTS_PID_CUSTOM_START && pid <= PICO_MPEGTS_PID_CUSTOM_END);
+}
+
+static picoMpegTSFilterContext __picoMpegTSCreatePESFilterContext(picoMpegTS mpegts, uint16_t pid)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(pid < PICO_MPEGTS_MAX_PID_COUNT);
+
+    // TODO : Implement PES filter context creation
+
+    return NULL;
+}
+
+static void __picoMpegTSDestroyFilterContext(picoMpegTS mpegts, picoMpegTSFilterContext context)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(context != NULL);
+
+    if (context->payloadAccumulator) {
+        PICO_FREE(context->payloadAccumulator);
+    }
+    PICO_FREE(context);
 }
 
 picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket packet)
@@ -577,7 +618,7 @@ picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket pac
     PICO_ASSERT(data != NULL);
 
     if (data[0] != 0x47) {
-        return PICO_MPEGTS_INVALID_DATA;
+        return PICO_MPEGTS_RESULT_INVALID_DATA;
     }
 
     uint16_t header                   = (uint16_t)(data[1] << 8) | data[2];
@@ -617,7 +658,6 @@ picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket pac
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-
 picoMpegTS picoMpegTSCreate(bool storeParsedPackets)
 {
     picoMpegTS mpegts = (picoMpegTS)PICO_MALLOC(sizeof(picoMpegTS_t));
@@ -625,12 +665,11 @@ picoMpegTS picoMpegTSCreate(bool storeParsedPackets)
         return NULL;
     }
 
-    mpegts->payloadAccumulatorSize = 0;
-    memset(mpegts->payloadAccumulator, 0, sizeof(mpegts->payloadAccumulator));
+    memset(mpegts, 0, sizeof(picoMpegTS_t));
 
     mpegts->storeParsedPackets = storeParsedPackets;
     if (storeParsedPackets) {
-        mpegts->parsedPackets      = (picoMpegTSPacket)PICO_MALLOC(sizeof(picoMpegTSPacket_t) * PICO_INITIAL_PARSED_PACKETS_CAPACITY);
+        mpegts->parsedPackets = (picoMpegTSPacket)PICO_MALLOC(sizeof(picoMpegTSPacket_t) * PICO_INITIAL_PARSED_PACKETS_CAPACITY);
         if (!mpegts->parsedPackets) {
             PICO_FREE(mpegts);
             return NULL;
@@ -638,9 +677,6 @@ picoMpegTS picoMpegTSCreate(bool storeParsedPackets)
         mpegts->parsedPacketCount    = 0;
         mpegts->parsedPacketCapacity = PICO_INITIAL_PARSED_PACKETS_CAPACITY;
     }
-
-    mpegts->continuityErrorCount = 0;
-    memset(mpegts->lastContinuityCounter, PICO_MPEGTS_CC_UNINITIALIZED, sizeof(mpegts->lastContinuityCounter));
 
     return mpegts;
 }
@@ -651,6 +687,13 @@ void picoMpegTSDestroy(picoMpegTS mpegts)
     if (mpegts->storeParsedPackets && mpegts->parsedPackets) {
         PICO_FREE(mpegts->parsedPackets);
     }
+    // free all the filter contexts
+    for (size_t i = 0; i < PICO_MPEGTS_MAX_PID_COUNT; i++) {
+        if (mpegts->pidFilters[i]) {
+            __picoMpegTSDestroyFilterContext(mpegts, mpegts->pidFilters[i]);
+        }
+    }
+
     PICO_FREE(mpegts);
 }
 
@@ -661,21 +704,11 @@ picoMpegTSResult picoMpegTSGetParsedPackets(picoMpegTS mpegts, picoMpegTSPacket 
     PICO_ASSERT(packetCountOut != NULL);
 
     if (!mpegts->storeParsedPackets) {
-        return PICO_MPEGTS_INVALID_ARGUMENTS;
+        return PICO_MPEGTS_RESULT_INVALID_ARGUMENTS;
     }
 
     *packetsOut     = mpegts->parsedPackets;
     *packetCountOut = mpegts->parsedPacketCount;
-
-    return PICO_MPEGTS_RESULT_SUCCESS;
-}
-
-picoMpegTSResult picoMpegTSFlush(picoMpegTS mpegts)
-{
-    PICO_ASSERT(mpegts != NULL);
-
-    mpegts->payloadAccumulatorSize = 0;
-    memset(mpegts->payloadAccumulator, 0, sizeof(mpegts->payloadAccumulator));
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -694,52 +727,74 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
         return result;
     }
 
-    // Validate continuity counter if enabled
-    // Per ITU-T H.222.0: The continuity_counter shall not be incremented when
-    // adaptation_field_control equals '00' (reserved) or '10' (adaptation field only, no payload)
-    if (packet.pid != PICO_MPEGTS_PID_NULL_PACKET) {
-        uint8_t lastCC = mpegts->lastContinuityCounter[packet.pid];
-        bool hasPayload = (packet.adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_PAYLOAD_ONLY ||
-                          packet.adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_BOTH);
-        
-        if (lastCC != PICO_MPEGTS_CC_UNINITIALIZED && hasPayload) {
-            uint8_t expectedCC = (lastCC + 1) & 0x0F; // it is 4-bit, wraps at 16
-            if (packet.continuityCounter != expectedCC) {
-                // check for duplicate packet (same CC is allowed for duplicates)
-                if (packet.continuityCounter != lastCC) {
-                    mpegts->continuityErrorCount++;
-                    PICO_MPEGTS_LOG("Continuity counter error on PID 0x%04X: expected %u, got %u\n",
-                                   packet.pid, expectedCC, packet.continuityCounter);
-                }
-            }
-        }
-        
-        // update the last continuity counter for this PID
-        if (hasPayload) {
-            mpegts->lastContinuityCounter[packet.pid] = packet.continuityCounter;
-        }
-    }
+    // // Validate continuity counter if enabled
+    // // Per ITU-T H.222.0: The continuity_counter shall not be incremented when
+    // // adaptation_field_control equals '00' (reserved) or '10' (adaptation field only, no payload)
+    // if (packet.pid != PICO_MPEGTS_PID_NULL_PACKET) {
+    //     uint8_t lastCC  = mpegts->lastContinuityCounter[packet.pid];
+    //     bool hasPayload = (packet.adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_PAYLOAD_ONLY ||
+    //                        packet.adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_BOTH);
+
+    //     if (lastCC != PICO_MPEGTS_CC_UNINITIALIZED && hasPayload) {
+    //         uint8_t expectedCC = (lastCC + 1) & 0x0F; // it is 4-bit, wraps at 16
+    //         if (packet.continuityCounter != expectedCC) {
+    //             // check for duplicate packet (same CC is allowed for duplicates)
+    //             if (packet.continuityCounter != lastCC) {
+    //                 mpegts->continuityErrorCount++;
+    //                 PICO_MPEGTS_LOG("Continuity counter error on PID 0x%04X: expected %u, got %u\n",
+    //                                 packet.pid, expectedCC, packet.continuityCounter);
+    //             }
+    //         }
+    //     }
+
+    //     // update the last continuity counter for this PID
+    //     if (hasPayload) {
+    //         mpegts->lastContinuityCounter[packet.pid] = packet.continuityCounter;
+    //     }
+    // }
 
     // add packet to parsed packets if needed
     if (mpegts->storeParsedPackets) {
         if (mpegts->parsedPacketCount >= mpegts->parsedPacketCapacity) {
-            size_t newCapacity = mpegts->parsedPacketCapacity * 2;
+            size_t newCapacity         = mpegts->parsedPacketCapacity * 2;
             picoMpegTSPacket newBuffer = (picoMpegTSPacket)PICO_REALLOC(mpegts->parsedPackets, sizeof(picoMpegTSPacket_t) * newCapacity);
             if (!newBuffer) {
-                return PICO_MPEGTS_MALLOC_ERROR;
+                return PICO_MPEGTS_RESULT_MALLOC_ERROR;
             }
-            mpegts->parsedPackets      = newBuffer;
+            mpegts->parsedPackets        = newBuffer;
             mpegts->parsedPacketCapacity = newCapacity;
         }
         memcpy(&mpegts->parsedPackets[mpegts->parsedPacketCount++], &packet, sizeof(picoMpegTSPacket_t));
     }
 
-    if (packet.payloadUnitStartIndicator) {
-        picoMpegTSFlush(mpegts);
-    }
-    memcpy(&mpegts->payloadAccumulator[mpegts->payloadAccumulatorSize], packet.payload, packet.payloadSize);
-    mpegts->payloadAccumulatorSize += packet.payloadSize;
+    picoMpegTSFilterContext filterContext = mpegts->pidFilters[packet.pid];
 
+    // if there is no filter for this PID and it is not a custom PID then this is an error
+    if (!filterContext && !__picoMpegTSIsPIDCustom(packet.pid)) {
+        // TODO: Maybe just skip the packet?
+        return PICO_MPEGTS_RESULT_UNKNOWN_PID_PACKET;        
+    }
+
+    if (filterContext) {
+        return filterContext->filterFunc(mpegts, &packet, filterContext);
+    }
+
+    // if the packet is of custom PID without a filter, then we 
+    // only process it if it has payloadUnitStartIndicator set
+    // at that case we cant register a pes filter 
+    // otherwise we just ignore the packet
+
+    if (__picoMpegTSIsPIDCustom(packet.pid) && !packet.payloadUnitStartIndicator) {
+        mpegts->pidFilters[packet.pid] = __picoMpegTSCreatePESFilterContext(mpegts, packet.pid);
+        if (!mpegts->pidFilters[packet.pid]) {
+            return PICO_MPEGTS_RESULT_MALLOC_ERROR;
+        }
+        return mpegts->pidFilters[packet.pid]->filterFunc(mpegts, &packet, mpegts->pidFilters[packet.pid]);
+    }
+    
+    mpegts->ignoredPacketCount++;
+    PICO_MPEGTS_LOG("Ignoring packet with custom PID 0x%04X without filter.\n", packet.pid);
+    
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
@@ -750,7 +805,7 @@ picoMpegTSResult picoMpegTSAddBuffer(picoMpegTS mpegts, const uint8_t *buffer, s
 
     picoMpegTSPacketType packetType = picoMpegTSDetectPacketType(buffer, size);
     if (packetType == PICO_MPEGTS_PACKET_TYPE_UNKNOWN) {
-        return PICO_MPEGTS_INVALID_DATA;
+        return PICO_MPEGTS_RESULT_INVALID_DATA;
     }
 
     size_t packetSize = (size_t)packetType;
@@ -768,8 +823,6 @@ picoMpegTSResult picoMpegTSAddBuffer(picoMpegTS mpegts, const uint8_t *buffer, s
 
         offset += packetSize;
     }
-    
-    picoMpegTSFlush(mpegts);
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -781,7 +834,7 @@ picoMpegTSResult picoMpegTSAddFile(picoMpegTS mpegts, const char *filename)
 
     FILE *file = fopen(filename, "rb");
     if (!file) {
-        return PICO_MPEGTS_FILE_NOT_FOUND;
+        return PICO_MPEGTS_RESULT_FILE_NOT_FOUND;
     }
 
     fseek(file, 0, SEEK_END);
@@ -790,7 +843,7 @@ picoMpegTSResult picoMpegTSAddFile(picoMpegTS mpegts, const char *filename)
     uint8_t *buffer = (uint8_t *)PICO_MALLOC(fileSize);
     if (!buffer) {
         fclose(file);
-        return PICO_MPEGTS_MALLOC_ERROR;
+        return PICO_MPEGTS_RESULT_MALLOC_ERROR;
     }
 
     size_t bytesRead = fread(buffer, 1, fileSize, file);
@@ -798,7 +851,7 @@ picoMpegTSResult picoMpegTSAddFile(picoMpegTS mpegts, const char *filename)
 
     if (bytesRead != fileSize) {
         PICO_FREE(buffer);
-        return PICO_MPEGTS_INVALID_DATA;
+        return PICO_MPEGTS_RESULT_INVALID_DATA;
     }
     return picoMpegTSAddBuffer(mpegts, buffer, fileSize);
 }
@@ -898,14 +951,16 @@ const char *picoMpegTSResultToString(picoMpegTSResult result)
     switch (result) {
         case PICO_MPEGTS_RESULT_SUCCESS:
             return "OK";
-        case PICO_MPEGTS_FILE_NOT_FOUND:
+        case PICO_MPEGTS_RESULT_FILE_NOT_FOUND:
             return "FILE_NOT_FOUND";
-        case PICO_MPEGTS_MALLOC_ERROR:
+        case PICO_MPEGTS_RESULT_MALLOC_ERROR:
             return "MEMORY_ALLOCATION_ERROR";
-        case PICO_MPEGTS_INVALID_DATA:
+        case PICO_MPEGTS_RESULT_INVALID_DATA:
             return "INVALID_DATA";
-        case PICO_MPEGTS_INVALID_ARGUMENTS:
+        case PICO_MPEGTS_RESULT_INVALID_ARGUMENTS:
             return "INVALID_ARGUMENTS";
+        case PICO_MPEGTS_RESULT_UNKNOWN_PID_PACKET:
+            return "UNKNOWN_PID_PACKET";
         default:
             return "UNKNOWN_ERROR";
     }
@@ -915,13 +970,13 @@ const char *picoMpegTSPIDToString(uint16_t pid)
 {
     switch (pid) {
         case PICO_MPEGTS_PID_PAT:
-        return "Program Association Table (PAT)";
+            return "Program Association Table (PAT)";
         case PICO_MPEGTS_PID_CAT:
-        return "Conditional Access Table (CAT)";
+            return "Conditional Access Table (CAT)";
         case PICO_MPEGTS_PID_TSDT:
-        return "Transport Stream Description Table (TSDT)";
+            return "Transport Stream Description Table (TSDT)";
         case PICO_MPEGTS_PID_IPMP:
-        return "IPMP Control Information";
+            return "IPMP Control Information";
         case PICO_MPEGTS_PID_ASI:
             return "Auxiliary Section Information (ASI)";
         case PICO_MPEGTS_PID_NIT:
@@ -947,7 +1002,7 @@ const char *picoMpegTSPIDToString(uint16_t pid)
         case PICO_MPEGTS_PID_SIT:
             return "Selection Information Table (SIT)";
         case PICO_MPEGTS_PID_NULL_PACKET:
-        return "Null Packet";
+            return "Null Packet";
         default:
             if (pid >= PICO_MPEGTS_PID_RESERVED_START && pid <= PICO_MPEGTS_PID_RESERVED_END) {
                 return "Reserved";
@@ -955,7 +1010,7 @@ const char *picoMpegTSPIDToString(uint16_t pid)
             if (pid >= PICO_MPEGTS_PID_CUSTOM_START && pid <= PICO_MPEGTS_PID_CUSTOM_END) {
                 return "Custom PID";
             }
-        return "Unknown PID";
+            return "Unknown PID";
     }
 }
 
@@ -974,7 +1029,6 @@ const char *picoMpegTSAdaptionFieldControlToString(picoMpegTSAdaptionFieldContro
             return "Unknown";
     }
 }
-
 
 void picoMpegTSPacketAdaptationFieldExtensionDebugPrint(picoMpegTSAdaptionFieldExtension afExt)
 {
@@ -1043,7 +1097,6 @@ void picoMpegTSPacketDebugPrint(picoMpegTSPacket packet)
         packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_BOTH) {
         picoMpegTSPacketAdaptationFieldDebugPrint(&packet->adaptionField);
     }
-
 }
 
 #endif // PICO_IMPLEMENTATION
