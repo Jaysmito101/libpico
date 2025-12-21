@@ -103,6 +103,42 @@ typedef enum {
     PICO_MPEGTS_PID_NULL_PACKET    = 0x1FFF,
 } picoMpegTSPacketPID;
 
+// 0x04 -> 0x3F reserved
+// 0x43 -> 0x45 reserved
+// 0x47 -> 0x49 reserved
+// 0x4D reserved
+typedef enum {
+    PICO_MPEGTS_TABLE_ID_PAS                = 0x00, // Program Association Section
+    PICO_MPEGTS_TABLE_ID_CAS                = 0x01, // Conditional Access Section
+    PICO_MPEGTS_TABLE_ID_PMS                = 0x02, // Program Map Section
+    PICO_MPEGTS_TABLE_ID_TSDS               = 0x03, // Transport Stream Description Section
+    PICO_MPEGTS_TABLE_ID_NISAN              = 0x40, // Network Information Section Actual Network
+    PICO_MPEGTS_TABLE_ID_NISON              = 0x41, // Network Information Section Other Network
+    PICO_MPEGTS_TABLE_ID_SDSATS             = 0x42, // Service Description Section Actual Transport Stream
+    PICO_MPEGTS_TABLE_ID_SDSOTS             = 0x46, // Service Description Section Other Transport Stream
+    PICO_MPEGTS_TABLE_ID_BAS                = 0x4A, // Bouquet Association Section
+    PICO_MPEGTS_TABLE_ID_UNTS               = 0x4B, // Update Notification Table Section
+    PICO_MPEGTS_TABLE_ID_DFIS               = 0x4C, // Downloadable Font Info Section
+    PICO_MPEGTS_TABLE_ID_EISATSF            = 0x4E, // Event Information Section Actual Transport Stream, Present/Following
+    PICO_MPEGTS_TABLE_ID_EISOTSF            = 0x4F, // Event Information Section Other Transport Stream, Present/Following
+    PICO_MPEGTS_TABLE_ID_TDS                = 0x70, // Time Date Section
+    PICO_MPEGTS_TABLE_ID_RSS                = 0x71, // Running Status Section
+    PICO_MPEGTS_TABLE_ID_SS                 = 0x72, // Stuffing Section
+    PICO_MPEGTS_TABLE_ID_TOS                = 0x73, // Time Offset Section
+    PICO_MPEGTS_TABLE_ID_AIS                = 0x74, // Application Information Section
+    PICO_MPEGTS_TABLE_ID_CS                 = 0x75, // Container Section
+    PICO_MPEGTS_TABLE_ID_RCS                = 0x76, // Related Content Section
+    PICO_MPEGTS_TABLE_ID_CIS                = 0x77, // Content Identifier Section
+    PICO_MPEGTS_TABLE_ID_MPEFCS             = 0x78, // MPE-FEC Section
+    PICO_MPEGTS_TABLE_ID_RPNS               = 0x79, // Resolution Provider Notification Section
+    PICO_MPEGTS_TABLE_ID_MPEIFECS           = 0x7A, // MPE-IFEC Section
+    PICO_MPEGTS_TABLE_ID_PMSGS              = 0x7B, // Protection Message Section
+    PICO_MPEGTS_TABLE_ID_DIS                = 0x7E, // Discontinuity Information Section
+    PICO_MPEGTS_TABLE_ID_SIS                = 0x7F, // Selection Information Section
+    PICO_MPEGTS_TABLE_ID_USER_DEFINED_START = 0x80,
+    PICO_MPEGTS_TABLE_ID_USER_DEFINED_END   = 0xFE,
+} picoMpegTSTableID;
+
 typedef enum {
     PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_RESERVED        = 0x00,
     PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_PAYLOAD_ONLY    = 0x01,
@@ -383,6 +419,7 @@ void picoMpegTSPacketAdaptationFieldExtensionDebugPrint(picoMpegTSAdaptionFieldE
 const char *picoMpegTSPacketTypeToString(picoMpegTSPacketType type);
 const char *picoMpegTSResultToString(picoMpegTSResult result);
 const char *picoMpegTSPIDToString(uint16_t pid);
+const char *picoMpegTSTableIDToString(uint16_t tableID);
 const char *picoMpegTSAdaptionFieldControlToString(picoMpegTSAdaptionFieldControl afc);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_MPEGTS_IMPLEMENTATION)
@@ -772,16 +809,16 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
     // if there is no filter for this PID and it is not a custom PID then this is an error
     if (!filterContext && !__picoMpegTSIsPIDCustom(packet.pid)) {
         // TODO: Maybe just skip the packet?
-        return PICO_MPEGTS_RESULT_UNKNOWN_PID_PACKET;        
+        return PICO_MPEGTS_RESULT_UNKNOWN_PID_PACKET;
     }
 
     if (filterContext) {
         return filterContext->filterFunc(mpegts, &packet, filterContext);
     }
 
-    // if the packet is of custom PID without a filter, then we 
+    // if the packet is of custom PID without a filter, then we
     // only process it if it has payloadUnitStartIndicator set
-    // at that case we cant register a pes filter 
+    // at that case we cant register a pes filter
     // otherwise we just ignore the packet
 
     if (__picoMpegTSIsPIDCustom(packet.pid) && !packet.payloadUnitStartIndicator) {
@@ -791,10 +828,10 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
         }
         return mpegts->pidFilters[packet.pid]->filterFunc(mpegts, &packet, mpegts->pidFilters[packet.pid]);
     }
-    
+
     mpegts->ignoredPacketCount++;
     PICO_MPEGTS_LOG("Ignoring packet with custom PID 0x%04X without filter.\n", packet.pid);
-    
+
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
@@ -1011,6 +1048,71 @@ const char *picoMpegTSPIDToString(uint16_t pid)
                 return "Custom PID";
             }
             return "Unknown PID";
+    }
+}
+
+const char *picoMpegTSTableIDToString(uint16_t tableID)
+{
+    switch (tableID) {
+        case PICO_MPEGTS_TABLE_ID_PAS:
+            return "Program Association Section (PAS)";
+        case PICO_MPEGTS_TABLE_ID_CAS:
+            return "Conditional Access Section (CAS)";
+        case PICO_MPEGTS_TABLE_ID_PMS:
+            return "Program Map Section (PMS)";
+        case PICO_MPEGTS_TABLE_ID_TSDS:
+            return "Transport Stream Description Section (TSDS)";
+        case PICO_MPEGTS_TABLE_ID_NISAN:
+            return "Network Information Section (Actual) (NIS - Actual)";
+        case PICO_MPEGTS_TABLE_ID_NISON:
+            return "Network Information Section (Other) (NIS - Other)";
+        case PICO_MPEGTS_TABLE_ID_SDSATS:
+            return "Service Description Section (Actual TS) (SDS - ATS)";
+        case PICO_MPEGTS_TABLE_ID_SDSOTS:
+            return "Service Description Section (Other TS) (SDS - OTS)";
+        case PICO_MPEGTS_TABLE_ID_BAS:
+            return "Bouquet Association Section (BAS)";
+        case PICO_MPEGTS_TABLE_ID_UNTS:
+            return "Update Notification Table Section (UNTS)";
+        case PICO_MPEGTS_TABLE_ID_DFIS:
+            return "Downloadable Font Info Section (DFIS)";
+        case PICO_MPEGTS_TABLE_ID_EISATSF:
+            return "Event Information Section (Actual TS, Present/Following) (EIS)";
+        case PICO_MPEGTS_TABLE_ID_EISOTSF:
+            return "Event Information Section (Other TS, Present/Following) (EIS)";
+        case PICO_MPEGTS_TABLE_ID_TDS:
+            return "Time Date Section (TDS)";
+        case PICO_MPEGTS_TABLE_ID_RSS:
+            return "Running Status Section (RSS)";
+        case PICO_MPEGTS_TABLE_ID_SS:
+            return "Stuffing Section (SS)";
+        case PICO_MPEGTS_TABLE_ID_TOS:
+            return "Time Offset Section (TOS)";
+        case PICO_MPEGTS_TABLE_ID_AIS:
+            return "Application Information Section (AIS)";
+        case PICO_MPEGTS_TABLE_ID_CS:
+            return "Container Section (CS)";
+        case PICO_MPEGTS_TABLE_ID_RCS:
+            return "Related Content Section (RCS)";
+        case PICO_MPEGTS_TABLE_ID_CIS:
+            return "Content Identifier Section (CIS)";
+        case PICO_MPEGTS_TABLE_ID_MPEFCS:
+            return "MPE-FEC Section (MPE-FEC)";
+        case PICO_MPEGTS_TABLE_ID_RPNS:
+            return "Resolution Provider Notification Section (RPNS)";
+        case PICO_MPEGTS_TABLE_ID_MPEIFECS:
+            return "MPE-IFEC Section (MPE-IFEC)";
+        case PICO_MPEGTS_TABLE_ID_PMSGS:
+            return "Protection Message Section (PMSGS)";
+        case PICO_MPEGTS_TABLE_ID_DIS:
+            return "Discontinuity Information Section (DIS)";
+        case PICO_MPEGTS_TABLE_ID_SIS:
+            return "Selection Information Section (SIS)";
+        default:
+            if (tableID >= PICO_MPEGTS_TABLE_ID_USER_DEFINED_START && tableID <= PICO_MPEGTS_TABLE_ID_USER_DEFINED_END) {
+                return "User Defined Table ID";
+            }
+            return "Reserved/Unknown Table ID";
     }
 }
 
