@@ -44,6 +44,14 @@ SOFTWARE.
 #define PICO_INITIAL_PARSED_PACKETS_CAPACITY 1024
 #endif
 
+
+// Maximum number of PIDs (13-bit PID = 0x0000 to 0x1FFF)
+#ifndef PICO_MPEGTS_MAX_PIDS
+#define PICO_MPEGTS_MAX_PIDS 8192
+#endif
+
+#define PICO_MPEGTS_CC_UNINITIALIZED 42
+
 #ifndef PICO_MALLOC
 #define PICO_MALLOC malloc
 #define PICO_FREE   free
@@ -377,6 +385,9 @@ struct picoMpegTS_t {
 
     uint8_t payloadAccumulator[65536  * 2];
     size_t payloadAccumulatorSize;
+
+    uint8_t lastContinuityCounter[PICO_MPEGTS_MAX_PIDS]; 
+    size_t continuityErrorCount;
 };
 
 static picoMpegTSResult __picoMpegTSParsePacketAdaptationFieldExtenstion(const uint8_t *data, uint8_t dataSize, picoMpegTSAdaptionFieldExtension afExt)
@@ -616,6 +627,8 @@ picoMpegTS picoMpegTSCreate(bool storeParsedPackets)
         mpegts->parsedPacketCapacity = PICO_INITIAL_PARSED_PACKETS_CAPACITY;
     }
 
+    mpegts->continuityErrorCount = 0;
+    memset(mpegts->lastContinuityCounter, PICO_MPEGTS_CC_UNINITIALIZED, sizeof(mpegts->lastContinuityCounter));
 
     return mpegts;
 }
@@ -667,6 +680,32 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
     picoMpegTSResult result = picoMpegTSParsePacket(data, &packet);
     if (result != PICO_MPEGTS_RESULT_SUCCESS) {
         return result;
+    }
+
+    // Validate continuity counter if enabled
+    // Per ITU-T H.222.0: The continuity_counter shall not be incremented when
+    // adaptation_field_control equals '00' (reserved) or '10' (adaptation field only, no payload)
+    if (packet.pid != PICO_MPEGTS_PID_NULL_PACKET) {
+        uint8_t lastCC = mpegts->lastContinuityCounter[packet.pid];
+        bool hasPayload = (packet.adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_PAYLOAD_ONLY ||
+                          packet.adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_BOTH);
+        
+        if (lastCC != PICO_MPEGTS_CC_UNINITIALIZED && hasPayload) {
+            uint8_t expectedCC = (lastCC + 1) & 0x0F; // it is 4-bit, wraps at 16
+            if (packet.continuityCounter != expectedCC) {
+                // check for duplicate packet (same CC is allowed for duplicates)
+                if (packet.continuityCounter != lastCC) {
+                    mpegts->continuityErrorCount++;
+                    PICO_MPEGTS_LOG("Continuity counter error on PID 0x%04X: expected %u, got %u\n",
+                                   packet.pid, expectedCC, packet.continuityCounter);
+                }
+            }
+        }
+        
+        // update the last continuity counter for this PID
+        if (hasPayload) {
+            mpegts->lastContinuityCounter[packet.pid] = packet.continuityCounter;
+        }
     }
 
     // add packet to parsed packets if needed
