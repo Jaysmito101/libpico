@@ -45,6 +45,14 @@ SOFTWARE.
 #define PICO_INITIAL_PARSED_PACKETS_CAPACITY 1024
 #endif
 
+#define PICO_MPEGTS_RETURN_ON_ERROR(resultVar)   \
+    do {                                         \
+        picoMpegTSResult res = resultVar;        \
+        if (res != PICO_MPEGTS_RESULT_SUCCESS) { \
+            return res;                          \
+        }                                        \
+    } while (0)
+
 // Maximum number of PIDs (13-bit PID = 0x0000 to 0x1FFF)
 #ifndef PICO_MPEGTS_MAX_PIDS
 #define PICO_MPEGTS_MAX_PIDS 8192
@@ -687,6 +695,23 @@ static void __picoMpegTSDestroyFilterContext(picoMpegTS mpegts, picoMpegTSFilter
     PICO_FREE(context);
 }
 
+// remove N bytes from the start of the payload accumulator, shifting the rest to the front
+// if N = 0, remove all bytes
+static void __picoMpegTSFilterContextFlushPayloadAccumulator(picoMpegTSFilterContext filterContext, size_t byteCount)
+{
+    PICO_ASSERT(filterContext != NULL);
+
+    if (byteCount == 0 || byteCount >= filterContext->payloadAccumulatorSize) {
+        // remove all
+        filterContext->payloadAccumulatorSize = 0;
+    } else {
+        // shift remaining data to the front
+        size_t remainingSize = filterContext->payloadAccumulatorSize - byteCount;
+        memmove(filterContext->payloadAccumulator, &filterContext->payloadAccumulator[byteCount], remainingSize);
+        filterContext->payloadAccumulatorSize = remainingSize;
+    }
+}
+
 static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext filterContext, picoMpegTS mpegts, picoMpegTSPacket packet)
 {
     PICO_ASSERT(filterContext != NULL);
@@ -727,7 +752,7 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
                 // check for duplicate packet (same CC is allowed for duplicates)
                 if (packet->continuityCounter != filterContext->lastContinuityCounter) {
                     filterContext->continuityErrorDetected |= true;
-                    mpegts->hasContinuityError             |= true;
+                    mpegts->hasContinuityError |= true;
                     PICO_MPEGTS_LOG("Continuity counter error on PID 0x%04X: expected %u, got %u\n",
                                     packet->pid, expectedCC, packet->continuityCounter);
                 }
@@ -739,7 +764,64 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
     return filterContext->filterFunc(mpegts, packet, filterContext);
 }
 
-// ---------------------------------- Public functions implementation ---------------------------------
+// ---------------------------------- Filter Api Functions ---------------------------------
+
+// ------------- NAT Filter Functions ---------------
+
+static void __picoMpegTSFilterContextNATDestructor(picoMpegTSFilterContext context)
+{
+    PICO_ASSERT(context != NULL);
+    // nothing to do for now
+}
+
+static picoMpegTSResult __picoMpegTSFilterNAT(picoMpegTS mpegts, picoMpegTSPacket packet, picoMpegTSFilterContext context)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(packet != NULL);
+    PICO_ASSERT(context != NULL);
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
+static picoMpegTSResult __picoMpegTSFilterCreateNAT(picoMpegTS mpegts, uint16_t pid)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(pid < PICO_MPEGTS_MAX_PID_COUNT);
+
+    if (mpegts->pidFilters[pid] != NULL) {
+        // already exists
+        return PICO_MPEGTS_RESULT_SUCCESS;
+    }
+
+    picoMpegTSFilterContext natFilterContext = __picoMpegTSCreateFilterContext(
+        mpegts,
+        __picoMpegTSFilterNAT,
+        __picoMpegTSFilterContextNATDestructor,
+        NULL);
+    if (!natFilterContext) {
+        PICO_MPEGTS_LOG("picoMpegTS: Failed to create NAT filter context for PID 0x%04X\n", pid);
+        return PICO_MPEGTS_RESULT_MALLOC_ERROR;
+    }
+
+    mpegts->pidFilters[pid] = natFilterContext;
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
+static picoMpegTSResult __picoMpegTSRegisterPSIFilters(picoMpegTS mpegts)
+{
+    PICO_ASSERT(mpegts != NULL);
+
+    // register PAT filter
+    picoMpegTSResult patFilterResult = __picoMpegTSFilterCreateNAT(mpegts, PICO_MPEGTS_PID_PAT);
+    if (patFilterResult != PICO_MPEGTS_RESULT_SUCCESS) {
+        return patFilterResult;
+    }
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
+// ---------------------------------- Public functions implementation ----------------------
 
 picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket packet)
 {
