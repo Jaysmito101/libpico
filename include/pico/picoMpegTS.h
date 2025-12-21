@@ -623,10 +623,11 @@ static picoMpegTSResult __picoMpegTSParsePacketAdaptationField(const uint8_t *da
         if (dataSize < afExtLength) {
             return PICO_MPEGTS_RESULT_INVALID_DATA;
         }
-        picoMpegTSResult extResult = __picoMpegTSParsePacketAdaptationFieldExtenstion(data, afExtLength, &af->adaptationFieldExtension);
-        if (extResult != PICO_MPEGTS_RESULT_SUCCESS) {
-            return extResult;
-        }
+        PICO_MPEGTS_RETURN_ON_ERROR(
+            __picoMpegTSParsePacketAdaptationFieldExtenstion(
+                data,
+                afExtLength,
+                &af->adaptationFieldExtension));
         data += afExtLength;
         dataSize -= afExtLength;
     }
@@ -812,11 +813,9 @@ static picoMpegTSResult __picoMpegTSRegisterPSIFilters(picoMpegTS mpegts)
 {
     PICO_ASSERT(mpegts != NULL);
 
-    // register PAT filter
-    picoMpegTSResult patFilterResult = __picoMpegTSFilterCreateNAT(mpegts, PICO_MPEGTS_PID_PAT);
-    if (patFilterResult != PICO_MPEGTS_RESULT_SUCCESS) {
-        return patFilterResult;
-    }
+    // register NAT filter
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterCreateNAT(mpegts, PICO_MPEGTS_PID_PAT));
+        
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -848,10 +847,11 @@ picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket pac
         uint8_t adaptationFieldLength = data[4];
         payloadOffset += 1 + adaptationFieldLength;
         if (adaptationFieldLength > 0) {
-            picoMpegTSResult afResult = __picoMpegTSParsePacketAdaptationField(&data[5], adaptationFieldLength, &packet->adaptionField);
-            if (afResult != PICO_MPEGTS_RESULT_SUCCESS) {
-                return afResult;
-            }
+            PICO_MPEGTS_RETURN_ON_ERROR(
+                __picoMpegTSParsePacketAdaptationField(
+                    &data[5],
+                    adaptationFieldLength,
+                    &packet->adaptionField));
         }
     }
 
@@ -932,11 +932,8 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(data != NULL);
 
-    picoMpegTSPacket_t packet;
-    picoMpegTSResult result = picoMpegTSParsePacket(data, &packet);
-    if (result != PICO_MPEGTS_RESULT_SUCCESS) {
-        return result;
-    }
+    picoMpegTSPacket_t packet = {0};
+    PICO_MPEGTS_RETURN_ON_ERROR(picoMpegTSParsePacket(data, &packet));
 
     // add packet to parsed packets if needed
     if (mpegts->storeParsedPackets) {
@@ -1001,10 +998,7 @@ picoMpegTSResult picoMpegTSAddBuffer(picoMpegTS mpegts, const uint8_t *buffer, s
             continue;
         }
 
-        picoMpegTSResult result = picoMpegTSAddPacket(mpegts, &buffer[offset]);
-        if (result != PICO_MPEGTS_RESULT_SUCCESS) {
-            return result;
-        }
+        PICO_MPEGTS_RETURN_ON_ERROR(picoMpegTSAddPacket(mpegts, &buffer[offset]));
 
         offset += packetSize;
     }
