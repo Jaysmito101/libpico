@@ -419,7 +419,7 @@ void picoMpegTSPacketAdaptationFieldExtensionDebugPrint(picoMpegTSAdaptionFieldE
 const char *picoMpegTSPacketTypeToString(picoMpegTSPacketType type);
 const char *picoMpegTSResultToString(picoMpegTSResult result);
 const char *picoMpegTSPIDToString(uint16_t pid);
-const char *picoMpegTSTableIDToString(uint16_t tableID);
+const char *picoMpegTSTableIDToString(uint8_t tableID);
 const char *picoMpegTSAdaptionFieldControlToString(picoMpegTSAdaptionFieldControl afc);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_MPEGTS_IMPLEMENTATION)
@@ -1051,7 +1051,7 @@ const char *picoMpegTSPIDToString(uint16_t pid)
     }
 }
 
-const char *picoMpegTSTableIDToString(uint16_t tableID)
+const char *picoMpegTSTableIDToString(uint8_t tableID)
 {
     switch (tableID) {
         case PICO_MPEGTS_TABLE_ID_PAS:
