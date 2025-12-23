@@ -450,11 +450,13 @@ typedef picoMpegTSResult (*picoMpegTSFilterFunc)(picoMpegTS mpegts, picoMpegTSPa
 typedef picoMpegTSResult (*picoMpegTSFilterHeadFunc)(picoMpegTS mpegts, picoMpegTSPacket packet, picoMpegTSFilterContext context);
 typedef picoMpegTSResult (*picoMpegTSFilterBodyFunc)(picoMpegTS mpegts, picoMpegTSFilterContext context);
 typedef void (*picoMpegTSFilterContextDestructorFunc)(picoMpegTSFilterContext context);
+typedef void *(*picoMpegTSFilterContextConstructorFunc)(picoMpegTS mpegts, picoMpegTSFilterContext context);
 
 struct picoMpegTSFilterContext_t {
     picoMpegTSFilterFunc filterFunc;
     picoMpegTSFilterHeadFunc headFunc;
     picoMpegTSFilterBodyFunc bodyFunc;
+    picoMpegTSFilterContextConstructorFunc constructorFunc;
     picoMpegTSFilterContextDestructorFunc destructorFunc;
 
     void *userContext;
@@ -466,6 +468,7 @@ struct picoMpegTSFilterContext_t {
 
     uint8_t lastContinuityCounter;
     bool continuityErrorDetected;
+    size_t expectedPayloadSize;
 
     picoMpegTSFilterType filterType;
 };
@@ -662,8 +665,8 @@ static picoMpegTSFilterContext __picoMpegTSCreateFilterContext(
     picoMpegTSFilterFunc filterFunc,
     picoMpegTSFilterHeadFunc headFunc,
     picoMpegTSFilterBodyFunc bodyFunc,
+    picoMpegTSFilterContextConstructorFunc constructorFunc,
     picoMpegTSFilterContextDestructorFunc destructorFunc,
-    void *userContext,
     picoMpegTSFilterType filterType)
 {
     PICO_ASSERT(mpegts != NULL);
@@ -674,15 +677,17 @@ static picoMpegTSFilterContext __picoMpegTSCreateFilterContext(
     }
 
     memset(context, 0, sizeof(picoMpegTSFilterContext_t));
-    context->filterFunc     = filterFunc;
-    context->headFunc       = headFunc;
-    context->bodyFunc       = bodyFunc;
-    context->destructorFunc = destructorFunc;
-    context->userContext    = userContext;
+    context->filterFunc      = filterFunc;
+    context->headFunc        = headFunc;
+    context->bodyFunc        = bodyFunc;
+    context->constructorFunc = constructorFunc;
+    context->destructorFunc  = destructorFunc;
+    context->userContext     = NULL;
 
     context->payloadAccumulator         = NULL;
     context->payloadAccumulatorSize     = 0;
     context->payloadAccumulatorCapacity = 0;
+    context->expectedPayloadSize        = 0;
 
     context->lastContinuityCounter   = 16; // invalid initial value
     context->continuityErrorDetected = false;
@@ -690,17 +695,11 @@ static picoMpegTSFilterContext __picoMpegTSCreateFilterContext(
     context->filterType = filterType;
     context->hasHead    = false;
 
+    if (constructorFunc) {
+        context->userContext = constructorFunc(mpegts, context);
+    }
+
     return context;
-}
-
-static picoMpegTSFilterContext __picoMpegTSCreatePESFilterContext(picoMpegTS mpegts, uint16_t pid)
-{
-    PICO_ASSERT(mpegts != NULL);
-    PICO_ASSERT(pid < PICO_MPEGTS_MAX_PID_COUNT);
-
-    // TODO : Implement PES filter context creation
-
-    return NULL;
 }
 
 static void __picoMpegTSDestroyFilterContext(picoMpegTS mpegts, picoMpegTSFilterContext context)
@@ -793,6 +792,11 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
         filterContext->lastContinuityCounter = packet->continuityCounter;
     }
 
+    // generic filter function takes precedence over head/body functions
+    if (filterContext->filterFunc) {
+        return filterContext->filterFunc(mpegts, packet, filterContext);
+    }
+
     // append the packet payload to the accumulator
     if (packet->payloadSize > 0) {
         // if the current packet has pusi set to 1, then the first byte of the payload is the pointer field
@@ -820,7 +824,8 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
 
             // flush the accumulator
             __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 0);
-            filterContext->hasHead = false;
+            filterContext->hasHead             = false;
+            filterContext->expectedPayloadSize = 0;
 
             // now move the offset to after the pointer field
             payloadOffset = 1 + pointerField;
@@ -842,11 +847,21 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
                     filterContext,
                     &packet->payload[payloadOffset],
                     packet->payloadSize - payloadOffset));
-        }
-    }
 
-    if (filterContext->filterFunc) {
-        return filterContext->filterFunc(mpegts, packet, filterContext);
+            // if the expected payload size is set, check if we have enough data to call body
+            if (filterContext->expectedPayloadSize > 0 &&
+                filterContext->payloadAccumulatorSize >= filterContext->expectedPayloadSize) {
+                // call body function if exists
+                if (filterContext->bodyFunc) {
+                    PICO_MPEGTS_RETURN_ON_ERROR(filterContext->bodyFunc(mpegts, filterContext));
+                }
+
+                // flush the accumulator
+                __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, filterContext->expectedPayloadSize);
+                filterContext->hasHead             = false;
+                filterContext->expectedPayloadSize = 0;
+            }
+        }
     }
 
     return PICO_MPEGTS_RESULT_SUCCESS;
@@ -885,7 +900,7 @@ static picoMpegTSResult __picoMpegTSFilterFlushAllContexts(picoMpegTS mpegts)
 
 // ---------------------------------- Filter Api Functions ---------------------------------
 
-// ------------- NAT Filter Functions ---------------
+// ------------- NIT Filter Functions ---------------
 
 typedef union {
     struct {
@@ -896,25 +911,11 @@ typedef union {
     uint32_t raw;
 } picoMpegTSFilterContextNIT_t;
 
-static void __picoMpegTSFilterContextNITDestructor(picoMpegTSFilterContext context)
-{
-    PICO_ASSERT(context != NULL);
-    // nothing to do for now
-
-    PICO_MPEGTS_LOG("NIT filter context destroyed.\n");
-}
-
 static picoMpegTSResult __picoMpegTSFilterNITHead(picoMpegTS mpegts, picoMpegTSPacket packet, picoMpegTSFilterContext context)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(packet != NULL);
     PICO_ASSERT(context != NULL);
-
-
-    PICO_MPEGTS_LOG("NIT section received (PID 0x%04X, packet CC %u, payload size %u bytes)\n",
-                    packet->pid,
-                    packet->continuityCounter,
-                    packet->payloadSize);
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -930,27 +931,36 @@ static picoMpegTSResult __picoMpegTSFilterNITBody(picoMpegTS mpegts, picoMpegTSF
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSFilterCreateNIT(picoMpegTS mpegts)
+// ---------------------------------------------------------------
+
+static picoMpegTSResult __picoMpegTSRegisterPSIFilter(
+    picoMpegTS mpegts,
+    picoMpegTSFilterFunc filterFunc,
+    picoMpegTSFilterHeadFunc headFunc,
+    picoMpegTSFilterBodyFunc bodyFunc,
+    picoMpegTSFilterContextConstructorFunc constructorFunc,
+    picoMpegTSFilterContextDestructorFunc destructorFunc,
+    picoMpegTSPacketPID pid)
 {
     PICO_ASSERT(mpegts != NULL);
 
-
-    picoMpegTSFilterContext nitFilterContext = __picoMpegTSCreateFilterContext(
+    picoMpegTSFilterContext filterContext = __picoMpegTSCreateFilterContext(
         mpegts,
-        NULL,
-        __picoMpegTSFilterNITHead,
-        __picoMpegTSFilterNITBody,
-        __picoMpegTSFilterContextNITDestructor,
-        (void *)0,
+        filterFunc,
+        headFunc,
+        bodyFunc,
+        constructorFunc,
+        destructorFunc,
         PICO_MPEGTS_FILTER_TYPE_SECTION);
 
-    if (!nitFilterContext) {
-        PICO_MPEGTS_LOG("picoMpegTS: Failed to create NIT filter context for PID 0x%04X\n", PICO_MPEGTS_PID_NIT);
+    if (!filterContext) {
+        PICO_MPEGTS_LOG("picoMpegTS: Failed to create (%s) filter context for PID 0x%04X\n",
+                        picoMpegTSFilterTypeToString(PICO_MPEGTS_FILTER_TYPE_SECTION),
+                        pid);
         return PICO_MPEGTS_RESULT_MALLOC_ERROR;
     }
 
-    mpegts->pidFilters[PICO_MPEGTS_PID_NIT] = nitFilterContext;
-
+    mpegts->pidFilters[pid] = filterContext;
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -960,7 +970,15 @@ static picoMpegTSResult __picoMpegTSRegisterPSIFilters(picoMpegTS mpegts)
     PICO_ASSERT(mpegts != NULL);
 
     // register NIT filter
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterCreateNIT(mpegts));
+    PICO_MPEGTS_RETURN_ON_ERROR(
+        __picoMpegTSRegisterPSIFilter(
+            mpegts,
+            NULL,
+            __picoMpegTSFilterNITHead,
+            __picoMpegTSFilterNITBody,
+            NULL,
+            NULL,
+            PICO_MPEGTS_PID_NIT));
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -1027,8 +1045,6 @@ picoMpegTS picoMpegTSCreate(bool storeParsedPackets)
         PICO_FREE(mpegts);
         return NULL;
     }
-
-
 
     mpegts->storeParsedPackets = storeParsedPackets;
     if (storeParsedPackets) {
@@ -1119,11 +1135,13 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
     // otherwise we just ignore the packet
 
     if (__picoMpegTSIsPIDCustom(packet.pid) && !packet.payloadUnitStartIndicator) {
-        mpegts->pidFilters[packet.pid] = __picoMpegTSCreatePESFilterContext(mpegts, packet.pid);
-        if (!mpegts->pidFilters[packet.pid]) {
-            return PICO_MPEGTS_RESULT_MALLOC_ERROR;
-        }
-        return __picoMpegTSFilterContextApply(mpegts->pidFilters[packet.pid], mpegts, &packet);
+        // mpegts->pidFilters[packet.pid] = __picoMpegTSCreatePESFilterContext(mpegts, packet.pid);
+        // if (!mpegts->pidFilters[packet.pid]) {
+        //     return PICO_MPEGTS_RESULT_MALLOC_ERROR;
+        // }
+        // return __picoMpegTSFilterContextApply(mpegts->pidFilters[packet.pid], mpegts, &packet);
+        // TODO: implement pes filter creation for custom pids
+        return PICO_MPEGTS_RESULT_SUCCESS;
     }
 
     mpegts->ignoredPacketCount++;
