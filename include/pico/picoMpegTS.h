@@ -77,6 +77,7 @@ SOFTWARE.
 #ifndef PICO_MPEGTS_LOG
 #define PICO_MPEGTS_LOG(...) \
     do {                     \
+        (void)0;             \
     } while (0)
 #endif
 
@@ -1008,9 +1009,6 @@ static picoMpegTSResult __picoMpegTSFilterBATSDTHead(picoMpegTS mpegts, picoMpeg
     __picoMpegTSFilterContextFlushPayloadAccumulator(context, 8);
 
     context->expectedPayloadSize = context->psiSectionHead.sectionLength - 5;
-
-    picoMpegTsPsiSectionHeadDebugPrint(&context->psiSectionHead);
-
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
@@ -1019,8 +1017,19 @@ static picoMpegTSResult __picoMpegTSFilterBATSDTBody(picoMpegTS mpegts, picoMpeg
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(context != NULL);
 
-    PICO_MPEGTS_LOG("NIT section body processed, total size %zu bytes\n",
-                    context->payloadAccumulatorSize);
+    // Determine if it is BAT or SDT based on table ID
+    if (context->psiSectionHead.tableId == PICO_MPEGTS_TABLE_ID_SDSATS ||
+        context->psiSectionHead.tableId == PICO_MPEGTS_TABLE_ID_SDSOTS) {
+        PICO_MPEGTS_LOG("SDT section body processed, total size %zu bytes\n",
+                        context->payloadAccumulatorSize);
+    } else if (context->psiSectionHead.tableId == PICO_MPEGTS_TABLE_ID_BAT) {
+        PICO_MPEGTS_LOG("BAT section body processed, total size %zu bytes\n",
+                        context->payloadAccumulatorSize);
+    } else {
+        PICO_MPEGTS_LOG("Unknown BAT/SDT section with Table ID 0x%02X processed, total size %zu bytes\n",
+                        context->psiSectionHead.tableId,
+                        context->payloadAccumulatorSize);
+    }
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
