@@ -1074,7 +1074,7 @@ static picoMpegTSResult __picoMpegTSRegisterPSIFilters(picoMpegTS mpegts)
             NULL,
             PICO_MPEGTS_PID_NIT));
 
-    // register BAT filter
+    // register SDT/BAT filter
     PICO_MPEGTS_RETURN_ON_ERROR(
         __picoMpegTSRegisterPSIFilter(
             mpegts,
