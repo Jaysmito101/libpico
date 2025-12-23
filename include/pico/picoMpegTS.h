@@ -33,7 +33,6 @@ SOFTWARE.
 #ifndef PICO_MPEGTS_H
 #define PICO_MPEGTS_H
 
-#include <cstring>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -1009,6 +1008,9 @@ static picoMpegTSResult __picoMpegTSFilterBATSDTHead(picoMpegTS mpegts, picoMpeg
     __picoMpegTSFilterContextFlushPayloadAccumulator(context, 8);
 
     context->expectedPayloadSize = context->psiSectionHead.sectionLength - 5;
+
+    picoMpegTsPsiSectionHeadDebugPrint(&context->psiSectionHead);
+
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
@@ -1071,6 +1073,17 @@ static picoMpegTSResult __picoMpegTSRegisterPSIFilters(picoMpegTS mpegts)
             NULL,
             NULL,
             PICO_MPEGTS_PID_NIT));
+
+    // register BAT filter
+    PICO_MPEGTS_RETURN_ON_ERROR(
+        __picoMpegTSRegisterPSIFilter(
+            mpegts,
+            NULL,
+            __picoMpegTSFilterBATSDTHead,
+            __picoMpegTSFilterBATSDTBody,
+            NULL,
+            NULL,
+            PICO_MPEGTS_PID_SDT_BAT));
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -1556,11 +1569,9 @@ void picoMpegTsPsiSectionHeadDebugPrint(picoMpegTSPSISectionHead sectionHead)
 {
     PICO_ASSERT(sectionHead != NULL);
     PICO_MPEGTS_LOG("PSI Section Head:\n");
-    PICO_MPEGTS_LOG("  Table ID: 0x%02X (%s)\n", sectionHead->tableID, picoMpegTSTableIDToString(sectionHead->tableID));
-    PICO_MPEGTS_LOG("  Section Syntax Indicator: %s\n", sectionHead->sectionSyntaxIndicator ? "true" : "false");
-    PICO_MPEGTS_LOG("  Private Indicator: %s\n", sectionHead->privateIndicator ? "true" : "false");
+    PICO_MPEGTS_LOG("  Table ID: 0x%02X (%s)\n", sectionHead->tableId, picoMpegTSTableIDToString(sectionHead->tableId));
     PICO_MPEGTS_LOG("  Section Length: %u\n", sectionHead->sectionLength);
-    PICO_MPEGTS_LOG("  Transport Stream ID: %u\n", sectionHead->transportStreamID);
+    PICO_MPEGTS_LOG("  ID: %u\n", sectionHead->id);
     PICO_MPEGTS_LOG("  Version Number: %u\n", sectionHead->versionNumber);
     PICO_MPEGTS_LOG("  Current Next Indicator: %s\n", sectionHead->currentNextIndicator ? "true" : "false");
     PICO_MPEGTS_LOG("  Section Number: %u\n", sectionHead->sectionNumber);
