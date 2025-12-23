@@ -33,6 +33,7 @@ SOFTWARE.
 #ifndef PICO_MPEGTS_H
 #define PICO_MPEGTS_H
 
+#include <cstring>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -416,6 +417,49 @@ typedef struct {
 } picoMpegTSPacket_t;
 typedef picoMpegTSPacket_t *picoMpegTSPacket;
 
+// NOTE: The order fo fileds has been rearranged for better memory alignment.
+//       Also it is to be noted that all the fileds of this struct may not be
+//       present in all PSI sections, so only a subset will be used for those
+//       sections.
+typedef struct {
+    // This is a 12-bit field, the first two bits of which
+    // shall be "00". It specifies the number of bytes of the
+    // section, starting immediately following the
+    // section_length field and including the CRC.
+    uint16_t sectionLength;
+
+    // Is the respective id depending upon which section it is.
+    // examples: network id for NIT, transport stream id for SDT, program id for PMT etc.
+    uint16_t id;
+
+    // The table id of the given section.
+    uint8_t tableId;
+
+    // This 5-bit field is the version number of the sub_table.
+    // The version_number shall be incremented by 1 when a change
+    // in the information carried within the sub_table occurs.
+    uint8_t versionNumber;
+
+    // This 1-bit indicator, when set to "1" indicates that the
+    // sub_table is the currently applicable sub_table.
+    // When the bit is set to "0", it indicates that the sub_table
+    // sent is not yet applicable and shall be the next sub_table to be valid.
+    bool currentNextIndicator;
+
+    // This 8-bit field gives the number of the section.
+    // The section_number of the first section in the
+    // sub_table shall be "0x00". The section_number shall be
+    // incremented by 1 with each additional section with
+    // the same table_id and id.
+    uint8_t sectionNumber;
+
+    // This 8-bit field specifies the number of the last
+    // section (that is, the section with the highest section_number)
+    // of the sub_table of which this section is part.
+    uint8_t lastSectionNumber;
+} picoMpegTSPSISectionHead_t;
+typedef picoMpegTSPSISectionHead_t *picoMpegTSPSISectionHead;
+
 picoMpegTS picoMpegTSCreate(bool storeParsedPackets);
 void picoMpegTSDestroy(picoMpegTS mpegts);
 picoMpegTSResult picoMpegTSGetParsedPackets(picoMpegTS mpegts, picoMpegTSPacket *packetsOut, size_t *packetCountOut);
@@ -431,6 +475,7 @@ picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket pac
 void picoMpegTSPacketDebugPrint(picoMpegTSPacket packet);
 void picoMpegTSPacketAdaptationFieldDebugPrint(picoMpegTSPacketAdaptationField adaptationField);
 void picoMpegTSPacketAdaptationFieldExtensionDebugPrint(picoMpegTSAdaptionFieldExtension adaptationFieldExtension);
+void picoMpegTsPsiSectionHeadDebugPrint(picoMpegTSPSISectionHead sectionHead);
 
 const char *picoMpegTSPacketTypeToString(picoMpegTSPacketType type);
 const char *picoMpegTSResultToString(picoMpegTSResult result);
@@ -461,6 +506,7 @@ struct picoMpegTSFilterContext_t {
 
     void *userContext;
     bool hasHead;
+    picoMpegTSPSISectionHead_t psiSectionHead;
 
     uint8_t *payloadAccumulator;
     size_t payloadAccumulatorSize;
@@ -660,6 +706,23 @@ static bool __picoMpegTSIsPIDCustom(uint16_t pid)
     return (pid >= PICO_MPEGTS_PID_CUSTOM_START && pid <= PICO_MPEGTS_PID_CUSTOM_END);
 }
 
+static picoMpegTSResult __picoMpegTSParseSectionHead(const uint8_t *data, picoMpegTSPSISectionHead sectionHeadOut)
+{
+    PICO_ASSERT(data != NULL);
+    PICO_ASSERT(sectionHeadOut != NULL);
+
+    memset(sectionHeadOut, 0, sizeof(picoMpegTSPSISectionHead_t));
+    sectionHeadOut->tableId              = data[0];
+    sectionHeadOut->sectionLength        = (uint16_t)((data[1] & 0x0F) << 8) | data[2];
+    sectionHeadOut->id                   = (uint16_t)(data[3] << 8) | data[4];
+    sectionHeadOut->versionNumber        = (data[5] >> 1) & 0x1F;
+    sectionHeadOut->currentNextIndicator = (data[5] & 0x01) != 0;
+    sectionHeadOut->sectionNumber        = data[6];
+    sectionHeadOut->lastSectionNumber    = data[7];
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
 static picoMpegTSFilterContext __picoMpegTSCreateFilterContext(
     picoMpegTS mpegts,
     picoMpegTSFilterFunc filterFunc,
@@ -745,7 +808,7 @@ static picoMpegTSResult __picoMpegTSFilterContextPushData(
     // ensure capacity
     size_t requiredCapacity = filterContext->payloadAccumulatorSize + dataSize;
     if (requiredCapacity > filterContext->payloadAccumulatorCapacity) {
-        size_t newCapacity = filterContext->payloadAccumulatorCapacity == 0 ? 256 : filterContext->payloadAccumulatorCapacity;
+        size_t newCapacity = filterContext->payloadAccumulatorCapacity == 0 ? 184 : filterContext->payloadAccumulatorCapacity;
         while (newCapacity < requiredCapacity) {
             newCapacity *= 2;
         }
@@ -826,6 +889,7 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
             __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 0);
             filterContext->hasHead             = false;
             filterContext->expectedPayloadSize = 0;
+            memset(&filterContext->psiSectionHead, 0, sizeof(picoMpegTSPSISectionHead_t));
 
             // now move the offset to after the pointer field
             payloadOffset = 1 + pointerField;
@@ -860,6 +924,7 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
                 __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, filterContext->expectedPayloadSize);
                 filterContext->hasHead             = false;
                 filterContext->expectedPayloadSize = 0;
+                memset(&filterContext->psiSectionHead, 0, sizeof(picoMpegTSPSISectionHead_t));
             }
         }
     }
@@ -902,25 +967,52 @@ static picoMpegTSResult __picoMpegTSFilterFlushAllContexts(picoMpegTS mpegts)
 
 // ------------- NIT Filter Functions ---------------
 
-typedef union {
-    struct {
-        uint16_t sectionLength;
-        uint8_t tableID;
-        uint8_t sectionSyntaxIndicator;
-    } nit;
-    uint32_t raw;
-} picoMpegTSFilterContextNIT_t;
-
 static picoMpegTSResult __picoMpegTSFilterNITHead(picoMpegTS mpegts, picoMpegTSPacket packet, picoMpegTSFilterContext context)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(packet != NULL);
     PICO_ASSERT(context != NULL);
 
+    PICO_MPEGTS_RETURN_ON_ERROR(
+        __picoMpegTSParseSectionHead(
+            context->payloadAccumulator,
+            &context->psiSectionHead));
+    __picoMpegTSFilterContextFlushPayloadAccumulator(context, 8);
+
+    context->expectedPayloadSize = context->psiSectionHead.sectionLength - 5;
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
 static picoMpegTSResult __picoMpegTSFilterNITBody(picoMpegTS mpegts, picoMpegTSFilterContext context)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(context != NULL);
+
+    PICO_MPEGTS_LOG("NIT section body processed, total size %zu bytes\n",
+                    context->payloadAccumulatorSize);
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
+// ------------- BAT/SDT Filter Functions ---------------
+
+static picoMpegTSResult __picoMpegTSFilterBATSDTHead(picoMpegTS mpegts, picoMpegTSPacket packet, picoMpegTSFilterContext context)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(packet != NULL);
+    PICO_ASSERT(context != NULL);
+
+    PICO_MPEGTS_RETURN_ON_ERROR(
+        __picoMpegTSParseSectionHead(
+            context->payloadAccumulator,
+            &context->psiSectionHead));
+    __picoMpegTSFilterContextFlushPayloadAccumulator(context, 8);
+
+    context->expectedPayloadSize = context->psiSectionHead.sectionLength - 5;
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
+static picoMpegTSResult __picoMpegTSFilterBATSDTBody(picoMpegTS mpegts, picoMpegTSFilterContext context)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(context != NULL);
@@ -1458,6 +1550,21 @@ const char *picoMpegTSFilterTypeToString(picoMpegTSFilterType filterType)
         default:
             return "Unknown Filter Type";
     }
+}
+
+void picoMpegTsPsiSectionHeadDebugPrint(picoMpegTSPSISectionHead sectionHead)
+{
+    PICO_ASSERT(sectionHead != NULL);
+    PICO_MPEGTS_LOG("PSI Section Head:\n");
+    PICO_MPEGTS_LOG("  Table ID: 0x%02X (%s)\n", sectionHead->tableID, picoMpegTSTableIDToString(sectionHead->tableID));
+    PICO_MPEGTS_LOG("  Section Syntax Indicator: %s\n", sectionHead->sectionSyntaxIndicator ? "true" : "false");
+    PICO_MPEGTS_LOG("  Private Indicator: %s\n", sectionHead->privateIndicator ? "true" : "false");
+    PICO_MPEGTS_LOG("  Section Length: %u\n", sectionHead->sectionLength);
+    PICO_MPEGTS_LOG("  Transport Stream ID: %u\n", sectionHead->transportStreamID);
+    PICO_MPEGTS_LOG("  Version Number: %u\n", sectionHead->versionNumber);
+    PICO_MPEGTS_LOG("  Current Next Indicator: %s\n", sectionHead->currentNextIndicator ? "true" : "false");
+    PICO_MPEGTS_LOG("  Section Number: %u\n", sectionHead->sectionNumber);
+    PICO_MPEGTS_LOG("  Last Section Number: %u\n", sectionHead->lastSectionNumber);
 }
 
 void picoMpegTSPacketAdaptationFieldExtensionDebugPrint(picoMpegTSAdaptionFieldExtension afExt)
