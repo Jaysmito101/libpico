@@ -911,21 +911,21 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
                     filterContext,
                     &packet->payload[payloadOffset],
                     packet->payloadSize - payloadOffset));
+        }
 
-            // if the expected payload size is set, check if we have enough data to call body
-            if (filterContext->expectedPayloadSize > 0 &&
-                filterContext->payloadAccumulatorSize >= filterContext->expectedPayloadSize) {
-                // call body function if exists
-                if (filterContext->bodyFunc) {
-                    PICO_MPEGTS_RETURN_ON_ERROR(filterContext->bodyFunc(mpegts, filterContext));
-                }
-
-                // flush the accumulator
-                __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, filterContext->expectedPayloadSize);
-                filterContext->hasHead             = false;
-                filterContext->expectedPayloadSize = 0;
-                memset(&filterContext->psiSectionHead, 0, sizeof(picoMpegTSPSISectionHead_t));
+        // if the expected payload size is set, check if we have enough data to call body
+        if (filterContext->expectedPayloadSize > 0 &&
+            filterContext->payloadAccumulatorSize >= filterContext->expectedPayloadSize) {
+            // call body function if exists
+            if (filterContext->bodyFunc) {
+                PICO_MPEGTS_RETURN_ON_ERROR(filterContext->bodyFunc(mpegts, filterContext));
             }
+
+            // flush the accumulator
+            __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, filterContext->expectedPayloadSize);
+            filterContext->hasHead             = false;
+            filterContext->expectedPayloadSize = 0;
+            memset(&filterContext->psiSectionHead, 0, sizeof(picoMpegTSPSISectionHead_t));
         }
     }
 
@@ -1009,6 +1009,7 @@ static picoMpegTSResult __picoMpegTSFilterBATSDTHead(picoMpegTS mpegts, picoMpeg
     __picoMpegTSFilterContextFlushPayloadAccumulator(context, 8);
 
     context->expectedPayloadSize = context->psiSectionHead.sectionLength - 5;
+
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
@@ -1022,7 +1023,7 @@ static picoMpegTSResult __picoMpegTSFilterBATSDTBody(picoMpegTS mpegts, picoMpeg
         context->psiSectionHead.tableId == PICO_MPEGTS_TABLE_ID_SDSOTS) {
         PICO_MPEGTS_LOG("SDT section body processed, total size %zu bytes\n",
                         context->payloadAccumulatorSize);
-    } else if (context->psiSectionHead.tableId == PICO_MPEGTS_TABLE_ID_BAT) {
+    } else if (context->psiSectionHead.tableId == PICO_MPEGTS_TABLE_ID_BAS) {
         PICO_MPEGTS_LOG("BAT section body processed, total size %zu bytes\n",
                         context->payloadAccumulatorSize);
     } else {
