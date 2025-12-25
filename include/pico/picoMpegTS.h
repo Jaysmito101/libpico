@@ -1429,6 +1429,36 @@ static picoMpegTSResult __picoMpegTSParseCAT(picoMpegTS mpegts, picoMpegTSCondit
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
+static picoMpegTSResult __picoMpegTSParseTSDT(picoMpegTS mpegts, picoMpegTSTransportStreamDescriptionSectionPayload table, picoMpegTSFilterContext filterContext)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(table != NULL);
+    PICO_ASSERT(filterContext != NULL);
+
+    size_t targetSize = filterContext->payloadAccumulatorSize - filterContext->expectedPayloadSize + 4;
+    while (filterContext->payloadAccumulatorSize > targetSize) {
+        picoMpegTSDescriptor_t descriptor = {0};
+        size_t bytesConsumed              = 0;
+
+        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorParse(&descriptor,
+                                                                filterContext->payloadAccumulator,
+                                                                filterContext->payloadAccumulatorSize - targetSize,
+                                                                &bytesConsumed));
+
+        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetAdd(&table->descriptorSet, &descriptor));
+
+        __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, bytesConsumed);
+    }
+
+    // uint32_t crc32 = (filterContext->payloadAccumulator[0] << 24) |
+    //                  (filterContext->payloadAccumulator[1] << 16) |
+    //                  (filterContext->payloadAccumulator[2] << 8) |
+    //                  filterContext->payloadAccumulator[3];
+    // NOTE: we do not do any CRC verification now.
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
 static picoMpegTSResult __picoMpegTSParsePMT(picoMpegTS mpegts, picoMpegTSProgramMapSectionPayload table, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
@@ -1565,6 +1595,10 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
 
         case PICO_MPEGTS_TABLE_ID_PMS:
             PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParsePMT(mpegts, &table->data.pms, filterContext));
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_TSDS:
+            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseTSDT(mpegts, &table->data.tsds, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_NISAN:
