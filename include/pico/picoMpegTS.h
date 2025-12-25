@@ -1128,7 +1128,7 @@ static picoMpegTSResult __picoMpegTSDescriptorParse(picoMpegTSDescriptor descrip
 
     // check if we have enough data for this descriptors content
     if (2 + descriptorLength > dataSize) {
-        PICO_MPEGTS_LOG("picoMpegTS: descriptor parse error - descriptor length exceeds bounds\n");
+        PICO_MPEGTS_LOG("picoMpegTS: descriptor parse error - descriptor length exceeds bounds [%d/%zu]\n", descriptorLength, dataSize);
         return PICO_MPEGTS_RESULT_INVALID_DATA;
     }
 
@@ -1297,6 +1297,8 @@ static picoMpegTSResult __picoMpegTSParseNIT(picoMpegTS mpegts, picoMpegTSNetwor
 
     uint16_t transportStreamLength = (filterContext->payloadAccumulator[0] & 0x0F) << 8 | filterContext->payloadAccumulator[1];
     size_t targetLength            = filterContext->payloadAccumulatorSize - transportStreamLength;
+    __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 2);       
+
     while (filterContext->payloadAccumulatorSize > targetLength) {
         if (table->transportStreamCount == PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT) {
             return PICO_MPEGTS_RESULT_TABLE_FULL;
