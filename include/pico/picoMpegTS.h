@@ -1321,6 +1321,41 @@ static picoMpegTSResult __picoMpegTSParseNIT(picoMpegTS mpegts, picoMpegTSNetwor
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
+static picoMpegTSResult __picoMpegTSParseBAT(picoMpegTS mpegts, picoMpegTSBoquetAssociationTablePayload table, picoMpegTSFilterContext filterContext)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(table != NULL);
+    PICO_ASSERT(filterContext != NULL);
+
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->descriptorSet, filterContext, true));
+
+    uint16_t transportStreamLength = (filterContext->payloadAccumulator[0] & 0x0F) << 8 | filterContext->payloadAccumulator[1];
+    size_t targetLength            = filterContext->payloadAccumulatorSize - transportStreamLength;
+
+    while (filterContext->payloadAccumulatorSize > targetLength) {
+        if (table->serviceCount == PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT) {
+            return PICO_MPEGTS_RESULT_TABLE_FULL;
+        }
+
+        uint16_t transportStreamId                             = filterContext->payloadAccumulator[0] << 8 | filterContext->payloadAccumulator[1];
+        table->services[table->serviceCount].transportStreamId = transportStreamId;
+
+        uint16_t originalNetworkId                             = filterContext->payloadAccumulator[2] << 8 | filterContext->payloadAccumulator[3];
+        table->services[table->serviceCount].originalNetworkId = originalNetworkId;
+
+        __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 4);
+
+        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->services[table->serviceCount].descriptorSet, filterContext, true));
+
+        table->serviceCount++;
+    }
+
+    // uint32_t crc32 = (filterContext->payloadAccumulator[0] << 24) | (filterContext->payloadAccumulator[1] << 16) | (filterContext->payloadAccumulator[2] << 8) | filterContext->payloadAccumulator[3];
+    // NOTE: we do not do any CRC verification now.
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
 static picoMpegTSResult __picoMpegTSParseSDT(picoMpegTS mpegts, picoMpegTSServiceDescriptionTablePayload table, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
@@ -1607,6 +1642,7 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
             break;
 
         case PICO_MPEGTS_TABLE_ID_BAS:
+            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseBAT(mpegts, &table->data.bat, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_SDSATS:
