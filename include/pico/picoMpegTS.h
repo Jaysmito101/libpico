@@ -1250,10 +1250,18 @@ static picoMpegTSResult __picoMpegTSFilterContextFlush(picoMpegTS mpegts, picoMp
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(filterContext != NULL);
 
-    // // call body function if exists
-    // if (filterContext->bodyFunc && filterContext->payloadAccumulatorSize > 0) {
-    //     PICO_MPEGTS_RETURN_ON_ERROR(filterContext->bodyFunc(mpegts, filterContext));
-    // }
+    uint8_t tableId = filterContext->psiSectionHead.tableId;
+    // time to actually deal with the data
+    if (filterContext->filterType == PICO_MPEGTS_FILTER_TYPE_SECTION) {
+        if (mpegts->partialTables[tableId] == NULL) {
+            mpegts->partialTables[tableId] = __picoMpegTSTableCreate(tableId);
+        }
+
+        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSTableAddSection(mpegts->partialTables[tableId], filterContext->payloadAccumulator, filterContext->payloadAccumulatorSize));
+    } else {
+        PICO_MPEGTS_LOG("PES filters are not yet implemented");
+        return PICO_MPEGTS_RESULT_UNKNOWN_ERROR;
+    }
 
     // flush the accumulator
     __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, flushPayloadSize);
