@@ -1184,7 +1184,7 @@ static picoMpegTSResult __picoMpegTSDescriptorSetParse(picoMpegTSDescriptorSet d
         offset += bytesConsumed;
     }
 
-    __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 4 + descriptorsLength);
+    __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 2 + offset);
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
