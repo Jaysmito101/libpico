@@ -553,6 +553,24 @@ typedef struct {
 } picoMpegTSPSISectionHead_t;
 typedef picoMpegTSPSISectionHead_t *picoMpegTSPSISectionHead;
 
+// Time structures for DVB tables
+typedef struct {
+    // Modified Julian Date (16 bits) + UTC time (24 bits BCD: HH:MM:SS)
+    uint16_t mjd;   // Modified Julian Date
+    uint8_t hour;   // BCD encoded hours (0x00-0x23)
+    uint8_t minute; // BCD encoded minutes (0x00-0x59)
+    uint8_t second; // BCD encoded seconds (0x00-0x59)
+} picoMpegTSUTCTime_t;
+typedef picoMpegTSUTCTime_t *picoMpegTSUTCTime;
+
+typedef struct {
+    // Duration in BCD format: 6 digits (HH:MM:SS)
+    uint8_t hours;   // BCD encoded hours
+    uint8_t minutes; // BCD encoded minutes
+    uint8_t seconds; // BCD encoded seconds
+} picoMpegTSDuration_t;
+typedef picoMpegTSDuration_t *picoMpegTSDuration;
+
 typedef struct {
     uint8_t data[PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH];
     size_t dataLength;
@@ -649,24 +667,6 @@ typedef struct {
     size_t serviceCount;
 } picoMpegTSServiceDescriptionTablePayload_t;
 typedef picoMpegTSServiceDescriptionTablePayload_t *picoMpegTSServiceDescriptionTablePayload;
-
-// Time structures for DVB tables
-typedef struct {
-    // Modified Julian Date (16 bits) + UTC time (24 bits BCD: HH:MM:SS)
-    uint16_t mjd;   // Modified Julian Date
-    uint8_t hour;   // BCD encoded hours (0x00-0x23)
-    uint8_t minute; // BCD encoded minutes (0x00-0x59)
-    uint8_t second; // BCD encoded seconds (0x00-0x59)
-} picoMpegTSUTCTime_t;
-typedef picoMpegTSUTCTime_t *picoMpegTSUTCTime;
-
-typedef struct {
-    // Duration in BCD format: 6 digits (HH:MM:SS)
-    uint8_t hours;   // BCD encoded hours
-    uint8_t minutes; // BCD encoded minutes
-    uint8_t seconds; // BCD encoded seconds
-} picoMpegTSDuration_t;
-typedef picoMpegTSDuration_t *picoMpegTSDuration;
 
 typedef struct {
     // This 16-bit field serves as a label to identify this TS
