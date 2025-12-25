@@ -781,6 +781,7 @@ typedef picoMpegTSServiceInformationTablePayload_t *picoMpegTSServiceInformation
 
 typedef struct {
     uint8_t tableId;
+    uint8_t versionNumber;
     picoMpegTSPSISectionHead_t head;
 
     bool hasSection[PICO_MPEGTS_MAX_SECTIONS];
@@ -870,31 +871,31 @@ struct picoMpegTS_t {
     picoMpegTSTable partialTables[PICO_MPEGTS_MAX_TABLE_COUNT];
 };
 
-static picoMpegTSResult __picoMpegTSDescriptorSetAdd(picoMpegTSDescriptorSet set, const picoMpegTSDescriptor descriptor)
-{
-    PICO_ASSERT(set != NULL);
-    PICO_ASSERT(descriptor != NULL);
+// static picoMpegTSResult __picoMpegTSDescriptorSetAdd(picoMpegTSDescriptorSet set, const picoMpegTSDescriptor descriptor)
+// {
+//     PICO_ASSERT(set != NULL);
+//     PICO_ASSERT(descriptor != NULL);
 
-    if (set->count >= set->capacity) {
-        size_t newCapacity                  = set->capacity == 0 ? 8 : set->capacity * 2;
-        picoMpegTSDescriptor newDescriptors = (picoMpegTSDescriptor)PICO_REALLOC(set->descriptors, newCapacity * sizeof(picoMpegTSDescriptor_t));
-        if (!newDescriptors) {
-            return PICO_MPEGTS_RESULT_MALLOC_ERROR;
-        }
-        set->descriptors = newDescriptors;
-        set->capacity    = newCapacity;
-    }
+//     if (set->count >= set->capacity) {
+//         size_t newCapacity                  = set->capacity == 0 ? 8 : set->capacity * 2;
+//         picoMpegTSDescriptor newDescriptors = (picoMpegTSDescriptor)PICO_REALLOC(set->descriptors, newCapacity * sizeof(picoMpegTSDescriptor_t));
+//         if (!newDescriptors) {
+//             return PICO_MPEGTS_RESULT_MALLOC_ERROR;
+//         }
+//         set->descriptors = newDescriptors;
+//         set->capacity    = newCapacity;
+//     }
 
-    set->descriptors[set->count] = *descriptor;
-    set->count++;
-    return PICO_MPEGTS_RESULT_SUCCESS;
-}
+//     set->descriptors[set->count] = *descriptor;
+//     set->count++;
+//     return PICO_MPEGTS_RESULT_SUCCESS;
+// }
 
-static void __picoMpegTSDescriptorSetClear(picoMpegTSDescriptorSet set)
-{
-    PICO_ASSERT(set != NULL);
-    set->count = 0;
-}
+// static void __picoMpegTSDescriptorSetClear(picoMpegTSDescriptorSet set)
+// {
+//     PICO_ASSERT(set != NULL);
+//     set->count = 0;
+// }
 
 static void __picoMpegTSDescriptorSetDestroy(picoMpegTSDescriptorSet set)
 {
@@ -908,13 +909,14 @@ static void __picoMpegTSDescriptorSetDestroy(picoMpegTSDescriptorSet set)
     set->capacity    = 0;
 }
 
-static picoMpegTSTable __picoMpegTSTableCreate(uint8_t tableId)
+static picoMpegTSTable __picoMpegTSTableCreate(uint8_t tableId, uint8_t versionNumber)
 {
     picoMpegTSTable table = (picoMpegTSTable)PICO_MALLOC(sizeof(picoMpegTSTable_t));
     if (!table)
         return NULL;
     memset(table, 0, sizeof(picoMpegTSTable_t));
-    table->tableId = tableId;
+    table->tableId       = tableId;
+    table->versionNumber = versionNumber;
     return table;
 }
 
@@ -968,6 +970,93 @@ static void __picoMpegTSTableDestroy(picoMpegTSTable table)
     }
 
     PICO_FREE(table);
+}
+
+static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t tableId, picoMpegTSFilterContext filterContext)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(filterContext != NULL);
+
+    if (filterContext->filterType != PICO_MPEGTS_FILTER_TYPE_SECTION) {
+        return PICO_MPEGTS_RESULT_INVALID_DATA;
+    }
+
+    picoMpegTSPSISectionHead head = &filterContext->psiSectionHead;
+    if (head->tableId != tableId) {
+        return PICO_MPEGTS_RESULT_INVALID_DATA;
+    }
+
+    if (!head->currentNextIndicator) {
+        PICO_MPEGTS_LOG("picoMpegTS: ignoring section %d.%d as its not current\n", tableId, head->sectionNumber);
+        return PICO_MPEGTS_RESULT_SUCCESS;
+    }
+
+    // the table has already been parsed, ignore it
+    if (mpegts->tables[tableId] != NULL && mpegts->tables[tableId]->versionNumber == head->versionNumber) {
+        return PICO_MPEGTS_RESULT_SUCCESS;
+    }
+
+    if (mpegts->partialTables[tableId] == NULL) {
+        mpegts->partialTables[tableId] = __picoMpegTSTableCreate(tableId, head->versionNumber);
+    }
+
+    // NOTE: we currently dont check if its an older version as the version number
+    // wraps around at 31 and will be a pain to handle
+    if (mpegts->partialTables[tableId]->versionNumber != head->versionNumber) {
+        __picoMpegTSTableDestroy(mpegts->partialTables[tableId]);
+        mpegts->partialTables[tableId] = __picoMpegTSTableCreate(tableId, head->versionNumber);
+    }
+
+    picoMpegTSTable table = mpegts->partialTables[tableId];
+
+    // if we are in the same version and the section 1is already parsed, ignore it
+    if (table->hasSection[head->sectionNumber]) {
+        return PICO_MPEGTS_RESULT_SUCCESS;
+    }
+
+    table->hasSection[head->sectionNumber] = true;
+
+    switch (tableId) {
+        case PICO_MPEGTS_TABLE_ID_NISAN:
+        case PICO_MPEGTS_TABLE_ID_NISON:
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_BAS:
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_SDSATS:
+        case PICO_MPEGTS_TABLE_ID_SDSOTS:
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_EISATSF:
+        case PICO_MPEGTS_TABLE_ID_EISOTSF:
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_TOS:
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_SIS:
+            break;
+
+        default:
+            break;
+    }
+    // check if it has all the sections, then just move this to the table
+    bool allSectionsPresent = true;
+    for (size_t i = 0; i < PICO_MPEGTS_MAX_SECTIONS; i++) {
+        if (!table->hasSection[i]) {
+            allSectionsPresent = false;
+            break;
+        }
+    }
+    if (allSectionsPresent) {
+        if (mpegts->tables[tableId] != NULL) {
+            __picoMpegTSTableDestroy(mpegts->tables[tableId]);
+        }
+        mpegts->tables[tableId]        = table;
+        mpegts->partialTables[tableId] = NULL;
+    }
+    return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
 static picoMpegTSResult __picoMpegTSParsePacketAdaptationFieldExtenstion(const uint8_t *data, uint8_t dataSize, picoMpegTSAdaptionFieldExtension afExt)
@@ -1250,17 +1339,15 @@ static picoMpegTSResult __picoMpegTSFilterContextFlush(picoMpegTS mpegts, picoMp
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(filterContext != NULL);
 
-    uint8_t tableId = filterContext->psiSectionHead.tableId;
     // time to actually deal with the data
-    if (filterContext->filterType == PICO_MPEGTS_FILTER_TYPE_SECTION) {
-        if (mpegts->partialTables[tableId] == NULL) {
-            mpegts->partialTables[tableId] = __picoMpegTSTableCreate(tableId);
+    if (filterContext->payloadAccumulatorSize > 0) {
+        if (filterContext->filterType == PICO_MPEGTS_FILTER_TYPE_SECTION) {
+            uint8_t tableId = filterContext->psiSectionHead.tableId;
+            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSTableAddSection(mpegts, tableId, filterContext));
+        } else {
+            PICO_MPEGTS_LOG("PES filters are not yet implemented");
+            return PICO_MPEGTS_RESULT_UNKNOWN_ERROR;
         }
-
-        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSTableAddSection(mpegts->partialTables[tableId], filterContext->payloadAccumulator, filterContext->payloadAccumulatorSize));
-    } else {
-        PICO_MPEGTS_LOG("PES filters are not yet implemented");
-        return PICO_MPEGTS_RESULT_UNKNOWN_ERROR;
     }
 
     // flush the accumulator
