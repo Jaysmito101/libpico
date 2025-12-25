@@ -790,6 +790,65 @@ typedef struct {
 typedef picoMpegTSServiceInformationTablePayload_t *picoMpegTSServiceInformationTablePayload;
 
 typedef struct {
+    struct {
+        // Program_number is a 16-bit field specifying the program to which the
+        // program_map_PID is applicable. When set to 0x0000, then the following
+        // PID reference shall be the network PID.
+        uint16_t programNumber;
+
+        // When program_number == 0x0000, this is the network_PID (13 bits)
+        // Otherwise, this is the program_map_PID (13 bits)
+        uint16_t pid;
+    } programs[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
+    size_t programCount;
+} picoMpegTSProgramAssociationSectionPayload_t;
+typedef picoMpegTSProgramAssociationSectionPayload_t *picoMpegTSProgramAssociationSectionPayload;
+
+typedef struct {
+    picoMpegTSDescriptorSet_t descriptorSet;
+} picoMpegTSConditionalAccessSectionPayload_t;
+typedef picoMpegTSConditionalAccessSectionPayload_t *picoMpegTSConditionalAccessSectionPayload;
+
+typedef struct {
+    // This 13-bit field indicates the PID of the transport stream packets
+    // which shall contain the PCR fields valid for the program specified
+    // by program_number. If no PCR is associated with a program definition
+    // for private streams, then this field shall take the value of 0x1FFF.
+    uint16_t pcrPid;
+
+    // Program-level descriptors
+    picoMpegTSDescriptorSet_t programInfoDescriptorSet;
+
+    struct {
+        // This 8-bit field specifies the type of program element carried
+        // within the packets with the PID whose value is specified by
+        // the elementary_PID.
+        uint8_t streamType;
+
+        // This 13-bit field specifies the PID of the transport stream
+        // packets which carry the associated program element.
+        uint16_t elementaryPid;
+
+        // ES-level descriptors for this stream
+        picoMpegTSDescriptorSet_t esInfoDescriptorSet;
+    } streams[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
+    size_t streamCount;
+} picoMpegTSProgramMapSectionPayload_t;
+typedef picoMpegTSProgramMapSectionPayload_t *picoMpegTSProgramMapSectionPayload;
+
+typedef struct {
+    // Descriptors that apply to the entire transport stream
+    picoMpegTSDescriptorSet_t descriptorSet;
+} picoMpegTSTransportStreamDescriptionSectionPayload_t;
+typedef picoMpegTSTransportStreamDescriptionSectionPayload_t *picoMpegTSTransportStreamDescriptionSectionPayload;
+
+typedef struct {
+    uint8_t metadataBytes[1024];
+    size_t metadataByteCount;
+} picoMpegTSMetadataSectionPayload_t;
+typedef picoMpegTSMetadataSectionPayload_t *picoMpegTSMetadataSectionPayload;
+
+typedef struct {
     uint8_t tableId;
     uint8_t versionNumber;
     picoMpegTSPSISectionHead_t head;
@@ -797,6 +856,11 @@ typedef struct {
     bool hasSection[PICO_MPEGTS_MAX_SECTIONS];
 
     union {
+        picoMpegTSProgramAssociationSectionPayload_t pas;
+        picoMpegTSConditionalAccessSectionPayload_t cas;
+        picoMpegTSProgramMapSectionPayload_t pms;
+        picoMpegTSTransportStreamDescriptionSectionPayload_t tsds;
+        picoMpegTSMetadataSectionPayload_t metas;
         picoMpegTSNetworkInformationTablePayload_t nit;
         picoMpegTSBoquetAssociationTablePayload_t bat;
         picoMpegTSServiceDescriptionTablePayload_t sdt;
@@ -935,6 +999,29 @@ static void __picoMpegTSTableDestroy(picoMpegTSTable table)
     PICO_ASSERT(table != NULL);
 
     switch (table->tableId) {
+        case PICO_MPEGTS_TABLE_ID_PAS:
+            // No descriptors to destroy
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_CAS:
+            __picoMpegTSDescriptorSetDestroy(&table->data.cas.descriptorSet);
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_PMS:
+            __picoMpegTSDescriptorSetDestroy(&table->data.pms.programInfoDescriptorSet);
+            for (size_t i = 0; i < table->data.pms.streamCount; i++) {
+                __picoMpegTSDescriptorSetDestroy(&table->data.pms.streams[i].esInfoDescriptorSet);
+            }
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_TSDS:
+            __picoMpegTSDescriptorSetDestroy(&table->data.tsds.descriptorSet);
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_METAS:
+            // No descriptors to destroy
+            break;
+
         case PICO_MPEGTS_TABLE_ID_NISAN:
         case PICO_MPEGTS_TABLE_ID_NISON:
             __picoMpegTSDescriptorSetDestroy(&table->data.nit.descriptorSet);
