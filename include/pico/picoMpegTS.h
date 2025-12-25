@@ -2225,8 +2225,9 @@ static picoMpegTSResult __picoMpegTSRegisterPSIFilters(picoMpegTS mpegts)
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_EIT));
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_RST));
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_TDT_TOT));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_DIT));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_SIT));
+    // The following two arent needed now, TODO: implement these
+    // PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_DIT));
+    // PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_SIT));
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
