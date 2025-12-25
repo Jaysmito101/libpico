@@ -1278,6 +1278,39 @@ static picoMpegTSResult __picoMpegTSParseSDT(picoMpegTS mpegts, picoMpegTSServic
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
+static picoMpegTSResult __picoMpegTSParsePAT(picoMpegTS mpegts, picoMpegTSProgramAssociationSectionPayload table, picoMpegTSFilterContext filterContext)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(table != NULL);
+    PICO_ASSERT(filterContext != NULL);
+
+    size_t targetSize = filterContext->payloadAccumulatorSize - filterContext->expectedPayloadSize + 4;
+    while (filterContext->payloadAccumulatorSize > targetSize) {
+        if (table->programCount == PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT) {
+            return PICO_MPEGTS_RESULT_TABLE_FULL;
+        }
+
+        uint16_t programNumber = (uint16_t)(filterContext->payloadAccumulator[0] << 8) |
+                                 filterContext->payloadAccumulator[1];
+        table->programs[table->programCount].programNumber = programNumber;
+
+        uint16_t pid = ((uint16_t)(filterContext->payloadAccumulator[2] & 0x1F) << 8) |
+                       filterContext->payloadAccumulator[3];
+        table->programs[table->programCount].pid = pid;
+
+        __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 4);
+
+        table->programCount++;
+    }
+
+    // uint32_t crc32 = (filterContext->payloadAccumulator[0] << 24) |
+    //                  (filterContext->payloadAccumulator[1] << 16) |
+    //                  (filterContext->payloadAccumulator[2] << 8) |
+    //                  filterContext->payloadAccumulator[3];
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
 static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t tableId, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
@@ -1328,6 +1361,10 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
                     picoMpegTSPIDToString(filterContext->pid));
 
     switch (tableId) {
+        case PICO_MPEGTS_TABLE_ID_PAS:
+            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParsePAT(mpegts, &table->data.pas, filterContext));
+            break;
+
         case PICO_MPEGTS_TABLE_ID_NISAN:
         case PICO_MPEGTS_TABLE_ID_NISON:
             PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseNIT(mpegts, &table->data.nit, filterContext));
@@ -1732,7 +1769,6 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
                     &packet->payload[payloadOffset],
                     packet->payloadSize - payloadOffset));
 
-            // call head function if exists
             if (filterContext->filterType == PICO_MPEGTS_FILTER_TYPE_SECTION) {
                 PICO_MPEGTS_RETURN_ON_ERROR(
                     __picoMpegTSParseSectionHead(
