@@ -552,7 +552,8 @@ typedef picoMpegTSDescriptor_t *picoMpegTSDescriptor;
 
 typedef struct {
     picoMpegTSDescriptor descriptors;
-    size_t descriptorCount;
+    size_t count;
+    size_t capacity;
 } picoMpegTSDescriptorSet_t;
 typedef picoMpegTSDescriptorSet_t *picoMpegTSDescriptorSet;
 
@@ -875,6 +876,106 @@ struct picoMpegTS_t {
     // these are the partial tables being built
     picoMpegTSTable partialTables[PICO_MPEGTS_MAX_TABLE_COUNT];
 };
+
+static picoMpegTSResult __picoMpegTSDescriptorSetAdd(picoMpegTSDescriptorSet set, const picoMpegTSDescriptor descriptor)
+{
+    PICO_ASSERT(set != NULL);
+    PICO_ASSERT(descriptor != NULL);
+
+    if (set->count >= set->capacity) {
+        size_t newCapacity                  = set->capacity == 0 ? 8 : set->capacity * 2;
+        picoMpegTSDescriptor newDescriptors = (picoMpegTSDescriptor)PICO_REALLOC(set->descriptors, newCapacity * sizeof(picoMpegTSDescriptor_t));
+        if (!newDescriptors) {
+            return PICO_MPEGTS_RESULT_MALLOC_ERROR;
+        }
+        set->descriptors = newDescriptors;
+        set->capacity    = newCapacity;
+    }
+
+    set->descriptors[set->count] = *descriptor;
+    set->count++;
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
+static void __picoMpegTSDescriptorSetClear(picoMpegTSDescriptorSet set)
+{
+    PICO_ASSERT(set != NULL);
+    set->count = 0;
+}
+
+static void __picoMpegTSDescriptorSetDestroy(picoMpegTSDescriptorSet set)
+{
+    if (!set)
+        return;
+    if (set->descriptors) {
+        PICO_FREE(set->descriptors);
+    }
+    set->descriptors = NULL;
+    set->count       = 0;
+    set->capacity    = 0;
+}
+
+static picoMpegTSTable __picoMpegTSTableCreate(uint8_t tableId)
+{
+    picoMpegTSTable table = (picoMpegTSTable)PICO_MALLOC(sizeof(picoMpegTSTable_t));
+    if (!table)
+        return NULL;
+    memset(table, 0, sizeof(picoMpegTSTable_t));
+    table->tableId = tableId;
+    return table;
+}
+
+static void __picoMpegTSTableDestroy(picoMpegTSTable table)
+{
+    PICO_ASSERT(table != NULL);
+
+    switch (table->tableId) {
+        case PICO_MPEGTS_TABLE_ID_NISAN:
+        case PICO_MPEGTS_TABLE_ID_NISON:
+            __picoMpegTSDescriptorSetDestroy(&table->data.nit.descriptorSet);
+            for (size_t i = 0; i < table->data.nit.transportStreamCount; i++) {
+                __picoMpegTSDescriptorSetDestroy(&table->data.nit.transportStreams[i].descriptorSet);
+            }
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_BAS:
+            __picoMpegTSDescriptorSetDestroy(&table->data.bat.descriptorSet);
+            for (size_t i = 0; i < table->data.bat.serviceCount; i++) {
+                __picoMpegTSDescriptorSetDestroy(&table->data.bat.services[i].descriptorSet);
+            }
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_SDSATS:
+        case PICO_MPEGTS_TABLE_ID_SDSOTS:
+            for (size_t i = 0; i < table->data.sdt.serviceCount; i++) {
+                __picoMpegTSDescriptorSetDestroy(&table->data.sdt.services[i].descriptorSet);
+            }
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_EISATSF:
+        case PICO_MPEGTS_TABLE_ID_EISOTSF:
+            for (size_t i = 0; i < table->data.eit.eventCount; i++) {
+                __picoMpegTSDescriptorSetDestroy(&table->data.eit.events[i].descriptorSet);
+            }
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_TOS:
+            __picoMpegTSDescriptorSetDestroy(&table->data.tot.descriptorSet);
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_SIS:
+            __picoMpegTSDescriptorSetDestroy(&table->data.sit.transmissionInfoDescriptorSet);
+            for (size_t i = 0; i < table->data.sit.serviceCount; i++) {
+                __picoMpegTSDescriptorSetDestroy(&table->data.sit.services[i].descriptorSet);
+            }
+            break;
+
+        default:
+            break;
+    }
+
+    PICO_FREE(table);
+}
 
 static picoMpegTSResult __picoMpegTSParsePacketAdaptationFieldExtenstion(const uint8_t *data, uint8_t dataSize, picoMpegTSAdaptionFieldExtension afExt)
 {
