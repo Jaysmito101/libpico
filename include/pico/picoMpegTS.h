@@ -234,7 +234,71 @@ typedef enum {
     PICO_MPEGTS_DESCRIPTOR_TAG_VVC_VIDEO                       = 57,
     PICO_MPEGTS_DESCRIPTOR_TAG_EVC_VIDEO                       = 58,
     PICO_MPEGTS_DESCRIPTOR_TAG_EXTENSION                       = 63,
-    PICO_MPEGTS_DESCRIPTOR_TAG_USER_PRIVATE_START              = 64,
+    PICO_MPEGTS_DESCRIPTOR_TAG_NETWORK_NAME                    = 0x40, // DVB Descriptors (ETSI EN 300 468)
+    PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE_LIST                    = 0x41,
+    PICO_MPEGTS_DESCRIPTOR_TAG_STUFFING                        = 0x42,
+    PICO_MPEGTS_DESCRIPTOR_TAG_SATELLITE_DELIVERY_SYSTEM       = 0x43,
+    PICO_MPEGTS_DESCRIPTOR_TAG_CABLE_DELIVERY_SYSTEM           = 0x44,
+    PICO_MPEGTS_DESCRIPTOR_TAG_VBI_DATA                        = 0x45,
+    PICO_MPEGTS_DESCRIPTOR_TAG_VBI_TELETEXT                    = 0x46,
+    PICO_MPEGTS_DESCRIPTOR_TAG_BOUQUET_NAME                    = 0x47,
+    PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE                         = 0x48,
+    PICO_MPEGTS_DESCRIPTOR_TAG_COUNTRY_AVAILABILITY            = 0x49,
+    PICO_MPEGTS_DESCRIPTOR_TAG_LINKAGE                         = 0x4A,
+    PICO_MPEGTS_DESCRIPTOR_TAG_NVOD_REFERENCE                  = 0x4B,
+    PICO_MPEGTS_DESCRIPTOR_TAG_TIME_SHIFTED_SERVICE            = 0x4C,
+    PICO_MPEGTS_DESCRIPTOR_TAG_SHORT_EVENT                     = 0x4D,
+    PICO_MPEGTS_DESCRIPTOR_TAG_EXTENDED_EVENT                  = 0x4E,
+    PICO_MPEGTS_DESCRIPTOR_TAG_TIME_SHIFTED_EVENT              = 0x4F,
+    PICO_MPEGTS_DESCRIPTOR_TAG_COMPONENT                       = 0x50,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MOSAIC                          = 0x51,
+    PICO_MPEGTS_DESCRIPTOR_TAG_STREAM_IDENTIFIER               = 0x52,
+    PICO_MPEGTS_DESCRIPTOR_TAG_CA_IDENTIFIER                   = 0x53,
+    PICO_MPEGTS_DESCRIPTOR_TAG_CONTENT                         = 0x54,
+    PICO_MPEGTS_DESCRIPTOR_TAG_PARENTAL_RATING                 = 0x55,
+    PICO_MPEGTS_DESCRIPTOR_TAG_TELETEXT                        = 0x56,
+    PICO_MPEGTS_DESCRIPTOR_TAG_TELEPHONE                       = 0x57,
+    PICO_MPEGTS_DESCRIPTOR_TAG_LOCAL_TIME_OFFSET               = 0x58,
+    PICO_MPEGTS_DESCRIPTOR_TAG_SUBTITLING                      = 0x59,
+    PICO_MPEGTS_DESCRIPTOR_TAG_TERRESTRIAL_DELIVERY_SYSTEM     = 0x5A,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MULTILINGUAL_NETWORK_NAME       = 0x5B,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MULTILINGUAL_BOUQUET_NAME       = 0x5C,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MULTILINGUAL_SERVICE_NAME       = 0x5D,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MULTILINGUAL_COMPONENT          = 0x5E,
+    PICO_MPEGTS_DESCRIPTOR_TAG_PRIVATE_DATA_SPECIFIER          = 0x5F,
+    PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE_MOVE                    = 0x60,
+    PICO_MPEGTS_DESCRIPTOR_TAG_SHORT_SMOOTHING_BUFFER          = 0x61,
+    PICO_MPEGTS_DESCRIPTOR_TAG_FREQUENCY_LIST                  = 0x62,
+    PICO_MPEGTS_DESCRIPTOR_TAG_PARTIAL_TRANSPORT_STREAM        = 0x63,
+    PICO_MPEGTS_DESCRIPTOR_TAG_DATA_BROADCAST                  = 0x64,
+    PICO_MPEGTS_DESCRIPTOR_TAG_SCRAMBLING                      = 0x65,
+    PICO_MPEGTS_DESCRIPTOR_TAG_DATA_BROADCAST_ID               = 0x66,
+    PICO_MPEGTS_DESCRIPTOR_TAG_TRANSPORT_STREAM                = 0x67,
+    PICO_MPEGTS_DESCRIPTOR_TAG_DSNG                            = 0x68,
+    PICO_MPEGTS_DESCRIPTOR_TAG_PDC                             = 0x69,
+    PICO_MPEGTS_DESCRIPTOR_TAG_AC3                             = 0x6A,
+    PICO_MPEGTS_DESCRIPTOR_TAG_ANCILLARY_DATA                  = 0x6B,
+    PICO_MPEGTS_DESCRIPTOR_TAG_CELL_LIST                       = 0x6C,
+    PICO_MPEGTS_DESCRIPTOR_TAG_CELL_FREQUENCY_LINK             = 0x6D,
+    PICO_MPEGTS_DESCRIPTOR_TAG_ANNOUNCEMENT_SUPPORT            = 0x6E,
+    PICO_MPEGTS_DESCRIPTOR_TAG_APPLICATION_SIGNALLING          = 0x6F,
+    PICO_MPEGTS_DESCRIPTOR_TAG_ADAPTATION_FIELD_DATA           = 0x70,
+    PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE_IDENTIFIER              = 0x71,
+    PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE_AVAILABILITY            = 0x72,
+    PICO_MPEGTS_DESCRIPTOR_TAG_DEFAULT_AUTHORITY               = 0x73,
+    PICO_MPEGTS_DESCRIPTOR_TAG_RELATED_CONTENT                 = 0x74,
+    PICO_MPEGTS_DESCRIPTOR_TAG_TVA_ID                          = 0x75,
+    PICO_MPEGTS_DESCRIPTOR_TAG_CONTENT_IDENTIFIER              = 0x76,
+    PICO_MPEGTS_DESCRIPTOR_TAG_TIME_SLICE_FEC_IDENTIFIER       = 0x77,
+    PICO_MPEGTS_DESCRIPTOR_TAG_ECM_REPETITION_RATE             = 0x78,
+    PICO_MPEGTS_DESCRIPTOR_TAG_S2_SATELLITE_DELIVERY_SYSTEM    = 0x79,
+    PICO_MPEGTS_DESCRIPTOR_TAG_ENHANCED_AC3                    = 0x7A,
+    PICO_MPEGTS_DESCRIPTOR_TAG_DTS                             = 0x7B,
+    PICO_MPEGTS_DESCRIPTOR_TAG_AAC                             = 0x7C,
+    PICO_MPEGTS_DESCRIPTOR_TAG_XAIT_LOCATION                   = 0x7D,
+    PICO_MPEGTS_DESCRIPTOR_TAG_FTA_CONTENT_MANAGEMENT          = 0x7E,
+    PICO_MPEGTS_DESCRIPTOR_TAG_DVB_EXTENSION                   = 0x7F,
+    PICO_MPEGTS_DESCRIPTOR_TAG_USER_PRIVATE_START              = 0x80,
     PICO_MPEGTS_DESCRIPTOR_TAG_USER_PRIVATE_END                = 255,
 } picoMpegTSDescriptorTag;
 
@@ -2401,6 +2465,135 @@ const char *picoMpegTSDescriptorTagToString(uint8_t tag)
             return "EVC Video Descriptor";
         case PICO_MPEGTS_DESCRIPTOR_TAG_EXTENSION:
             return "Extension Descriptor";
+        // DVB Descriptors (ETSI EN 300 468)
+        case PICO_MPEGTS_DESCRIPTOR_TAG_NETWORK_NAME:
+            return "Network Name Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE_LIST:
+            return "Service List Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_STUFFING:
+            return "Stuffing Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SATELLITE_DELIVERY_SYSTEM:
+            return "Satellite Delivery System Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_CABLE_DELIVERY_SYSTEM:
+            return "Cable Delivery System Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_VBI_DATA:
+            return "VBI Data Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_VBI_TELETEXT:
+            return "VBI Teletext Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_BOUQUET_NAME:
+            return "Bouquet Name Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE:
+            return "Service Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_COUNTRY_AVAILABILITY:
+            return "Country Availability Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_LINKAGE:
+            return "Linkage Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_NVOD_REFERENCE:
+            return "NVOD Reference Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_TIME_SHIFTED_SERVICE:
+            return "Time Shifted Service Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SHORT_EVENT:
+            return "Short Event Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_EXTENDED_EVENT:
+            return "Extended Event Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_TIME_SHIFTED_EVENT:
+            return "Time Shifted Event Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_COMPONENT:
+            return "Component Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MOSAIC:
+            return "Mosaic Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_STREAM_IDENTIFIER:
+            return "Stream Identifier Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_CA_IDENTIFIER:
+            return "CA Identifier Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_CONTENT:
+            return "Content Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_PARENTAL_RATING:
+            return "Parental Rating Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_TELETEXT:
+            return "Teletext Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_TELEPHONE:
+            return "Telephone Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_LOCAL_TIME_OFFSET:
+            return "Local Time Offset Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SUBTITLING:
+            return "Subtitling Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_TERRESTRIAL_DELIVERY_SYSTEM:
+            return "Terrestrial Delivery System Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MULTILINGUAL_NETWORK_NAME:
+            return "Multilingual Network Name Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MULTILINGUAL_BOUQUET_NAME:
+            return "Multilingual Bouquet Name Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MULTILINGUAL_SERVICE_NAME:
+            return "Multilingual Service Name Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MULTILINGUAL_COMPONENT:
+            return "Multilingual Component Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_PRIVATE_DATA_SPECIFIER:
+            return "Private Data Specifier Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE_MOVE:
+            return "Service Move Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SHORT_SMOOTHING_BUFFER:
+            return "Short Smoothing Buffer Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_FREQUENCY_LIST:
+            return "Frequency List Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_PARTIAL_TRANSPORT_STREAM:
+            return "Partial Transport Stream Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_DATA_BROADCAST:
+            return "Data Broadcast Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SCRAMBLING:
+            return "Scrambling Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_DATA_BROADCAST_ID:
+            return "Data Broadcast Id Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_TRANSPORT_STREAM:
+            return "Transport Stream Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_DSNG:
+            return "DSNG Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_PDC:
+            return "PDC Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_AC3:
+            return "AC-3 Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_ANCILLARY_DATA:
+            return "Ancillary Data Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_CELL_LIST:
+            return "Cell List Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_CELL_FREQUENCY_LINK:
+            return "Cell Frequency Link Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_ANNOUNCEMENT_SUPPORT:
+            return "Announcement Support Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_APPLICATION_SIGNALLING:
+            return "Application Signalling Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_ADAPTATION_FIELD_DATA:
+            return "Adaptation Field Data Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE_IDENTIFIER:
+            return "Service Identifier Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE_AVAILABILITY:
+            return "Service Availability Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_DEFAULT_AUTHORITY:
+            return "Default Authority Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_RELATED_CONTENT:
+            return "Related Content Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_TVA_ID:
+            return "TVA ID Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_CONTENT_IDENTIFIER:
+            return "Content Identifier Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_TIME_SLICE_FEC_IDENTIFIER:
+            return "Time Slice FEC Identifier Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_ECM_REPETITION_RATE:
+            return "ECM Repetition Rate Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_S2_SATELLITE_DELIVERY_SYSTEM:
+            return "S2 Satellite Delivery System Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_ENHANCED_AC3:
+            return "Enhanced AC-3 Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_DTS:
+            return "DTS Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_AAC:
+            return "AAC Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_XAIT_LOCATION:
+            return "XAIT Location Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_FTA_CONTENT_MANAGEMENT:
+            return "FTA Content Management Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_DVB_EXTENSION:
+            return "DVB Extension Descriptor";
         default:
             if (tag >= PICO_MPEGTS_DESCRIPTOR_TAG_USER_PRIVATE_START && tag <= PICO_MPEGTS_DESCRIPTOR_TAG_USER_PRIVATE_END) {
                 return "User Private Descriptor";
