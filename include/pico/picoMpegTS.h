@@ -916,6 +916,7 @@ typedef void *(*picoMpegTSFilterContextConstructorFunc)(picoMpegTS mpegts, picoM
 struct picoMpegTSFilterContext_t {
     bool hasHead;
     picoMpegTSPSISectionHead_t psiSectionHead;
+    uint16_t pid;
 
     uint8_t *payloadAccumulator;
     size_t payloadAccumulatorSize;
@@ -1069,6 +1070,8 @@ static void __picoMpegTSTableDestroy(picoMpegTSTable table)
     PICO_FREE(table);
 }
 
+static void __picoMpegTSFilterContextFlushPayloadAccumulator(picoMpegTSFilterContext filterContext, size_t byteCount);
+
 static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t tableId, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
@@ -1113,6 +1116,11 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
 
     table->hasSection[head->sectionNumber] = true;
 
+    PICO_MPEGTS_LOG("picoMpegTS: parsing section %d.%d [%s] / [%s]\n",
+                    tableId, filterContext->pid,
+                    picoMpegTSTableIDToString(tableId),
+                    picoMpegTSPIDToString(filterContext->pid));
+
     switch (tableId) {
         case PICO_MPEGTS_TABLE_ID_NISAN:
         case PICO_MPEGTS_TABLE_ID_NISON:
@@ -1140,7 +1148,7 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
     }
     // check if it has all the sections, then just move this to the table
     bool allSectionsPresent = true;
-    for (size_t i = 0; i < PICO_MPEGTS_MAX_SECTIONS; i++) {
+    for (size_t i = 0; i < table->head.sectionLength; i++) {
         if (!table->hasSection[i]) {
             allSectionsPresent = false;
             break;
@@ -1348,7 +1356,7 @@ static picoMpegTSResult __picoMpegTSParseSectionHead(const uint8_t *data, picoMp
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSFilterContext __picoMpegTSCreateFilterContext(picoMpegTS mpegts, picoMpegTSFilterType filterType)
+static picoMpegTSFilterContext __picoMpegTSCreateFilterContext(picoMpegTS mpegts, picoMpegTSFilterType filterType, uint16_t pid)
 {
     PICO_ASSERT(mpegts != NULL);
 
@@ -1359,6 +1367,7 @@ static picoMpegTSFilterContext __picoMpegTSCreateFilterContext(picoMpegTS mpegts
 
     memset(context, 0, sizeof(picoMpegTSFilterContext_t));
 
+    context->pid                        = pid;
     context->payloadAccumulator         = NULL;
     context->payloadAccumulatorSize     = 0;
     context->payloadAccumulatorCapacity = 0;
@@ -1437,7 +1446,7 @@ static picoMpegTSResult __picoMpegTSFilterContextFlush(picoMpegTS mpegts, picoMp
     PICO_ASSERT(filterContext != NULL);
 
     // time to actually deal with the data
-    if (filterContext->payloadAccumulatorSize > 0) {
+    if (filterContext->payloadAccumulatorSize > 0 && filterContext->hasHead) {
         if (filterContext->filterType == PICO_MPEGTS_FILTER_TYPE_SECTION) {
             uint8_t tableId = filterContext->psiSectionHead.tableId;
             PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSTableAddSection(mpegts, tableId, filterContext));
@@ -1522,6 +1531,7 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
                         filterContext->payloadAccumulator,
                         &filterContext->psiSectionHead));
                 __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 8);
+                filterContext->hasHead             = true;
                 filterContext->expectedPayloadSize = filterContext->psiSectionHead.sectionLength - 5;
             } else {
                 PICO_MPEGTS_LOG("PES filters not implemented yet\n");
@@ -1564,7 +1574,7 @@ static picoMpegTSResult __picoMpegTSRegisterPSIFilter(picoMpegTS mpegts, picoMpe
 {
     PICO_ASSERT(mpegts != NULL);
 
-    picoMpegTSFilterContext filterContext = __picoMpegTSCreateFilterContext(mpegts, PICO_MPEGTS_FILTER_TYPE_SECTION);
+    picoMpegTSFilterContext filterContext = __picoMpegTSCreateFilterContext(mpegts, PICO_MPEGTS_FILTER_TYPE_SECTION, pid);
 
     if (!filterContext) {
         PICO_MPEGTS_LOG("picoMpegTS: Failed to create (%s) filter context for PID 0x%04X\n",
@@ -1581,8 +1591,21 @@ static picoMpegTSResult __picoMpegTSRegisterPSIFilter(picoMpegTS mpegts, picoMpe
 static picoMpegTSResult __picoMpegTSRegisterPSIFilters(picoMpegTS mpegts)
 {
     PICO_ASSERT(mpegts != NULL);
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_PAT));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_CAT));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_TSDT));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_IPMP));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_ASI));
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_NIT));
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_SDT_BAT));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_EIT));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_RST));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_TDT_TOT));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_NET_SYNC));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_RNT));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_DIT));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_SIT));
+
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
@@ -1759,7 +1782,7 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
     }
 
     mpegts->ignoredPacketCount++;
-    PICO_MPEGTS_LOG("Ignoring packet with custom PID 0x%04X without filter.\n", packet.pid);
+    // PICO_MPEGTS_LOG("Ignoring packet with custom PID 0x%04X without filter.\n", packet.pid);
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
