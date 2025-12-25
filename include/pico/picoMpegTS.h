@@ -2383,10 +2383,15 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
         memcpy(&mpegts->parsedPackets[mpegts->parsedPacketCount++], &packet, sizeof(picoMpegTSPacket_t));
     }
 
+    if (packet.pid == PICO_MPEGTS_PID_NULL_PACKET) {
+        return PICO_MPEGTS_RESULT_SUCCESS;
+    }
+
     picoMpegTSFilterContext filterContext = mpegts->pidFilters[packet.pid];
 
     // if there is no filter for this PID and it is not a custom PID then this is an error
     if (!filterContext && !__picoMpegTSIsPIDCustom(packet.pid)) {
+        PICO_MPEGTS_LOG("picoMpegTS: Unknown PID: 0x%04X [%s]\n", packet.pid, picoMpegTSPIDToString(packet.pid));
         // TODO: Maybe just skip the packet?
         return PICO_MPEGTS_RESULT_UNKNOWN_PID_PACKET;
     }
