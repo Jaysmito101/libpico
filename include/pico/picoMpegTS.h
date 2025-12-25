@@ -1109,6 +1109,7 @@ static void __picoMpegTSDescriptorSetClear(picoMpegTSDescriptorSet set)
 }
 
 static void __picoMpegTSFilterContextFlushPayloadAccumulator(picoMpegTSFilterContext filterContext, size_t byteCount);
+static picoMpegTSResult __picoMpegTSReplaceOrRegisterPSIFilter(picoMpegTS mpegts, uint16_t pid);
 
 static picoMpegTSResult __picoMpegTSDescriptorParse(picoMpegTSDescriptor descriptor, const uint8_t *data, size_t dataSize, size_t *bytesConsumed)
 {
@@ -1467,6 +1468,30 @@ static picoMpegTSResult __picoMpegTSParsePMT(picoMpegTS mpegts, picoMpegTSProgra
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
+static picoMpegTSResult __picoMpegTSOnTableReady(picoMpegTS mpegts, picoMpegTSTable table)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(table != NULL);
+
+    uint8_t tableId = table->tableId;
+
+    switch (tableId) {
+        case PICO_MPEGTS_TABLE_ID_PAS:
+            // when PAT is complete, register filters for all discovered PIDs
+            for (size_t i = 0; i < table->data.pas.programCount; i++) {
+                uint16_t pid = table->data.pas.programs[i].pid;
+                PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, pid));
+            }
+            break;
+
+        default:
+            // no post-processing needed for other tables
+            break;
+    }
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
 static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t tableId, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
@@ -1569,6 +1594,8 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
         }
         mpegts->tables[tableId]        = table;
         mpegts->partialTables[tableId] = NULL;
+
+        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSOnTableReady(mpegts, table));
     }
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -1855,7 +1882,7 @@ static picoMpegTSResult __picoMpegTSFilterContextFlush(picoMpegTS mpegts, picoMp
     PICO_ASSERT(filterContext != NULL);
 
     // time to actually deal with the data
-    if (filterContext->payloadAccumulatorSize > 0 && filterContext->hasHead) {
+    if (filterContext->payloadAccumulatorSize > filterContext->expectedPayloadSize && filterContext->hasHead) {
         if (filterContext->filterType == PICO_MPEGTS_FILTER_TYPE_SECTION) {
             uint8_t tableId = filterContext->psiSectionHead.tableId;
             PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSTableAddSection(mpegts, tableId, filterContext));
@@ -1994,6 +2021,19 @@ static picoMpegTSResult __picoMpegTSRegisterPSIFilter(picoMpegTS mpegts, picoMpe
     mpegts->pidFilters[pid] = filterContext;
 
     return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
+static picoMpegTSResult __picoMpegTSReplaceOrRegisterPSIFilter(picoMpegTS mpegts, uint16_t pid)
+{
+    PICO_ASSERT(mpegts != NULL);
+
+    if (mpegts->pidFilters[pid] != NULL) {
+        picoMpegTSFilterContext oldFilter = mpegts->pidFilters[pid];
+        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterContextFlush(mpegts, oldFilter, 0));
+        __picoMpegTSDestroyFilterContext(mpegts, oldFilter);
+        mpegts->pidFilters[pid] = NULL;
+    }
+    return __picoMpegTSRegisterPSIFilter(mpegts, pid);
 }
 
 static picoMpegTSResult __picoMpegTSRegisterPSIFilters(picoMpegTS mpegts)
