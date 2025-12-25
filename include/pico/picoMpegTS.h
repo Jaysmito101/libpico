@@ -252,6 +252,7 @@ typedef enum {
     PICO_MPEGTS_RESULT_INVALID_DATA,
     PICO_MPEGTS_RESULT_INVALID_ARGUMENTS,
     PICO_MPEGTS_RESULT_UNKNOWN_PID_PACKET,
+    PICO_MPEGTS_RESULT_TABLE_FULL,
     PICO_MPEGTS_RESULT_UNKNOWN_ERROR,
 } picoMpegTSResult;
 
@@ -974,9 +975,8 @@ static void __picoMpegTSDescriptorSetClear(picoMpegTSDescriptorSet set)
 
 static void __picoMpegTSFilterContextFlushPayloadAccumulator(picoMpegTSFilterContext filterContext, size_t byteCount);
 
-static picoMpegTSResult __picoMpegTSDescriptorSetParse(picoMpegTS mpegts, picoMpegTSDescriptorSet descriptorSet, picoMpegTSFilterContext filterContext, bool additive)
+static picoMpegTSResult __picoMpegTSDescriptorSetParse(picoMpegTSDescriptorSet descriptorSet, picoMpegTSFilterContext filterContext, bool additive)
 {
-    PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(descriptorSet != NULL);
     PICO_ASSERT(filterContext != NULL);
 
@@ -1133,7 +1133,37 @@ static void __picoMpegTSTableDestroy(picoMpegTSTable table)
     PICO_FREE(table);
 }
 
-static void __picoMpegTSFilterContextFlushPayloadAccumulator(picoMpegTSFilterContext filterContext, size_t byteCount);
+static picoMpegTSResult __picoMpegTSParseNIT(picoMpegTS mpegts, picoMpegTSNetworkInformationTablePayload table, picoMpegTSFilterContext filterContext)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(table != NULL);
+    PICO_ASSERT(filterContext != NULL);
+
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->descriptorSet, filterContext, true));
+
+    // uint16_t transportStreamLength = (filterContext->payloadAccumulator[0] & 0x0F) << 8 | filterContext->payloadAccumulator[1];
+    while (filterContext->payloadAccumulatorSize > 4) {
+        if (table->transportStreamCount == PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT) {
+            return PICO_MPEGTS_RESULT_TABLE_FULL;
+        }
+
+        uint16_t transportStreamId                                             = filterContext->payloadAccumulator[0] << 8 | filterContext->payloadAccumulator[1];
+        table->transportStreams[table->transportStreamCount].transportStreamId = transportStreamId;
+
+        uint16_t originalNetworkId                                             = filterContext->payloadAccumulator[2] << 8 | filterContext->payloadAccumulator[3];
+        table->transportStreams[table->transportStreamCount].originalNetworkId = originalNetworkId;
+
+        __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 4);
+
+        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->transportStreams[table->transportStreamCount].descriptorSet, filterContext, true));
+
+        table->transportStreamCount++;
+    }
+
+    // uint32_t crc32 = (filterContext->payloadAccumulator[0] << 24) | (filterContext->payloadAccumulator[1] << 16) | (filterContext->payloadAccumulator[2] << 8) | filterContext->payloadAccumulator[3];
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
 
 static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t tableId, picoMpegTSFilterContext filterContext)
 {
@@ -1187,6 +1217,7 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
     switch (tableId) {
         case PICO_MPEGTS_TABLE_ID_NISAN:
         case PICO_MPEGTS_TABLE_ID_NISON:
+            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseNIT(mpegts, &table->data.nit, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_BAS:
@@ -2012,6 +2043,8 @@ const char *picoMpegTSResultToString(picoMpegTSResult result)
             return "INVALID_ARGUMENTS";
         case PICO_MPEGTS_RESULT_UNKNOWN_PID_PACKET:
             return "UNKNOWN_PID_PACKET";
+        case PICO_MPEGTS_RESULT_TABLE_FULL:
+            return "TABLE_FULL";
         default:
             return "UNKNOWN_ERROR";
     }
