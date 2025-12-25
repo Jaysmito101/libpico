@@ -577,6 +577,145 @@ typedef struct {
 } picoMpegTSServiceDescriptionTablePayload_t;
 typedef picoMpegTSServiceDescriptionTablePayload_t *picoMpegTSServiceDescriptionTablePayload;
 
+// Time structures for DVB tables
+typedef struct {
+    // Modified Julian Date (16 bits) + UTC time (24 bits BCD: HH:MM:SS)
+    uint16_t mjd;           // Modified Julian Date
+    uint8_t hour;           // BCD encoded hours (0x00-0x23)
+    uint8_t minute;         // BCD encoded minutes (0x00-0x59)
+    uint8_t second;         // BCD encoded seconds (0x00-0x59)
+} picoMpegTSUTCTime_t;
+typedef picoMpegTSUTCTime_t *picoMpegTSUTCTime;
+
+typedef struct {
+    // Duration in BCD format: 6 digits (HH:MM:SS)
+    uint8_t hours;          // BCD encoded hours
+    uint8_t minutes;        // BCD encoded minutes
+    uint8_t seconds;        // BCD encoded seconds
+} picoMpegTSDuration_t;
+typedef picoMpegTSDuration_t *picoMpegTSDuration;
+
+typedef struct {
+    // This 16-bit field serves as a label to identify this TS
+    // from any other multiplex within the delivery system.
+    uint16_t transportStreamId;
+
+    // This 16-bit field gives the label identifying the network_id
+    // of the originating delivery system.
+    uint16_t originalNetworkId;
+
+    struct {
+        // This 16-bit field contains the identification number
+        // of the described event.
+        uint16_t eventId;
+
+        // This 40-bit field contains the start time of the event
+        // in UTC and MJD.
+        picoMpegTSUTCTime_t startTime;
+
+        // A 24-bit field containing the duration of the event
+        // in hours, minutes, seconds format: 6 digits, 4-bit BCD.
+        picoMpegTSDuration_t duration;
+
+        // This 3-bit field indicates the status of the event.
+        picoMpegTSSDTRunningStatus runningStatus;
+
+        // This 1-bit field, when set to "0" indicates that all
+        // the component streams of the event are not scrambled.
+        // When set to "1" it indicates that access to one or more
+        // streams may be controlled by a CA system.
+        bool freeCAMode;
+
+        picoMpegTSDescriptorSet_t descriptorSet;
+    } events[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
+    size_t eventCount;
+} picoMpegTSEventInformationTablePayload_t;
+typedef picoMpegTSEventInformationTablePayload_t *picoMpegTSEventInformationTablePayload;
+
+typedef struct {
+    // This 40-bit field contains the current time and date
+    // in UTC and MJD.
+    picoMpegTSUTCTime_t utcTime;
+} picoMpegTSTimeDateTablePayload_t;
+typedef picoMpegTSTimeDateTablePayload_t *picoMpegTSTimeDateTablePayload;
+
+typedef struct {
+    // This 40-bit field contains the current time and date
+    // in UTC and MJD.
+    picoMpegTSUTCTime_t utcTime;
+
+    // Descriptors providing local time offset information.
+    picoMpegTSDescriptorSet_t descriptorSet;
+} picoMpegTSTimeOffsetTablePayload_t;
+typedef picoMpegTSTimeOffsetTablePayload_t *picoMpegTSTimeOffsetTablePayload;
+
+typedef struct {
+    struct {
+        // This 16-bit field serves as a label for identification
+        // of the TS, about which the RST informs, from any other
+        // multiplex within the delivery system.
+        uint16_t transportStreamId;
+
+        // This 16-bit field gives the label identifying the
+        // network_id of the originating delivery system.
+        uint16_t originalNetworkId;
+
+        // This is a 16-bit field which serves as a label to
+        // identify this service from any other service within the TS.
+        uint16_t serviceId;
+
+        // This 16-bit field contains the identification number
+        // of the related event.
+        uint16_t eventId;
+
+        // This 3-bit field indicates the status of the event.
+        picoMpegTSSDTRunningStatus runningStatus;
+    } statusEntries[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
+    size_t statusEntryCount;
+} picoMpegTSRunningStatusTablePayload_t;
+typedef picoMpegTSRunningStatusTablePayload_t *picoMpegTSRunningStatusTablePayload;
+
+typedef struct {
+    // This 1-bit flag indicates the kind of transition in the TS.
+    // When the bit is set to "1", it indicates that the transition
+    // is due to a change of the originating source. When the bit
+    // is set to "0", it indicates that the transition is due to
+    // a change of the selection entity.
+    bool transitionFlag;
+} picoMpegTSDITPayload_t;
+typedef picoMpegTSDITPayload_t *picoMpegTSDITPayload;
+
+typedef struct {
+    // This 12-bit field gives the total length in bytes of the
+    // transmission info descriptor loop.
+    uint16_t transmissionInfoLoopLength;
+
+    // Descriptors related to the service and event contained
+    // in the partial TS.
+    picoMpegTSDescriptorSet_t transmissionInfoDescriptorSet;
+
+    struct {
+        // This is a 16-bit field which serves as a label to
+        // identify this service from any other service within
+        // a TS.
+        uint16_t serviceId;
+
+        // This 3-bit field indicates the running status of the
+        // event in the original stream.
+        picoMpegTSSDTRunningStatus runningStatus;
+
+        // This 12-bit field gives the total length in bytes of
+        // the service descriptor loop.
+        uint16_t serviceLoopLength;
+
+        // Descriptors on the service and event contained in the
+        // partial TS.
+        picoMpegTSDescriptorSet_t descriptorSet;
+    } services[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
+    size_t serviceCount;
+} picoMpegTSSITPayload_t;
+typedef picoMpegTSSITPayload_t *picoMpegTSSITPayload;
+
 typedef struct {
     uint8_t tableId;
     picoMpegTSPSISectionHead_t head;
@@ -587,6 +726,12 @@ typedef struct {
         picoMpegTSNetworkInformationTablePayload_t nit;
         picoMpegTSBoquetAssociationTablePayload_t bat;
         picoMpegTSServiceDescriptionTablePayload_t sdt;
+        picoMpegTSEventInformationTablePayload_t eit;
+        picoMpegTSTimeDateTablePayload_t tdt;
+        picoMpegTSTimeOffsetTablePayload_t tot;
+        picoMpegTSRunningStatusTablePayload_t rst;
+        picoMpegTSDITPayload_t dit;
+        picoMpegTSSITPayload_t sit;
     } data;
 } picoMpegTSTable_t;
 typedef picoMpegTSTable_t *picoMpegTSTable;
