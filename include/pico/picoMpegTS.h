@@ -181,6 +181,75 @@ typedef enum {
 } picoMpegTSTableID;
 
 typedef enum {
+    PICO_MPEGTS_STREAM_TYPE_RESERVED                = 0x00,
+    PICO_MPEGTS_STREAM_TYPE_MPEG1_VIDEO             = 0x01, // ISO/IEC 11172-2 Video
+    PICO_MPEGTS_STREAM_TYPE_MPEG2_VIDEO             = 0x02, // ITU-T H.262 | ISO/IEC 13818-2 Video or ISO/IEC 11172-2 constrained parameter video stream
+    PICO_MPEGTS_STREAM_TYPE_MPEG1_AUDIO             = 0x03, // ISO/IEC 11172-3 Audio
+    PICO_MPEGTS_STREAM_TYPE_MPEG2_AUDIO             = 0x04, // ISO/IEC 13818-3 Audio
+    PICO_MPEGTS_STREAM_TYPE_PRIVATE_SECTIONS        = 0x05, // ITU-T H.222.0 | ISO/IEC 13818-1 private_sections
+    PICO_MPEGTS_STREAM_TYPE_PRIVATE_DATA            = 0x06, // ITU-T H.222.0 | ISO/IEC 13818-1 PES packets containing private data
+    PICO_MPEGTS_STREAM_TYPE_MHEG                    = 0x07, // ISO/IEC 13522 MHEG
+    PICO_MPEGTS_STREAM_TYPE_DSM_CC                  = 0x08, // ITU-T H.222.0 | ISO/IEC 13818-1 Annex A DSM-CC
+    PICO_MPEGTS_STREAM_TYPE_H222_1                  = 0x09, // ITU-T H.222.1
+    PICO_MPEGTS_STREAM_TYPE_DSMCC_TYPE_A            = 0x0A, // ISO/IEC 13818-6 type A
+    PICO_MPEGTS_STREAM_TYPE_DSMCC_TYPE_B            = 0x0B, // ISO/IEC 13818-6 type B
+    PICO_MPEGTS_STREAM_TYPE_DSMCC_TYPE_C            = 0x0C, // ISO/IEC 13818-6 type C
+    PICO_MPEGTS_STREAM_TYPE_DSMCC_TYPE_D            = 0x0D, // ISO/IEC 13818-6 type D
+    PICO_MPEGTS_STREAM_TYPE_H222_AUXILIARY          = 0x0E, // ITU-T H.222.0 | ISO/IEC 13818-1 auxiliary
+    PICO_MPEGTS_STREAM_TYPE_AAC_ADTS                = 0x0F, // ISO/IEC 13818-7 Audio with ADTS transport syntax
+    PICO_MPEGTS_STREAM_TYPE_MPEG4_VISUAL            = 0x10, // ISO/IEC 14496-2 Visual
+    PICO_MPEGTS_STREAM_TYPE_AAC_LATM                = 0x11, // ISO/IEC 14496-3 Audio with the LATM transport syntax as defined in ISO/IEC 14496-3
+    PICO_MPEGTS_STREAM_TYPE_MPEG4_PES               = 0x12, // ISO/IEC 14496-1 SL-packetized stream or FlexMux stream carried in PES packets
+    PICO_MPEGTS_STREAM_TYPE_MPEG4_SECTIONS          = 0x13, // ISO/IEC 14496-1 SL-packetized stream or FlexMux stream carried in ISO/IEC 14496_sections
+    PICO_MPEGTS_STREAM_TYPE_MPEG2_DSMCC_DATA        = 0x14, // ISO/IEC 13818-6 Synchronized Download Protocol
+    PICO_MPEGTS_STREAM_TYPE_METADATA_PES            = 0x15, // Metadata carried in PES packets
+    PICO_MPEGTS_STREAM_TYPE_METADATA_SECTIONS       = 0x16, // Metadata carried in metadata_sections
+    PICO_MPEGTS_STREAM_TYPE_METADATA_DSMCC_DATA     = 0x17, // Metadata carried in ISO/IEC 13818-6 Data Carousel
+    PICO_MPEGTS_STREAM_TYPE_METADATA_DSMCC_OBJECT   = 0x18, // Metadata carried in ISO/IEC 13818-6 Object Carousel
+    PICO_MPEGTS_STREAM_TYPE_METADATA_DSMCC_DOWNLOAD = 0x19, // Metadata carried in ISO/IEC 13818-6 Synchronized Download Protocol
+    PICO_MPEGTS_STREAM_TYPE_MPEG2_IPMP              = 0x1A, // IPMP stream (defined in ISO/IEC 13818-11, MPEG-2 IPMP)
+    PICO_MPEGTS_STREAM_TYPE_H264                    = 0x1B, // AVC video stream conforming to one or more profiles defined in Annex A of ITU-T H.264 | ISO/IEC 14496-10
+    PICO_MPEGTS_STREAM_TYPE_MPEG4_AUDIO_RAW         = 0x1C, // ISO/IEC 14496-3 Audio, without using any additional transport syntax
+    PICO_MPEGTS_STREAM_TYPE_MPEG4_TEXT              = 0x1D, // ISO/IEC 14496-17 Text
+    PICO_MPEGTS_STREAM_TYPE_MPEG4_AUXILIARY         = 0x1E, // Auxiliary video stream as defined in ISO/IEC 23002-3
+    PICO_MPEGTS_STREAM_TYPE_H264_SVC                = 0x1F, // SVC video sub-bitstream of an AVC video stream conforming to one or more profiles defined in Annex G of ITU-T H.264 | ISO/IEC 14496-10
+    PICO_MPEGTS_STREAM_TYPE_H264_MVC                = 0x20, // MVC video sub-bitstream of an AVC video stream conforming to one or more profiles defined in Annex H of ITU-T H.264 | ISO/IEC 14496-10
+    PICO_MPEGTS_STREAM_TYPE_JPEG2000                = 0x21, // Video stream conforming to one or more profiles as defined in ITU-T T.800 | ISO/IEC 15444-1
+    PICO_MPEGTS_STREAM_TYPE_MPEG2_3D_VIDEO          = 0x22, // Additional view ITU-T H.262 | ISO/IEC 13818-2 video stream for service-compatible stereoscopic 3D services
+    PICO_MPEGTS_STREAM_TYPE_H264_STEREO_3D          = 0x23, // Additional view ITU-T H.264 | ISO/IEC 14496-10 video stream for service-compatible stereoscopic 3D services
+    PICO_MPEGTS_STREAM_TYPE_HEVC                    = 0x24, // ITU-T H.265 and ISO/IEC 23008-2 video stream or an HEVC temporal video sub-bitstream
+    PICO_MPEGTS_STREAM_TYPE_HEVC_SUBSET             = 0x25, // HEVC temporal video subset of an HEVC video stream conforming to one or more profiles defined in Annex A of ITU-T H.265 | ISO/IEC 23008-2
+    PICO_MPEGTS_STREAM_TYPE_H264_MVCD               = 0x26, // MVCD video sub-bitstream of an AVC video stream conforming to one or more profiles defined in Annex I of ITU-T H.264 | ISO/IEC 14496-10
+    PICO_MPEGTS_STREAM_TYPE_TIMELINE_METADATA       = 0x27, // Timeline and External Media Information Stream
+    PICO_MPEGTS_STREAM_TYPE_HEVC_TILES              = 0x28, // HEVC enhancement sub-partition which includes TemporalId 0 of an HEVC video stream
+    PICO_MPEGTS_STREAM_TYPE_HEVC_TILES_TEMPORAL     = 0x29, // HEVC temporal enhancement sub-partition of an HEVC video stream
+    PICO_MPEGTS_STREAM_TYPE_HEVC_TILES_ENHANCEMENT  = 0x2A, // HEVC enhancement sub-partition of an HEVC video stream
+    PICO_MPEGTS_STREAM_TYPE_HEVC_TILES_MAIN         = 0x2B, // HEVC enhancement sub-partition which includes TemporalId 0 of an HEVC video stream
+    PICO_MPEGTS_STREAM_TYPE_GREEN_ACCESS_UNITS      = 0x2C, // Green access units carried in MPEG-2 sections
+    PICO_MPEGTS_STREAM_TYPE_QUALITY_ACCESS_UNITS    = 0x2D, // Quality access units carried in sections
+    PICO_MPEGTS_STREAM_TYPE_MEDIA_ORCHESTRATION     = 0x2E, // Media orchestration access units carried in sections
+    PICO_MPEGTS_STREAM_TYPE_SUBSTREAM_FOR_MH3D      = 0x2F, // Substream containing HEVC or VVC for MH 3D or related sub-pictures
+    PICO_MPEGTS_STREAM_TYPE_VVC                     = 0x33, // VVC video stream or a VVC temporal video sub-bitstream conforming to one or more profiles defined in Annex A of ITU-T H.266 | ISO/IEC 23090-3
+    PICO_MPEGTS_STREAM_TYPE_VVC_SUBSET              = 0x34, // VVC temporal video subset of a VVC video stream conforming to one or more profiles defined in Annex A of ITU-T H.266 | ISO/IEC 23090-3
+    PICO_MPEGTS_STREAM_TYPE_EVC                     = 0x35, // EVC video stream or an EVC temporal video sub-bitstream conforming to one or more profiles defined in ISO/IEC 23094-1
+    PICO_MPEGTS_STREAM_TYPE_LCEVC                   = 0x36, // LCEVC video stream conforming to ISO/IEC 23094-2
+    PICO_MPEGTS_STREAM_TYPE_LCEVC_WITH_HEVC         = 0x37, // Carriage of LCEVC within an HEVC video stream conforming to ISO/IEC 23094-2
+    PICO_MPEGTS_STREAM_TYPE_LCEVC_WITH_VVC          = 0x38, // Carriage of LCEVC within a VVC video stream conforming to ISO/IEC 23094-2
+    PICO_MPEGTS_STREAM_TYPE_CHINESE_VIDEO_STANDARD  = 0x42, // Chinese Video Standard
+    PICO_MPEGTS_STREAM_TYPE_CAVS_VIDEO              = 0x93, // CAVS Video (Chinese Video Standard)
+    PICO_MPEGTS_STREAM_TYPE_VC1                     = 0xEA, // VC-1 video stream
+    PICO_MPEGTS_STREAM_TYPE_DIRAC                   = 0xD1, // Dirac video stream
+    PICO_MPEGTS_STREAM_TYPE_AC3                     = 0x81, // AC-3 audio (ATSC)
+    PICO_MPEGTS_STREAM_TYPE_DTS                     = 0x82, // DTS audio
+    PICO_MPEGTS_STREAM_TYPE_TRUEHD                  = 0x83, // TrueHD audio (ATSC/Blu-ray)
+    PICO_MPEGTS_STREAM_TYPE_EAC3                    = 0x87, // E-AC-3 audio (ATSC)
+    PICO_MPEGTS_STREAM_TYPE_DTS_HD                  = 0x8A, // DTS-HD audio
+    PICO_MPEGTS_STREAM_TYPE_SDDS                    = 0x94, // SDDS audio
+    PICO_MPEGTS_STREAM_TYPE_USER_PRIVATE_START      = 0x80,
+    PICO_MPEGTS_STREAM_TYPE_USER_PRIVATE_END        = 0xFF,
+} picoMpegTSStreamType;
+
+typedef enum {
     PICO_MPEGTS_DESCRIPTOR_TAG_RESERVED_0                   = 0,
     PICO_MPEGTS_DESCRIPTOR_TAG_FORBIDDEN                    = 1,
     PICO_MPEGTS_DESCRIPTOR_TAG_VIDEO_STREAM                 = 2,
@@ -2446,6 +2515,146 @@ const char *picoMpegTSSDTRunningStatusToString(picoMpegTSSDTRunningStatus status
             return "Reserved (7)";
         default:
             return "Unknown Status";
+    }
+}
+
+const char *picoMpegTSStreamTypeToString(uint8_t streamType)
+{
+    switch (streamType) {
+        case PICO_MPEGTS_STREAM_TYPE_RESERVED:
+            return "Reserved";
+        case PICO_MPEGTS_STREAM_TYPE_MPEG1_VIDEO:
+            return "MPEG-1 Video";
+        case PICO_MPEGTS_STREAM_TYPE_MPEG2_VIDEO:
+            return "MPEG-2 Video";
+        case PICO_MPEGTS_STREAM_TYPE_MPEG1_AUDIO:
+            return "MPEG-1 Audio";
+        case PICO_MPEGTS_STREAM_TYPE_MPEG2_AUDIO:
+            return "MPEG-2 Audio";
+        case PICO_MPEGTS_STREAM_TYPE_PRIVATE_SECTIONS:
+            return "Private Sections";
+        case PICO_MPEGTS_STREAM_TYPE_PRIVATE_DATA:
+            return "Private Data";
+        case PICO_MPEGTS_STREAM_TYPE_MHEG:
+            return "MHEG";
+        case PICO_MPEGTS_STREAM_TYPE_DSM_CC:
+            return "DSM-CC";
+        case PICO_MPEGTS_STREAM_TYPE_H222_1:
+            return "ITU-T H.222.1";
+        case PICO_MPEGTS_STREAM_TYPE_DSMCC_TYPE_A:
+            return "DSM-CC Type A";
+        case PICO_MPEGTS_STREAM_TYPE_DSMCC_TYPE_B:
+            return "DSM-CC Type B";
+        case PICO_MPEGTS_STREAM_TYPE_DSMCC_TYPE_C:
+            return "DSM-CC Type C";
+        case PICO_MPEGTS_STREAM_TYPE_DSMCC_TYPE_D:
+            return "DSM-CC Type D";
+        case PICO_MPEGTS_STREAM_TYPE_H222_AUXILIARY:
+            return "H.222 Auxiliary";
+        case PICO_MPEGTS_STREAM_TYPE_AAC_ADTS:
+            return "AAC Audio (ADTS)";
+        case PICO_MPEGTS_STREAM_TYPE_MPEG4_VISUAL:
+            return "MPEG-4 Visual";
+        case PICO_MPEGTS_STREAM_TYPE_AAC_LATM:
+            return "AAC Audio (LATM)";
+        case PICO_MPEGTS_STREAM_TYPE_MPEG4_PES:
+            return "MPEG-4 SL/FlexMux (PES)";
+        case PICO_MPEGTS_STREAM_TYPE_MPEG4_SECTIONS:
+            return "MPEG-4 SL/FlexMux (Sections)";
+        case PICO_MPEGTS_STREAM_TYPE_MPEG2_DSMCC_DATA:
+            return "MPEG-2 DSM-CC (Synchronized Download)";
+        case PICO_MPEGTS_STREAM_TYPE_METADATA_PES:
+            return "Metadata (PES)";
+        case PICO_MPEGTS_STREAM_TYPE_METADATA_SECTIONS:
+            return "Metadata (Sections)";
+        case PICO_MPEGTS_STREAM_TYPE_METADATA_DSMCC_DATA:
+            return "Metadata (DSM-CC Data Carousel)";
+        case PICO_MPEGTS_STREAM_TYPE_METADATA_DSMCC_OBJECT:
+            return "Metadata (DSM-CC Object Carousel)";
+        case PICO_MPEGTS_STREAM_TYPE_METADATA_DSMCC_DOWNLOAD:
+            return "Metadata (DSM-CC Synchronized Download)";
+        case PICO_MPEGTS_STREAM_TYPE_MPEG2_IPMP:
+            return "MPEG-2 IPMP";
+        case PICO_MPEGTS_STREAM_TYPE_H264:
+            return "H.264/AVC Video";
+        case PICO_MPEGTS_STREAM_TYPE_MPEG4_AUDIO_RAW:
+            return "MPEG-4 Audio (Raw)";
+        case PICO_MPEGTS_STREAM_TYPE_MPEG4_TEXT:
+            return "MPEG-4 Text";
+        case PICO_MPEGTS_STREAM_TYPE_MPEG4_AUXILIARY:
+            return "MPEG-4 Auxiliary Video";
+        case PICO_MPEGTS_STREAM_TYPE_H264_SVC:
+            return "H.264/AVC SVC";
+        case PICO_MPEGTS_STREAM_TYPE_H264_MVC:
+            return "H.264/AVC MVC";
+        case PICO_MPEGTS_STREAM_TYPE_JPEG2000:
+            return "JPEG 2000 Video";
+        case PICO_MPEGTS_STREAM_TYPE_MPEG2_3D_VIDEO:
+            return "MPEG-2 3D Video";
+        case PICO_MPEGTS_STREAM_TYPE_H264_STEREO_3D:
+            return "H.264/AVC Stereo 3D";
+        case PICO_MPEGTS_STREAM_TYPE_HEVC:
+            return "H.265/HEVC Video";
+        case PICO_MPEGTS_STREAM_TYPE_HEVC_SUBSET:
+            return "H.265/HEVC Temporal Subset";
+        case PICO_MPEGTS_STREAM_TYPE_H264_MVCD:
+            return "H.264/AVC MVCD";
+        case PICO_MPEGTS_STREAM_TYPE_TIMELINE_METADATA:
+            return "Timeline and External Media";
+        case PICO_MPEGTS_STREAM_TYPE_HEVC_TILES:
+            return "H.265/HEVC Tiles";
+        case PICO_MPEGTS_STREAM_TYPE_HEVC_TILES_TEMPORAL:
+            return "H.265/HEVC Temporal Tiles";
+        case PICO_MPEGTS_STREAM_TYPE_HEVC_TILES_ENHANCEMENT:
+            return "H.265/HEVC Enhancement Tiles";
+        case PICO_MPEGTS_STREAM_TYPE_HEVC_TILES_MAIN:
+            return "H.265/HEVC Main Tiles";
+        case PICO_MPEGTS_STREAM_TYPE_GREEN_ACCESS_UNITS:
+            return "Green Access Units";
+        case PICO_MPEGTS_STREAM_TYPE_QUALITY_ACCESS_UNITS:
+            return "Quality Access Units";
+        case PICO_MPEGTS_STREAM_TYPE_MEDIA_ORCHESTRATION:
+            return "Media Orchestration";
+        case PICO_MPEGTS_STREAM_TYPE_SUBSTREAM_FOR_MH3D:
+            return "MH 3D Substream";
+        case PICO_MPEGTS_STREAM_TYPE_VVC:
+            return "H.266/VVC Video";
+        case PICO_MPEGTS_STREAM_TYPE_VVC_SUBSET:
+            return "H.266/VVC Temporal Subset";
+        case PICO_MPEGTS_STREAM_TYPE_EVC:
+            return "EVC Video";
+        case PICO_MPEGTS_STREAM_TYPE_LCEVC:
+            return "LCEVC Video";
+        case PICO_MPEGTS_STREAM_TYPE_LCEVC_WITH_HEVC:
+            return "LCEVC with HEVC";
+        case PICO_MPEGTS_STREAM_TYPE_LCEVC_WITH_VVC:
+            return "LCEVC with VVC";
+        case PICO_MPEGTS_STREAM_TYPE_CHINESE_VIDEO_STANDARD:
+            return "Chinese Video Standard";
+        case PICO_MPEGTS_STREAM_TYPE_AC3:
+            return "AC-3 Audio";
+        case PICO_MPEGTS_STREAM_TYPE_DTS:
+            return "DTS Audio";
+        case PICO_MPEGTS_STREAM_TYPE_TRUEHD:
+            return "TrueHD Audio";
+        case PICO_MPEGTS_STREAM_TYPE_EAC3:
+            return "E-AC-3 Audio";
+        case PICO_MPEGTS_STREAM_TYPE_DTS_HD:
+            return "DTS-HD Audio";
+        case PICO_MPEGTS_STREAM_TYPE_CAVS_VIDEO:
+            return "CAVS Video";
+        case PICO_MPEGTS_STREAM_TYPE_SDDS:
+            return "SDDS Audio";
+        case PICO_MPEGTS_STREAM_TYPE_DIRAC:
+            return "Dirac Video";
+        case PICO_MPEGTS_STREAM_TYPE_VC1:
+            return "VC-1 Video";
+        default:
+            if (streamType >= PICO_MPEGTS_STREAM_TYPE_USER_PRIVATE_START &&
+                streamType <= PICO_MPEGTS_STREAM_TYPE_USER_PRIVATE_END) {
+                return "User Private";
+            }
+            return "Unknown Stream Type";
     }
 }
 
