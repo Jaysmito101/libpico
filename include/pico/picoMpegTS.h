@@ -1401,6 +1401,91 @@ static picoMpegTSResult __picoMpegTSParseSDT(picoMpegTS mpegts, picoMpegTSServic
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
+static picoMpegTSResult __picoMpegTSParseTDT(picoMpegTS mpegts, picoMpegTSTimeDateTablePayload table, picoMpegTSFilterContext filterContext)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(table != NULL);
+    PICO_ASSERT(filterContext != NULL);
+
+    // NOTE: right now due to an issue, we arent parsing the UTC time
+    // TODO: fix this
+    PICO_MPEGTS_LOG("Time Date Table not implemented");
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
+static picoMpegTSResult __picoMpegTSParseTOT(picoMpegTS mpegts, picoMpegTSTimeOffsetTablePayload table, picoMpegTSFilterContext filterContext)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(table != NULL);
+    PICO_ASSERT(filterContext != NULL);
+
+    // NOTE: right now due to an issue, we arent parsing the UTC time
+    PICO_MPEGTS_LOG("Time Offset Table only partially implemented");
+
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->descriptorSet, filterContext, false));
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
+static picoMpegTSResult __picoMpegTSParseRST(picoMpegTS mpegts, picoMpegTSRunningStatusTablePayload table, picoMpegTSFilterContext filterContext)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(table != NULL);
+    PICO_ASSERT(filterContext != NULL);
+
+    // TODO: not implemented right now
+    PICO_MPEGTS_LOG("Running Status Table not implemented");
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
+static picoMpegTSResult __picoMpegTSParseEIT(picoMpegTS mpegts, picoMpegTSEventInformationTablePayload table, picoMpegTSFilterContext filterContext)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(table != NULL);
+    PICO_ASSERT(filterContext != NULL);
+
+    size_t targetSize        = filterContext->payloadAccumulatorSize - filterContext->expectedPayloadSize + 4;
+    table->transportStreamId = (uint16_t)(filterContext->payloadAccumulator[0] << 8) | filterContext->payloadAccumulator[1];
+    table->originalNetworkId = (uint16_t)(filterContext->payloadAccumulator[2] << 8) | filterContext->payloadAccumulator[3];
+
+    __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 6);
+
+    while (filterContext->payloadAccumulatorSize > targetSize) {
+        if (table->eventCount == PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT) {
+            return PICO_MPEGTS_RESULT_TABLE_FULL;
+        }
+
+        if (filterContext->payloadAccumulatorSize < (targetSize + 12)) {
+            break;
+        }
+
+        table->events[table->eventCount].eventId = (uint16_t)(filterContext->payloadAccumulator[0] << 8) |
+                                                   filterContext->payloadAccumulator[1];
+
+        table->events[table->eventCount].startTime.mjd    = (uint16_t)(filterContext->payloadAccumulator[2] << 8) | filterContext->payloadAccumulator[3];
+        table->events[table->eventCount].startTime.hour   = filterContext->payloadAccumulator[4];
+        table->events[table->eventCount].startTime.minute = filterContext->payloadAccumulator[5];
+        table->events[table->eventCount].startTime.second = filterContext->payloadAccumulator[6];
+
+        table->events[table->eventCount].duration.hours   = filterContext->payloadAccumulator[7];
+        table->events[table->eventCount].duration.minutes = filterContext->payloadAccumulator[8];
+        table->events[table->eventCount].duration.seconds = filterContext->payloadAccumulator[9];
+
+        uint16_t flags                                 = (uint16_t)(filterContext->payloadAccumulator[10] << 8) | filterContext->payloadAccumulator[11];
+        table->events[table->eventCount].runningStatus = (picoMpegTSSDTRunningStatus)((flags >> 13) & 0x07);
+        table->events[table->eventCount].freeCAMode    = ((flags >> 12) & 0x01) != 0;
+
+        __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 10);
+        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->events[table->eventCount].descriptorSet, filterContext, true));
+
+        table->eventCount++;
+    }
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
 static picoMpegTSResult __picoMpegTSParsePAT(picoMpegTS mpegts, picoMpegTSProgramAssociationSectionPayload table, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
@@ -1652,9 +1737,19 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
 
         case PICO_MPEGTS_TABLE_ID_EISATSF:
         case PICO_MPEGTS_TABLE_ID_EISOTSF:
+            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseEIT(mpegts, &table->data.eit, filterContext));
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_TDS:
+            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseTDT(mpegts, &table->data.tdt, filterContext));
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_RSS:
+            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseRST(mpegts, &table->data.rst, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_TOS:
+            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseTOT(mpegts, &table->data.tot, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_SIS:
@@ -2125,15 +2220,11 @@ static picoMpegTSResult __picoMpegTSRegisterPSIFilters(picoMpegTS mpegts)
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_PAT));
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_CAT));
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_TSDT));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_IPMP));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_ASI));
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_NIT));
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_SDT_BAT));
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_EIT));
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_RST));
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_TDT_TOT));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_NET_SYNC));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_RNT));
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_DIT));
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_SIT));
 
