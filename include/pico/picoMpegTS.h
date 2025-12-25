@@ -957,7 +957,7 @@ typedef struct {
         // This 8-bit field specifies the type of program element carried
         // within the packets with the PID whose value is specified by
         // the elementary_PID.
-        uint8_t streamType;
+        picoMpegTSStreamType streamType;
 
         // This 13-bit field specifies the PID of the transport stream
         // packets which carry the associated program element.
@@ -1427,6 +1427,46 @@ static picoMpegTSResult __picoMpegTSParseCAT(picoMpegTS mpegts, picoMpegTSCondit
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
+static picoMpegTSResult __picoMpegTSParsePMT(picoMpegTS mpegts, picoMpegTSProgramMapSectionPayload table, picoMpegTSFilterContext filterContext)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(table != NULL);
+    PICO_ASSERT(filterContext != NULL);
+
+    table->pcrPid = ((uint16_t)(filterContext->payloadAccumulator[0] & 0x1F) << 8) |
+                    filterContext->payloadAccumulator[1];
+
+    size_t targetSize = filterContext->payloadAccumulatorSize - filterContext->expectedPayloadSize + 4;
+
+    __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 2);
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->programInfoDescriptorSet, filterContext, true));
+
+    while (filterContext->payloadAccumulatorSize > targetSize) {
+        if (table->streamCount == PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT) {
+            return PICO_MPEGTS_RESULT_TABLE_FULL;
+        }
+
+        table->streams[table->streamCount].streamType = (picoMpegTSStreamType)filterContext->payloadAccumulator[0];
+
+        table->streams[table->streamCount].elementaryPid = ((uint16_t)(filterContext->payloadAccumulator[1] & 0x1F) << 8) |
+                                                           filterContext->payloadAccumulator[2];
+
+        __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 3);
+
+        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->streams[table->streamCount].esInfoDescriptorSet, filterContext, true));
+
+        table->streamCount++;
+    }
+
+    // uint32_t crc32 = (filterContext->payloadAccumulator[0] << 24) |
+    //                  (filterContext->payloadAccumulator[1] << 16) |
+    //                  (filterContext->payloadAccumulator[2] << 8) |
+    //                  filterContext->payloadAccumulator[3];
+    // NOTE: we do not do any CRC verification now.
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
 static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t tableId, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
@@ -1483,6 +1523,10 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
 
         case PICO_MPEGTS_TABLE_ID_CAS:
             PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseCAT(mpegts, &table->data.cas, filterContext));
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_PMS:
+            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParsePMT(mpegts, &table->data.pms, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_NISAN:
