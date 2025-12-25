@@ -1110,6 +1110,7 @@ static void __picoMpegTSDescriptorSetClear(picoMpegTSDescriptorSet set)
 
 static void __picoMpegTSFilterContextFlushPayloadAccumulator(picoMpegTSFilterContext filterContext, size_t byteCount);
 static picoMpegTSResult __picoMpegTSReplaceOrRegisterPSIFilter(picoMpegTS mpegts, uint16_t pid);
+static void __picoMpegTSDestroyFilterContext(picoMpegTS mpegts, picoMpegTSFilterContext context);
 
 static picoMpegTSResult __picoMpegTSDescriptorParse(picoMpegTSDescriptor descriptor, const uint8_t *data, size_t dataSize, size_t *bytesConsumed)
 {
@@ -1468,18 +1469,30 @@ static picoMpegTSResult __picoMpegTSParsePMT(picoMpegTS mpegts, picoMpegTSProgra
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSOnTableReady(picoMpegTS mpegts, picoMpegTSTable table)
+static picoMpegTSResult __picoMpegTSOnTableReady(picoMpegTS mpegts, picoMpegTSTable oldTable, picoMpegTSTable newTable)
 {
     PICO_ASSERT(mpegts != NULL);
-    PICO_ASSERT(table != NULL);
+    PICO_ASSERT(newTable != NULL);
 
-    uint8_t tableId = table->tableId;
+    uint8_t tableId = newTable->tableId;
 
+    // handle table-specific post-processing
     switch (tableId) {
         case PICO_MPEGTS_TABLE_ID_PAS:
-            // when PAT is complete, register filters for all discovered PIDs
-            for (size_t i = 0; i < table->data.pas.programCount; i++) {
-                uint16_t pid = table->data.pas.programs[i].pid;
+            // clear filters for PIDs that were in old PAT but not in new PAT
+            if (oldTable != NULL) {
+                for (size_t i = 0; i < oldTable->data.pas.programCount; i++) {
+                    uint16_t oldPid = oldTable->data.pas.programs[i].pid;
+                    if (mpegts->pidFilters[oldPid] != NULL) {
+                        __picoMpegTSDestroyFilterContext(mpegts, mpegts->pidFilters[oldPid]);
+                        mpegts->pidFilters[oldPid] = NULL;
+                    }
+                }
+            }
+
+            // register filters for all PIDs in new PAT
+            for (size_t i = 0; i < newTable->data.pas.programCount; i++) {
+                uint16_t pid = newTable->data.pas.programs[i].pid;
                 PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, pid));
             }
             break;
@@ -1589,13 +1602,13 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
         }
     }
     if (allSectionsPresent) {
-        if (mpegts->tables[tableId] != NULL) {
-            __picoMpegTSTableDestroy(mpegts->tables[tableId]);
+        picoMpegTSTable oldTable = mpegts->tables[tableId];
+        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSOnTableReady(mpegts, oldTable, table));
+        if (oldTable != NULL) {
+            __picoMpegTSTableDestroy(oldTable);
         }
         mpegts->tables[tableId]        = table;
         mpegts->partialTables[tableId] = NULL;
-
-        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSOnTableReady(mpegts, table));
     }
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
