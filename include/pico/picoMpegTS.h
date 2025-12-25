@@ -93,7 +93,7 @@ SOFTWARE.
     } while (0)
 #endif
 
-#define PICO_MPEGTS_MAX_PID_COUNT 8192
+#define PICO_MPEGTS_MAX_PID_COUNT   8192
 #define PICO_MPEGTS_MAX_TABLE_COUNT 256
 
 typedef enum {
@@ -168,6 +168,64 @@ typedef enum {
     PICO_MPEGTS_TABLE_ID_USER_DEFINED_START = 0x80,
     PICO_MPEGTS_TABLE_ID_USER_DEFINED_END   = 0xFE,
 } picoMpegTSTableID;
+
+typedef enum {
+    PICO_MPEGTS_DESCRIPTOR_TAG_RESERVED_0                   = 0,
+    PICO_MPEGTS_DESCRIPTOR_TAG_FORBIDDEN                    = 1,
+    PICO_MPEGTS_DESCRIPTOR_TAG_VIDEO_STREAM                 = 2,
+    PICO_MPEGTS_DESCRIPTOR_TAG_AUDIO_STREAM                 = 3,
+    PICO_MPEGTS_DESCRIPTOR_TAG_HIERARCHY                    = 4,
+    PICO_MPEGTS_DESCRIPTOR_TAG_REGISTRATION                 = 5,
+    PICO_MPEGTS_DESCRIPTOR_TAG_DATA_STREAM_ALIGNMENT        = 6,
+    PICO_MPEGTS_DESCRIPTOR_TAG_TARGET_BACKGROUND_GRID       = 7,
+    PICO_MPEGTS_DESCRIPTOR_TAG_VIDEO_WINDOW                 = 8,
+    PICO_MPEGTS_DESCRIPTOR_TAG_CA                           = 9,
+    PICO_MPEGTS_DESCRIPTOR_TAG_ISO_639_LANGUAGE             = 10,
+    PICO_MPEGTS_DESCRIPTOR_TAG_SYSTEM_CLOCK                 = 11,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MULTIPLEX_BUFFER_UTILIZATION = 12,
+    PICO_MPEGTS_DESCRIPTOR_TAG_COPYRIGHT                    = 13,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MAXIMUM_BITRATE              = 14,
+    PICO_MPEGTS_DESCRIPTOR_TAG_PRIVATE_DATA_INDICATOR       = 15,
+    PICO_MPEGTS_DESCRIPTOR_TAG_SMOOTHING_BUFFER             = 16,
+    PICO_MPEGTS_DESCRIPTOR_TAG_STD                          = 17,
+    PICO_MPEGTS_DESCRIPTOR_TAG_IBP                          = 18,
+    // 19-26 defined in ISO/IEC 13818-6
+    PICO_MPEGTS_DESCRIPTOR_TAG_MPEG4_VIDEO                     = 27,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MPEG4_AUDIO                     = 28,
+    PICO_MPEGTS_DESCRIPTOR_TAG_IOD                             = 29,
+    PICO_MPEGTS_DESCRIPTOR_TAG_SL                              = 30,
+    PICO_MPEGTS_DESCRIPTOR_TAG_FMC                             = 31,
+    PICO_MPEGTS_DESCRIPTOR_TAG_EXTERNAL_ES_ID                  = 32,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MUX_CODE                        = 33,
+    PICO_MPEGTS_DESCRIPTOR_TAG_M4_MUX_BUFFER_SIZE              = 34,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MULTIPLEX_BUFFER                = 35,
+    PICO_MPEGTS_DESCRIPTOR_TAG_CONTENT_LABELING                = 36,
+    PICO_MPEGTS_DESCRIPTOR_TAG_METADATA_POINTER                = 37,
+    PICO_MPEGTS_DESCRIPTOR_TAG_METADATA                        = 38,
+    PICO_MPEGTS_DESCRIPTOR_TAG_METADATA_STD                    = 39,
+    PICO_MPEGTS_DESCRIPTOR_TAG_AVC_VIDEO                       = 40,
+    PICO_MPEGTS_DESCRIPTOR_TAG_IPMP                            = 41,
+    PICO_MPEGTS_DESCRIPTOR_TAG_AVC_TIMING_AND_HRD              = 42,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MPEG2_AAC_AUDIO                 = 43,
+    PICO_MPEGTS_DESCRIPTOR_TAG_M4_MUX_TIMING                   = 44,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MPEG4_TEXT                      = 45,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MPEG4_AUDIO_EXTENSION           = 46,
+    PICO_MPEGTS_DESCRIPTOR_TAG_AUXILIARY_VIDEO_STREAM          = 47,
+    PICO_MPEGTS_DESCRIPTOR_TAG_SVC_EXTENSION                   = 48,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MVC_EXTENSION                   = 49,
+    PICO_MPEGTS_DESCRIPTOR_TAG_J2K_VIDEO                       = 50,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MVC_OPERATION_POINT             = 51,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MPEG2_STEREOSCOPIC_VIDEO_FORMAT = 52,
+    PICO_MPEGTS_DESCRIPTOR_TAG_STEREOSCOPIC_PROGRAM_INFO       = 53,
+    PICO_MPEGTS_DESCRIPTOR_TAG_STEREOSCOPIC_VIDEO_INFO         = 54,
+    PICO_MPEGTS_DESCRIPTOR_TAG_TRANSPORT_PROFILE               = 55,
+    PICO_MPEGTS_DESCRIPTOR_TAG_HEVC_VIDEO                      = 56,
+    PICO_MPEGTS_DESCRIPTOR_TAG_VVC_VIDEO                       = 57,
+    PICO_MPEGTS_DESCRIPTOR_TAG_EVC_VIDEO                       = 58,
+    PICO_MPEGTS_DESCRIPTOR_TAG_EXTENSION                       = 63,
+    PICO_MPEGTS_DESCRIPTOR_TAG_USER_PRIVATE_START              = 64,
+    PICO_MPEGTS_DESCRIPTOR_TAG_USER_PRIVATE_END                = 255,
+} picoMpegTSDescriptorTag;
 
 typedef enum {
     PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_RESERVED        = 0x00,
@@ -544,32 +602,32 @@ typedef struct {
         // the transport stream.
         uint16_t serviceId;
 
-        // This is a 1-bit field which when set to "1" 
+        // This is a 1-bit field which when set to "1"
         // indicates that EIT schedule information for the service
-        // is present in the current TS, see ETSI TS 101 211 [i.1] 
+        // is present in the current TS, see ETSI TS 101 211 [i.1]
         // for information on maximum time interval between occurrences
-        // of an EIT schedule sub_table). If the flag is set 
-        // to 0 then the EIT schedule information for the 
+        // of an EIT schedule sub_table). If the flag is set
+        // to 0 then the EIT schedule information for the
         // service should not be present in the TS.
         bool eitScheduleFlag;
 
-        // This is a 1-bit field which when set to "1" indicates 
-        // that EIT_present_following information for the 
-        // service is present in the current TS, see ETSI TS 101 211 [i.1] 
-        // for information on maximum time interval between occurrences 
-        // of an EIT present/following sub_table. If the flag is 
-        // set to 0 then the EIT present/following information for 
-        // the service should not be present in the TS. 
+        // This is a 1-bit field which when set to "1" indicates
+        // that EIT_present_following information for the
+        // service is present in the current TS, see ETSI TS 101 211 [i.1]
+        // for information on maximum time interval between occurrences
+        // of an EIT present/following sub_table. If the flag is
+        // set to 0 then the EIT present/following information for
+        // the service should not be present in the TS.
         bool eitPresentFollowingFlag;
 
         // The running_status is a 3-bit field which indicates
         // the current running status of the service.
         picoMpegTSSDTRunningStatus runningStatus;
 
-        // This 1-bit field, when set to "0" indicates that all 
-        // the component streams of the service are not scrambled. 
-        // When set to "1" it indicates that access to one or more 
-        // streams may be controlled by a CA system.        
+        // This 1-bit field, when set to "0" indicates that all
+        // the component streams of the service are not scrambled.
+        // When set to "1" it indicates that access to one or more
+        // streams may be controlled by a CA system.
         bool freeCAMode;
 
         picoMpegTSDescriptorSet_t descriptorSet;
@@ -581,18 +639,18 @@ typedef picoMpegTSServiceDescriptionTablePayload_t *picoMpegTSServiceDescription
 // Time structures for DVB tables
 typedef struct {
     // Modified Julian Date (16 bits) + UTC time (24 bits BCD: HH:MM:SS)
-    uint16_t mjd;           // Modified Julian Date
-    uint8_t hour;           // BCD encoded hours (0x00-0x23)
-    uint8_t minute;         // BCD encoded minutes (0x00-0x59)
-    uint8_t second;         // BCD encoded seconds (0x00-0x59)
+    uint16_t mjd;   // Modified Julian Date
+    uint8_t hour;   // BCD encoded hours (0x00-0x23)
+    uint8_t minute; // BCD encoded minutes (0x00-0x59)
+    uint8_t second; // BCD encoded seconds (0x00-0x59)
 } picoMpegTSUTCTime_t;
 typedef picoMpegTSUTCTime_t *picoMpegTSUTCTime;
 
 typedef struct {
     // Duration in BCD format: 6 digits (HH:MM:SS)
-    uint8_t hours;          // BCD encoded hours
-    uint8_t minutes;        // BCD encoded minutes
-    uint8_t seconds;        // BCD encoded seconds
+    uint8_t hours;   // BCD encoded hours
+    uint8_t minutes; // BCD encoded minutes
+    uint8_t seconds; // BCD encoded seconds
 } picoMpegTSDuration_t;
 typedef picoMpegTSDuration_t *picoMpegTSDuration;
 
@@ -761,6 +819,7 @@ const char *picoMpegTSTableIDToString(uint8_t tableID);
 const char *picoMpegTSAdaptionFieldControlToString(picoMpegTSAdaptionFieldControl afc);
 const char *picoMpegTSFilterTypeToString(picoMpegTSFilterType type);
 const char *picoMpegTSSDTRunningStatusToString(picoMpegTSSDTRunningStatus status);
+const char *picoMpegTSDescriptorTagToString(uint8_t tag);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_MPEGTS_IMPLEMENTATION)
 #define PICO_MPEGTS_IMPLEMENTATION
@@ -808,7 +867,7 @@ struct picoMpegTS_t {
 
     picoMpegTSFilterContext pidFilters[PICO_MPEGTS_MAX_PID_COUNT];
     // these are the final tables
-    picoMpegTSTable tables[PICO_MPEGTS_MAX_TABLE_COUNT];     
+    picoMpegTSTable tables[PICO_MPEGTS_MAX_TABLE_COUNT];
 
     // these are the partial tables being built
     picoMpegTSTable partialTables[PICO_MPEGTS_MAX_TABLE_COUNT];
@@ -1246,8 +1305,6 @@ static picoMpegTSResult __picoMpegTSFilterFlushAllContexts(picoMpegTS mpegts)
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-
-
 // ---------------------------------- Filter Api Functions ---------------------------------
 
 // ------------- NIT Filter Functions ---------------
@@ -1271,8 +1328,6 @@ static picoMpegTSResult __picoMpegTSFilterNITBody(picoMpegTS mpegts, picoMpegTSF
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(context != NULL);
-
-    
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -1879,6 +1934,120 @@ const char *picoMpegTSSDTRunningStatusToString(picoMpegTSSDTRunningStatus status
             return "Reserved (7)";
         default:
             return "Unknown Status";
+    }
+}
+
+const char *picoMpegTSDescriptorTagToString(uint8_t tag)
+{
+    switch (tag) {
+        case PICO_MPEGTS_DESCRIPTOR_TAG_VIDEO_STREAM:
+            return "Video Stream Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_AUDIO_STREAM:
+            return "Audio Stream Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_HIERARCHY:
+            return "Hierarchy Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_REGISTRATION:
+            return "Registration Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_DATA_STREAM_ALIGNMENT:
+            return "Data Stream Alignment Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_TARGET_BACKGROUND_GRID:
+            return "Target Background Grid Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_VIDEO_WINDOW:
+            return "Video Window Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_CA:
+            return "CA Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_ISO_639_LANGUAGE:
+            return "ISO 639 Language Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SYSTEM_CLOCK:
+            return "System Clock Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MULTIPLEX_BUFFER_UTILIZATION:
+            return "Multiplex Buffer Utilization Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_COPYRIGHT:
+            return "Copyright Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MAXIMUM_BITRATE:
+            return "Maximum Bitrate Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_PRIVATE_DATA_INDICATOR:
+            return "Private Data Indicator Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SMOOTHING_BUFFER:
+            return "Smoothing Buffer Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_STD:
+            return "STD Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_IBP:
+            return "IBP Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MPEG4_VIDEO:
+            return "MPEG-4 Video Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MPEG4_AUDIO:
+            return "MPEG-4 Audio Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_IOD:
+            return "IOD Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SL:
+            return "SL Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_FMC:
+            return "FMC Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_EXTERNAL_ES_ID:
+            return "External ES ID Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MUX_CODE:
+            return "MuxCode Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_M4_MUX_BUFFER_SIZE:
+            return "M4MuxBufferSize Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MULTIPLEX_BUFFER:
+            return "MultiplexBuffer Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_CONTENT_LABELING:
+            return "Content Labeling Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_METADATA_POINTER:
+            return "Metadata Pointer Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_METADATA:
+            return "Metadata Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_METADATA_STD:
+            return "Metadata STD Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_AVC_VIDEO:
+            return "AVC Video Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_IPMP:
+            return "IPMP Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_AVC_TIMING_AND_HRD:
+            return "AVC Timing and HRD Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MPEG2_AAC_AUDIO:
+            return "MPEG-2 AAC Audio Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_M4_MUX_TIMING:
+            return "M4MuxTiming Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MPEG4_TEXT:
+            return "MPEG-4 Text Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MPEG4_AUDIO_EXTENSION:
+            return "MPEG-4 Audio Extension Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_AUXILIARY_VIDEO_STREAM:
+            return "Auxiliary Video Stream Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SVC_EXTENSION:
+            return "SVC Extension Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MVC_EXTENSION:
+            return "MVC Extension Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_J2K_VIDEO:
+            return "J2K Video Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MVC_OPERATION_POINT:
+            return "MVC Operation Point Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_MPEG2_STEREOSCOPIC_VIDEO_FORMAT:
+            return "MPEG2 Stereoscopic Video Format Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_STEREOSCOPIC_PROGRAM_INFO:
+            return "Stereoscopic Program Info Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_STEREOSCOPIC_VIDEO_INFO:
+            return "Stereoscopic Video Info Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_TRANSPORT_PROFILE:
+            return "Transport Profile Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_HEVC_VIDEO:
+            return "HEVC Video Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_VVC_VIDEO:
+            return "VVC Video Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_EVC_VIDEO:
+            return "EVC Video Descriptor";
+        case PICO_MPEGTS_DESCRIPTOR_TAG_EXTENSION:
+            return "Extension Descriptor";
+        default:
+            if (tag >= PICO_MPEGTS_DESCRIPTOR_TAG_USER_PRIVATE_START && tag <= PICO_MPEGTS_DESCRIPTOR_TAG_USER_PRIVATE_END) {
+                return "User Private Descriptor";
+            }
+            if (tag >= 19 && tag <= 26) {
+                return "Defined in ISO/IEC 13818-6";
+            }
+            return "Reserved/Unknown Descriptor";
     }
 }
 
