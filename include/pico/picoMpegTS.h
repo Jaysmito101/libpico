@@ -1141,8 +1141,9 @@ static picoMpegTSResult __picoMpegTSParseNIT(picoMpegTS mpegts, picoMpegTSNetwor
 
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->descriptorSet, filterContext, true));
 
-    // uint16_t transportStreamLength = (filterContext->payloadAccumulator[0] & 0x0F) << 8 | filterContext->payloadAccumulator[1];
-    while (filterContext->payloadAccumulatorSize > 4) {
+    uint16_t transportStreamLength = (filterContext->payloadAccumulator[0] & 0x0F) << 8 | filterContext->payloadAccumulator[1];
+    size_t targetLength            = filterContext->payloadAccumulatorSize - transportStreamLength;
+    while (filterContext->payloadAccumulatorSize > targetLength) {
         if (table->transportStreamCount == PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT) {
             return PICO_MPEGTS_RESULT_TABLE_FULL;
         }
@@ -1161,6 +1162,7 @@ static picoMpegTSResult __picoMpegTSParseNIT(picoMpegTS mpegts, picoMpegTSNetwor
     }
 
     // uint32_t crc32 = (filterContext->payloadAccumulator[0] << 24) | (filterContext->payloadAccumulator[1] << 16) | (filterContext->payloadAccumulator[2] << 8) | filterContext->payloadAccumulator[3];
+    // NOTE: we do not do any CRC verification now.
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
