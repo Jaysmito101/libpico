@@ -1030,7 +1030,7 @@ static picoMpegTSResult __picoMpegTSDescriptorSetParse(picoMpegTSDescriptorSet d
         offset += descriptorLength;
     }
 
-    __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 2 + descriptorsLength);
+    __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 4 + descriptorsLength);
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -1167,6 +1167,51 @@ static picoMpegTSResult __picoMpegTSParseNIT(picoMpegTS mpegts, picoMpegTSNetwor
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
+static picoMpegTSResult __picoMpegTSParseSDT(picoMpegTS mpegts, picoMpegTSServiceDescriptionTablePayload table, picoMpegTSFilterContext filterContext)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(table != NULL);
+    PICO_ASSERT(filterContext != NULL);
+
+    table->originalNetworkId = (uint16_t)(filterContext->payloadAccumulator[0] << 8) | filterContext->payloadAccumulator[1];
+
+    __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 3);
+
+    size_t targetSize = filterContext->payloadAccumulatorSize - filterContext->expectedPayloadSize + 7; // 3 for the item above, 4 for the CRC32 at the end
+    while (filterContext->payloadAccumulatorSize > targetSize) {
+        if (table->serviceCount == PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT) {
+            return PICO_MPEGTS_RESULT_TABLE_FULL;
+        }
+
+        if (filterContext->payloadAccumulatorSize < 5) {
+            break;
+        }
+
+        uint16_t serviceId                             = (uint16_t)(filterContext->payloadAccumulator[0] << 8) | filterContext->payloadAccumulator[1];
+        table->services[table->serviceCount].serviceId = serviceId;
+
+        uint8_t flags1                                               = filterContext->payloadAccumulator[2];
+        table->services[table->serviceCount].eitScheduleFlag         = (flags1 & 0x02) != 0;
+        table->services[table->serviceCount].eitPresentFollowingFlag = (flags1 & 0x01) != 0;
+
+        uint8_t flags2 = filterContext->payloadAccumulator[3];
+
+        table->services[table->serviceCount].runningStatus = (picoMpegTSSDTRunningStatus)((flags2 >> 5) & 0x07);
+        table->services[table->serviceCount].freeCAMode    = (flags2 & 0x10) != 0;
+
+        __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 3);
+
+        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->services[table->serviceCount].descriptorSet, filterContext, true));
+
+        table->serviceCount++;
+    }
+
+    // uint32_t crc32 = (filterContext->payloadAccumulator[0] << 24) | (filterContext->payloadAccumulator[1] << 16) |
+    //                  (filterContext->payloadAccumulator[2] << 8) | filterContext->payloadAccumulator[3];
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
 static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t tableId, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
@@ -1227,6 +1272,7 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
 
         case PICO_MPEGTS_TABLE_ID_SDSATS:
         case PICO_MPEGTS_TABLE_ID_SDSOTS:
+            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseSDT(mpegts, &table->data.sdt, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_EISATSF:
