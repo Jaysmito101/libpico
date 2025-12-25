@@ -886,11 +886,13 @@ picoMpegTSPacketType picoMpegTSDetectPacketType(const uint8_t *data, size_t size
 picoMpegTSPacketType picoMpegTSDetectPacketTypeFromFile(const char *filename);
 
 picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket packetOut);
+picoMpegTSTable picoMpegTSGetTable(picoMpegTS mpegts, picoMpegTSTableID tableID);
 
 void picoMpegTSPacketDebugPrint(picoMpegTSPacket packet);
 void picoMpegTSPacketAdaptationFieldDebugPrint(picoMpegTSPacketAdaptationField adaptationField);
 void picoMpegTSPacketAdaptationFieldExtensionDebugPrint(picoMpegTSAdaptionFieldExtension adaptationFieldExtension);
 void picoMpegTsPsiSectionHeadDebugPrint(picoMpegTSPSISectionHead sectionHead);
+void picoMpegTSTableDebugPrint(picoMpegTSTable table);
 
 const char *picoMpegTSPacketTypeToString(picoMpegTSPacketType type);
 const char *picoMpegTSResultToString(picoMpegTSResult result);
@@ -1800,6 +1802,12 @@ picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket pac
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
+picoMpegTSTable picoMpegTSGetTable(picoMpegTS mpegts, picoMpegTSTableID tableID)
+{
+    PICO_ASSERT(mpegts != NULL);
+    return mpegts->tables[tableID];
+}
+
 picoMpegTS picoMpegTSCreate(bool storeParsedPackets)
 {
     picoMpegTS mpegts = (picoMpegTS)PICO_MALLOC(sizeof(picoMpegTS_t));
@@ -2483,6 +2491,311 @@ void picoMpegTSPacketDebugPrint(picoMpegTSPacket packet)
     if (packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_ADAPTATION_ONLY ||
         packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_BOTH) {
         picoMpegTSPacketAdaptationFieldDebugPrint(&packet->adaptionField);
+    }
+}
+
+static void __picoMpegTSDescriptorSetDebugPrint(picoMpegTSDescriptorSet set, int indent)
+{
+    if (set == NULL || set->count == 0) {
+        return;
+    }
+    for (size_t i = 0; i < set->count; i++) {
+        PICO_MPEGTS_LOG("%*sDescriptor %zu: Tag=0x%02X (%s), Length=%zu\n",
+                        indent, "", i, set->descriptors[i].tag,
+                        picoMpegTSDescriptorTagToString(set->descriptors[i].tag),
+                        set->descriptors[i].dataLength);
+    }
+}
+
+static void __picoMpegTSUTCTimeDebugPrint(const picoMpegTSUTCTime_t *time, const char *label, int indent)
+{
+    if (time == NULL)
+        return;
+    PICO_MPEGTS_LOG("%*s%s: MJD=%u, %02X:%02X:%02X\n",
+                    indent, "", label, time->mjd, time->hour, time->minute, time->second);
+}
+
+static void __picoMpegTSDurationDebugPrint(const picoMpegTSDuration_t *duration, const char *label, int indent)
+{
+    if (duration == NULL)
+        return;
+    PICO_MPEGTS_LOG("%*s%s: %02X:%02X:%02X\n",
+                    indent, "", label, duration->hours, duration->minutes, duration->seconds);
+}
+
+static void __picoMpegTSPASDebugPrint(const picoMpegTSProgramAssociationSectionPayload_t *pas)
+{
+    if (pas == NULL)
+        return;
+    PICO_MPEGTS_LOG("  Program Association Section (PAS):\n");
+    PICO_MPEGTS_LOG("    Program Count: %zu\n", pas->programCount);
+    for (size_t i = 0; i < pas->programCount; i++) {
+        if (pas->programs[i].programNumber == 0x0000) {
+            PICO_MPEGTS_LOG("    [%zu] Network PID: 0x%04X\n", i, pas->programs[i].pid);
+        } else {
+            PICO_MPEGTS_LOG("    [%zu] Program Number: %u, PMT PID: 0x%04X\n",
+                            i, pas->programs[i].programNumber, pas->programs[i].pid);
+        }
+    }
+}
+
+static void __picoMpegTSCASDebugPrint(const picoMpegTSConditionalAccessSectionPayload_t *cas)
+{
+    if (cas == NULL)
+        return;
+    PICO_MPEGTS_LOG("  Conditional Access Section (CAS):\n");
+    PICO_MPEGTS_LOG("    Descriptor Count: %zu\n", cas->descriptorSet.count);
+    __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&cas->descriptorSet, 4);
+}
+
+static void __picoMpegTSPMSDebugPrint(const picoMpegTSProgramMapSectionPayload_t *pms)
+{
+    if (pms == NULL)
+        return;
+    PICO_MPEGTS_LOG("  Program Map Section (PMS):\n");
+    PICO_MPEGTS_LOG("    PCR PID: 0x%04X\n", pms->pcrPid);
+    PICO_MPEGTS_LOG("    Program Info Descriptors: %zu\n", pms->programInfoDescriptorSet.count);
+    __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&pms->programInfoDescriptorSet, 4);
+    PICO_MPEGTS_LOG("    Stream Count: %zu\n", pms->streamCount);
+    for (size_t i = 0; i < pms->streamCount; i++) {
+        PICO_MPEGTS_LOG("    [%zu] Stream Type: 0x%02X, Elementary PID: 0x%04X, ES Descriptors: %zu\n",
+                        i, pms->streams[i].streamType, pms->streams[i].elementaryPid,
+                        pms->streams[i].esInfoDescriptorSet.count);
+        __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&pms->streams[i].esInfoDescriptorSet, 6);
+    }
+}
+
+static void __picoMpegTSTSDSDebugPrint(const picoMpegTSTransportStreamDescriptionSectionPayload_t *tsds)
+{
+    if (tsds == NULL)
+        return;
+    PICO_MPEGTS_LOG("  Transport Stream Description Section (TSDS):\n");
+    PICO_MPEGTS_LOG("    Descriptor Count: %zu\n", tsds->descriptorSet.count);
+    __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&tsds->descriptorSet, 4);
+}
+
+static void __picoMpegTSMETASDebugPrint(const picoMpegTSMetadataSectionPayload_t *metas)
+{
+    if (metas == NULL)
+        return;
+    PICO_MPEGTS_LOG("  Metadata Section (METAS):\n");
+    PICO_MPEGTS_LOG("    Metadata Byte Count: %zu\n", metas->metadataByteCount);
+}
+
+static void __picoMpegTSNITDebugPrint(const picoMpegTSNetworkInformationTablePayload_t *nit)
+{
+    if (nit == NULL)
+        return;
+    PICO_MPEGTS_LOG("  Network Information Table (NIT):\n");
+    PICO_MPEGTS_LOG("    Network Descriptors: %zu\n", nit->descriptorSet.count);
+    __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&nit->descriptorSet, 4);
+    PICO_MPEGTS_LOG("    Transport Stream Count: %zu\n", nit->transportStreamCount);
+    for (size_t i = 0; i < nit->transportStreamCount; i++) {
+        PICO_MPEGTS_LOG("    [%zu] TS ID: 0x%04X, Original Network ID: 0x%04X, Descriptors: %zu\n",
+                        i, nit->transportStreams[i].transportStreamId,
+                        nit->transportStreams[i].originalNetworkId,
+                        nit->transportStreams[i].descriptorSet.count);
+        __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&nit->transportStreams[i].descriptorSet, 6);
+    }
+}
+
+static void __picoMpegTSBATDebugPrint(const picoMpegTSBoquetAssociationTablePayload_t *bat)
+{
+    if (bat == NULL)
+        return;
+    PICO_MPEGTS_LOG("  Bouquet Association Table (BAT):\n");
+    PICO_MPEGTS_LOG("    Bouquet Descriptors: %zu\n", bat->descriptorSet.count);
+    __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&bat->descriptorSet, 4);
+    PICO_MPEGTS_LOG("    Service Count: %zu\n", bat->serviceCount);
+    for (size_t i = 0; i < bat->serviceCount; i++) {
+        PICO_MPEGTS_LOG("    [%zu] TS ID: 0x%04X, Original Network ID: 0x%04X, Descriptors: %zu\n",
+                        i, bat->services[i].transportStreamId,
+                        bat->services[i].originalNetworkId,
+                        bat->services[i].descriptorSet.count);
+        __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&bat->services[i].descriptorSet, 6);
+    }
+}
+
+static void __picoMpegTSSDTDebugPrint(const picoMpegTSServiceDescriptionTablePayload_t *sdt)
+{
+    if (sdt == NULL)
+        return;
+    PICO_MPEGTS_LOG("  Service Description Table (SDT):\n");
+    PICO_MPEGTS_LOG("    Original Network ID: 0x%04X\n", sdt->originalNetworkId);
+    PICO_MPEGTS_LOG("    Service Count: %zu\n", sdt->serviceCount);
+    for (size_t i = 0; i < sdt->serviceCount; i++) {
+        PICO_MPEGTS_LOG("    [%zu] Service ID: 0x%04X\n", i, sdt->services[i].serviceId);
+        PICO_MPEGTS_LOG("      EIT Schedule Flag: %s\n", sdt->services[i].eitScheduleFlag ? "true" : "false");
+        PICO_MPEGTS_LOG("      EIT Present/Following Flag: %s\n", sdt->services[i].eitPresentFollowingFlag ? "true" : "false");
+        PICO_MPEGTS_LOG("      Running Status: %s\n", picoMpegTSSDTRunningStatusToString(sdt->services[i].runningStatus));
+        PICO_MPEGTS_LOG("      Free CA Mode: %s\n", sdt->services[i].freeCAMode ? "true" : "false");
+        PICO_MPEGTS_LOG("      Descriptors: %zu\n", sdt->services[i].descriptorSet.count);
+        __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&sdt->services[i].descriptorSet, 6);
+    }
+}
+
+static void __picoMpegTSEITDebugPrint(const picoMpegTSEventInformationTablePayload_t *eit)
+{
+    if (eit == NULL)
+        return;
+    PICO_MPEGTS_LOG("  Event Information Table (EIT):\n");
+    PICO_MPEGTS_LOG("    Transport Stream ID: 0x%04X\n", eit->transportStreamId);
+    PICO_MPEGTS_LOG("    Original Network ID: 0x%04X\n", eit->originalNetworkId);
+    PICO_MPEGTS_LOG("    Event Count: %zu\n", eit->eventCount);
+    for (size_t i = 0; i < eit->eventCount; i++) {
+        PICO_MPEGTS_LOG("    [%zu] Event ID: 0x%04X\n", i, eit->events[i].eventId);
+        __picoMpegTSUTCTimeDebugPrint(&eit->events[i].startTime, "Start Time", 6);
+        __picoMpegTSDurationDebugPrint(&eit->events[i].duration, "Duration", 6);
+        PICO_MPEGTS_LOG("      Running Status: %s\n", picoMpegTSSDTRunningStatusToString(eit->events[i].runningStatus));
+        PICO_MPEGTS_LOG("      Free CA Mode: %s\n", eit->events[i].freeCAMode ? "true" : "false");
+        PICO_MPEGTS_LOG("      Descriptors: %zu\n", eit->events[i].descriptorSet.count);
+        __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&eit->events[i].descriptorSet, 6);
+    }
+}
+
+static void __picoMpegTSTDTDebugPrint(const picoMpegTSTimeDateTablePayload_t *tdt)
+{
+    if (tdt == NULL)
+        return;
+    PICO_MPEGTS_LOG("  Time Date Table (TDT):\n");
+    __picoMpegTSUTCTimeDebugPrint(&tdt->utcTime, "UTC Time", 4);
+}
+
+static void __picoMpegTSTOTDebugPrint(const picoMpegTSTimeOffsetTablePayload_t *tot)
+{
+    if (tot == NULL)
+        return;
+    PICO_MPEGTS_LOG("  Time Offset Table (TOT):\n");
+    __picoMpegTSUTCTimeDebugPrint(&tot->utcTime, "UTC Time", 4);
+    PICO_MPEGTS_LOG("    Descriptor Count: %zu\n", tot->descriptorSet.count);
+    __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&tot->descriptorSet, 4);
+}
+
+static void __picoMpegTSRSTDebugPrint(const picoMpegTSRunningStatusTablePayload_t *rst)
+{
+    if (rst == NULL)
+        return;
+    PICO_MPEGTS_LOG("  Running Status Table (RST):\n");
+    PICO_MPEGTS_LOG("    Status Entry Count: %zu\n", rst->statusEntryCount);
+    for (size_t i = 0; i < rst->statusEntryCount; i++) {
+        PICO_MPEGTS_LOG("    [%zu] TS ID: 0x%04X, Original Network ID: 0x%04X, Service ID: 0x%04X, Event ID: 0x%04X, Running Status: %s\n",
+                        i, rst->statusEntries[i].transportStreamId,
+                        rst->statusEntries[i].originalNetworkId,
+                        rst->statusEntries[i].serviceId,
+                        rst->statusEntries[i].eventId,
+                        picoMpegTSSDTRunningStatusToString(rst->statusEntries[i].runningStatus));
+    }
+}
+
+static void __picoMpegTSDITDebugPrint(const picoMpegTSDiscriminationInformationTablePayload_t *dit)
+{
+    if (dit == NULL)
+        return;
+    PICO_MPEGTS_LOG("  Discontinuity Information Table (DIT):\n");
+    PICO_MPEGTS_LOG("    Transition Flag: %s\n", dit->transitionFlag ? "true" : "false");
+}
+
+static void __picoMpegTSSITDebugPrint(const picoMpegTSServiceInformationTablePayload_t *sit)
+{
+    if (sit == NULL)
+        return;
+    PICO_MPEGTS_LOG("  Selection Information Table (SIT):\n");
+    PICO_MPEGTS_LOG("    Transmission Info Loop Length: %u\n", sit->transmissionInfoLoopLength);
+    PICO_MPEGTS_LOG("    Transmission Info Descriptors: %zu\n", sit->transmissionInfoDescriptorSet.count);
+    __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&sit->transmissionInfoDescriptorSet, 4);
+    PICO_MPEGTS_LOG("    Service Count: %zu\n", sit->serviceCount);
+    for (size_t i = 0; i < sit->serviceCount; i++) {
+        PICO_MPEGTS_LOG("    [%zu] Service ID: 0x%04X, Running Status: %s, Service Loop Length: %u\n",
+                        i, sit->services[i].serviceId,
+                        picoMpegTSSDTRunningStatusToString(sit->services[i].runningStatus),
+                        sit->services[i].serviceLoopLength);
+        PICO_MPEGTS_LOG("      Descriptors: %zu\n", sit->services[i].descriptorSet.count);
+        __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&sit->services[i].descriptorSet, 6);
+    }
+}
+
+void picoMpegTSTableDebugPrint(picoMpegTSTable table)
+{
+    if (table == NULL) {
+        PICO_MPEGTS_LOG("Table: NULL\n");
+        return;
+    }
+
+    PICO_MPEGTS_LOG("MPEG-TS Table:\n");
+    PICO_MPEGTS_LOG("  Table ID: 0x%02X (%s)\n", table->tableId, picoMpegTSTableIDToString(table->tableId));
+    PICO_MPEGTS_LOG("  Version Number: %u\n", table->versionNumber);
+
+    int sectionCount = 0;
+    for (int i = 0; i < PICO_MPEGTS_MAX_SECTIONS; i++) {
+        if (table->hasSection[i])
+            sectionCount++;
+    }
+    PICO_MPEGTS_LOG("  Sections Present: %d\n", sectionCount);
+    (void)sectionCount;
+
+    switch (table->tableId) {
+        case PICO_MPEGTS_TABLE_ID_PAS:
+            __picoMpegTSPASDebugPrint(&table->data.pas);
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_CAS:
+            __picoMpegTSCASDebugPrint(&table->data.cas);
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_PMS:
+            __picoMpegTSPMSDebugPrint(&table->data.pms);
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_TSDS:
+            __picoMpegTSTSDSDebugPrint(&table->data.tsds);
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_METAS:
+            __picoMpegTSMETASDebugPrint(&table->data.metas);
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_NISAN:
+        case PICO_MPEGTS_TABLE_ID_NISON:
+            __picoMpegTSNITDebugPrint(&table->data.nit);
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_BAS:
+            __picoMpegTSBATDebugPrint(&table->data.bat);
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_SDSATS:
+        case PICO_MPEGTS_TABLE_ID_SDSOTS:
+            __picoMpegTSSDTDebugPrint(&table->data.sdt);
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_EISATSF:
+        case PICO_MPEGTS_TABLE_ID_EISOTSF:
+            __picoMpegTSEITDebugPrint(&table->data.eit);
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_TDS:
+            __picoMpegTSTDTDebugPrint(&table->data.tdt);
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_TOS:
+            __picoMpegTSTOTDebugPrint(&table->data.tot);
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_RSS:
+            __picoMpegTSRSTDebugPrint(&table->data.rst);
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_DIS:
+            __picoMpegTSDITDebugPrint(&table->data.dit);
+            break;
+
+        case PICO_MPEGTS_TABLE_ID_SIS:
+            __picoMpegTSSITDebugPrint(&table->data.sit);
+            break;
+
+        default:
+            PICO_MPEGTS_LOG("  (Unknown or unsupported table type)\n");
+            break;
     }
 }
 
