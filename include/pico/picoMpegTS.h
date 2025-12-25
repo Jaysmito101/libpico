@@ -946,31 +946,94 @@ struct picoMpegTS_t {
     picoMpegTSTable partialTables[PICO_MPEGTS_MAX_TABLE_COUNT];
 };
 
-// static picoMpegTSResult __picoMpegTSDescriptorSetAdd(picoMpegTSDescriptorSet set, const picoMpegTSDescriptor descriptor)
-// {
-//     PICO_ASSERT(set != NULL);
-//     PICO_ASSERT(descriptor != NULL);
+static picoMpegTSResult __picoMpegTSDescriptorSetAdd(picoMpegTSDescriptorSet set, const picoMpegTSDescriptor descriptor)
+{
+    PICO_ASSERT(set != NULL);
+    PICO_ASSERT(descriptor != NULL);
 
-//     if (set->count >= set->capacity) {
-//         size_t newCapacity                  = set->capacity == 0 ? 8 : set->capacity * 2;
-//         picoMpegTSDescriptor newDescriptors = (picoMpegTSDescriptor)PICO_REALLOC(set->descriptors, newCapacity * sizeof(picoMpegTSDescriptor_t));
-//         if (!newDescriptors) {
-//             return PICO_MPEGTS_RESULT_MALLOC_ERROR;
-//         }
-//         set->descriptors = newDescriptors;
-//         set->capacity    = newCapacity;
-//     }
+    if (set->count >= set->capacity) {
+        size_t newCapacity                  = set->capacity == 0 ? 8 : set->capacity * 2;
+        picoMpegTSDescriptor newDescriptors = (picoMpegTSDescriptor)PICO_REALLOC(set->descriptors, newCapacity * sizeof(picoMpegTSDescriptor_t));
+        if (!newDescriptors) {
+            return PICO_MPEGTS_RESULT_MALLOC_ERROR;
+        }
+        set->descriptors = newDescriptors;
+        set->capacity    = newCapacity;
+    }
 
-//     set->descriptors[set->count] = *descriptor;
-//     set->count++;
-//     return PICO_MPEGTS_RESULT_SUCCESS;
-// }
+    set->descriptors[set->count] = *descriptor;
+    set->count++;
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
 
-// static void __picoMpegTSDescriptorSetClear(picoMpegTSDescriptorSet set)
-// {
-//     PICO_ASSERT(set != NULL);
-//     set->count = 0;
-// }
+static void __picoMpegTSDescriptorSetClear(picoMpegTSDescriptorSet set)
+{
+    PICO_ASSERT(set != NULL);
+    set->count = 0;
+}
+
+static void __picoMpegTSFilterContextFlushPayloadAccumulator(picoMpegTSFilterContext filterContext, size_t byteCount);
+
+static picoMpegTSResult __picoMpegTSDescriptorSetParse(picoMpegTS mpegts, picoMpegTSDescriptorSet descriptorSet, picoMpegTSFilterContext filterContext, bool additive)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(descriptorSet != NULL);
+    PICO_ASSERT(filterContext != NULL);
+
+    const uint8_t *data = filterContext->payloadAccumulator;
+    size_t dataSize     = filterContext->payloadAccumulatorSize;
+
+    if (dataSize < 2) {
+        return PICO_MPEGTS_RESULT_INVALID_DATA;
+    }
+
+    uint16_t descriptorsLength = ((uint16_t)(data[0] & 0x0F) << 8) | data[1];
+    data += 2;
+    dataSize -= 2;
+
+    if (dataSize < descriptorsLength) {
+        PICO_MPEGTS_LOG("picoMpegTS: descriptor set parse error - not enough data (%zu < %u)\n",
+                        dataSize, descriptorsLength);
+        return PICO_MPEGTS_RESULT_INVALID_DATA;
+    }
+
+    if (!additive) {
+        __picoMpegTSDescriptorSetClear(descriptorSet);
+    }
+
+    size_t offset = 0;
+    while (offset + 2 <= descriptorsLength) {
+        // tag (1 byte) + length (1 byte) + data (length bytes)
+        uint8_t descriptorTag    = data[offset];
+        uint8_t descriptorLength = data[offset + 1];
+        offset += 2;
+
+        // check if we have enough data for this descriptor's content
+        if (offset + descriptorLength > descriptorsLength) {
+            PICO_MPEGTS_LOG("picoMpegTS: descriptor parse error - descriptor length exceeds bounds\n");
+            return PICO_MPEGTS_RESULT_INVALID_DATA;
+        }
+
+        picoMpegTSDescriptor_t descriptor;
+        descriptor.tag        = (picoMpegTSDescriptorTag)descriptorTag;
+        descriptor.dataLength = descriptorLength;
+
+        size_t copyLength = descriptorLength;
+        if (copyLength > PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH) {
+            copyLength = PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH;
+            PICO_MPEGTS_LOG("picoMpegTS: descriptor data truncated (%u > %d)\n",
+                            descriptorLength, PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH);
+        }
+        memcpy(descriptor.data, &data[offset], copyLength);
+
+        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetAdd(descriptorSet, &descriptor));
+        offset += descriptorLength;
+    }
+
+    __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 2 + descriptorsLength);
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
 
 static void __picoMpegTSDescriptorSetDestroy(picoMpegTSDescriptorSet set)
 {
