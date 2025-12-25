@@ -93,8 +93,9 @@ SOFTWARE.
     } while (0)
 #endif
 
-#define PICO_MPEGTS_MAX_PID_COUNT   8192
-#define PICO_MPEGTS_MAX_TABLE_COUNT 256
+#define PICO_MPEGTS_MAX_PID_COUNT              8192
+#define PICO_MPEGTS_MAX_TABLE_COUNT            256
+#define PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH 256
 
 typedef enum {
     PICO_MPEGTS_PACKET_TYPE_DEFAULT = 188,
@@ -543,12 +544,14 @@ typedef struct {
 typedef picoMpegTSPSISectionHead_t *picoMpegTSPSISectionHead;
 
 typedef struct {
-    void *data;
+    uint8_t data[PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH];
+    size_t dataLength;
+    picoMpegTSDescriptorTag tag;
 } picoMpegTSDescriptor_t;
 typedef picoMpegTSDescriptor_t *picoMpegTSDescriptor;
 
 typedef struct {
-    picoMpegTSDescriptor descriptors[PICO_MPEGTS_MAX_DESCRIPTORS];
+    picoMpegTSDescriptor descriptors;
     size_t descriptorCount;
 } picoMpegTSDescriptorSet_t;
 typedef picoMpegTSDescriptorSet_t *picoMpegTSDescriptorSet;
