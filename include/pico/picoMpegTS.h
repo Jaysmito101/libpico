@@ -94,6 +94,7 @@ SOFTWARE.
 #endif
 
 #define PICO_MPEGTS_MAX_PID_COUNT 8192
+#define PICO_MPEGTS_MAX_TABLE_COUNT 256
 
 typedef enum {
     PICO_MPEGTS_PACKET_TYPE_DEFAULT = 188,
@@ -682,8 +683,8 @@ typedef struct {
     // is set to "0", it indicates that the transition is due to
     // a change of the selection entity.
     bool transitionFlag;
-} picoMpegTSDITPayload_t;
-typedef picoMpegTSDITPayload_t *picoMpegTSDITPayload;
+} picoMpegTSDiscriminationInformationTablePayload_t;
+typedef picoMpegTSDiscriminationInformationTablePayload_t *picoMpegTSDiscriminationInformationTablePayload;
 
 typedef struct {
     // This 12-bit field gives the total length in bytes of the
@@ -713,8 +714,8 @@ typedef struct {
         picoMpegTSDescriptorSet_t descriptorSet;
     } services[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
     size_t serviceCount;
-} picoMpegTSSITPayload_t;
-typedef picoMpegTSSITPayload_t *picoMpegTSSITPayload;
+} picoMpegTSServiceInformationTablePayload_t;
+typedef picoMpegTSServiceInformationTablePayload_t *picoMpegTSServiceInformationTablePayload;
 
 typedef struct {
     uint8_t tableId;
@@ -730,8 +731,8 @@ typedef struct {
         picoMpegTSTimeDateTablePayload_t tdt;
         picoMpegTSTimeOffsetTablePayload_t tot;
         picoMpegTSRunningStatusTablePayload_t rst;
-        picoMpegTSDITPayload_t dit;
-        picoMpegTSSITPayload_t sit;
+        picoMpegTSDiscriminationInformationTablePayload_t dit;
+        picoMpegTSServiceInformationTablePayload_t sit;
     } data;
 } picoMpegTSTable_t;
 typedef picoMpegTSTable_t *picoMpegTSTable;
@@ -806,6 +807,11 @@ struct picoMpegTS_t {
     uint32_t ignoredPacketCount;
 
     picoMpegTSFilterContext pidFilters[PICO_MPEGTS_MAX_PID_COUNT];
+    // these are the final tables
+    picoMpegTSTable tables[PICO_MPEGTS_MAX_TABLE_COUNT];     
+
+    // these are the partial tables being built
+    picoMpegTSTable partialTables[PICO_MPEGTS_MAX_TABLE_COUNT];
 };
 
 static picoMpegTSResult __picoMpegTSParsePacketAdaptationFieldExtenstion(const uint8_t *data, uint8_t dataSize, picoMpegTSAdaptionFieldExtension afExt)
@@ -1240,6 +1246,8 @@ static picoMpegTSResult __picoMpegTSFilterFlushAllContexts(picoMpegTS mpegts)
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
+
+
 // ---------------------------------- Filter Api Functions ---------------------------------
 
 // ------------- NIT Filter Functions ---------------
@@ -1255,7 +1263,6 @@ static picoMpegTSResult __picoMpegTSFilterNITHead(picoMpegTS mpegts, picoMpegTSP
             context->payloadAccumulator,
             &context->psiSectionHead));
     __picoMpegTSFilterContextFlushPayloadAccumulator(context, 8);
-
     context->expectedPayloadSize = context->psiSectionHead.sectionLength - 5;
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -1265,8 +1272,7 @@ static picoMpegTSResult __picoMpegTSFilterNITBody(picoMpegTS mpegts, picoMpegTSF
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(context != NULL);
 
-    PICO_MPEGTS_LOG("NIT section body processed, total size %zu bytes\n",
-                    context->payloadAccumulatorSize);
+    
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
