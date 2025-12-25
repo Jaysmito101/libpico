@@ -134,7 +134,8 @@ typedef enum {
     PICO_MPEGTS_PID_NULL_PACKET    = 0x1FFF,
 } picoMpegTSPacketPID;
 
-// 0x04 -> 0x3F reserved
+// 0x0C -> 0x37 reserved
+// 0x38 -> 0x3F defined in ISO/IEC 13818-6
 // 0x43 -> 0x45 reserved
 // 0x47 -> 0x49 reserved
 // 0x4D reserved
@@ -143,6 +144,14 @@ typedef enum {
     PICO_MPEGTS_TABLE_ID_CAS                = 0x01, // Conditional Access Section
     PICO_MPEGTS_TABLE_ID_PMS                = 0x02, // Program Map Section
     PICO_MPEGTS_TABLE_ID_TSDS               = 0x03, // Transport Stream Description Section
+    PICO_MPEGTS_TABLE_ID_ISDDS              = 0x04, // ISO/IEC 14496 Scene Description Section
+    PICO_MPEGTS_TABLE_ID_ISODS              = 0x05, // ISO/IEC 14496 Object Descriptor Section
+    PICO_MPEGTS_TABLE_ID_METAS              = 0x06, // Metadata Section
+    PICO_MPEGTS_TABLE_ID_IPMP               = 0x07, // IPMP Control Information Section
+    PICO_MPEGTS_TABLE_ID_ISOS               = 0x08, // ISO/IEC 14496 Section
+    PICO_MPEGTS_TABLE_ID_GAUS               = 0x09, // ISO/IEC 23001-11 (Green access unit) section
+    PICO_MPEGTS_TABLE_ID_QAUS               = 0x0A, // ISO/IEC 23001-10 (Quality access unit) section
+    PICO_MPEGTS_TABLE_ID_MOAUS              = 0x0B, // ISO/IEC 23001-13 (Media Orchestration access unit) section
     PICO_MPEGTS_TABLE_ID_NISAN              = 0x40, // Network Information Section Actual Network
     PICO_MPEGTS_TABLE_ID_NISON              = 0x41, // Network Information Section Other Network
     PICO_MPEGTS_TABLE_ID_SDSATS             = 0x42, // Service Description Section Actual Transport Stream
@@ -168,6 +177,7 @@ typedef enum {
     PICO_MPEGTS_TABLE_ID_SIS                = 0x7F, // Selection Information Section
     PICO_MPEGTS_TABLE_ID_USER_DEFINED_START = 0x80,
     PICO_MPEGTS_TABLE_ID_USER_DEFINED_END   = 0xFE,
+    PICO_MPEGTS_TABLE_ID_FORBIDDEN          = 0xFF,
 } picoMpegTSTableID;
 
 typedef enum {
@@ -1893,6 +1903,22 @@ const char *picoMpegTSTableIDToString(uint8_t tableID)
             return "Program Map Section (PMS)";
         case PICO_MPEGTS_TABLE_ID_TSDS:
             return "Transport Stream Description Section (TSDS)";
+        case PICO_MPEGTS_TABLE_ID_ISDDS:
+            return "ISO/IEC 14496 Scene Description Section (ISDDS)";
+        case PICO_MPEGTS_TABLE_ID_ISODS:
+            return "ISO/IEC 14496 Object Descriptor Section (ISODS)";
+        case PICO_MPEGTS_TABLE_ID_METAS:
+            return "Metadata Section (METAS)";
+        case PICO_MPEGTS_TABLE_ID_IPMP:
+            return "IPMP Control Information Section (IPMP)";
+        case PICO_MPEGTS_TABLE_ID_ISOS:
+            return "ISO/IEC 14496 Section (ISOS)";
+        case PICO_MPEGTS_TABLE_ID_GAUS:
+            return "ISO/IEC 23001-11 (Green access unit) section (GAUS)";
+        case PICO_MPEGTS_TABLE_ID_QAUS:
+            return "ISO/IEC 23001-10 (Quality access unit) section (QAUS)";
+        case PICO_MPEGTS_TABLE_ID_MOAUS:
+            return "ISO/IEC 23001-13 (Media Orchestration access unit) section (MOAUS)";
         case PICO_MPEGTS_TABLE_ID_NISAN:
             return "Network Information Section (Actual) (NIS - Actual)";
         case PICO_MPEGTS_TABLE_ID_NISON:
@@ -1943,7 +1969,16 @@ const char *picoMpegTSTableIDToString(uint8_t tableID)
             if (tableID >= PICO_MPEGTS_TABLE_ID_USER_DEFINED_START && tableID <= PICO_MPEGTS_TABLE_ID_USER_DEFINED_END) {
                 return "User Defined Table ID";
             }
-            return "Reserved/Unknown Table ID";
+            if (tableID >= 0x0C && tableID <= 0x37) {
+                return "Reserved Table ID";
+            }
+            if (tableID >= 0x38 && tableID <= 0x3F) {
+                return "Defined in ISO/IEC 13818-6";
+            }
+            if (tableID == PICO_MPEGTS_TABLE_ID_FORBIDDEN) {
+                return "Forbidden";
+            }
+            return "Unknown Table ID";
     }
 }
 
