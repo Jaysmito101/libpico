@@ -58,6 +58,18 @@ SOFTWARE.
 #define PICO_MPEGTS_MAX_PIDS 8192
 #endif
 
+#ifndef PICO_MPEGTS_MAX_DESCRIPTORS
+#define PICO_MPEGTS_MAX_DESCRIPTORS 256 // maxmum descriptors to be parsed per section
+#endif
+
+#ifndef PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT
+#define PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT 256 // maximum payloads to be stored per table
+#endif
+
+#ifndef PICO_MPEGTS_MAX_SECTIONS
+#define PICO_MPEGTS_MAX_SECTIONS 256 // maximum sections to be parsed per table
+#endif
+
 #define PICO_MPEGTS_CC_UNINITIALIZED 42
 
 #ifndef PICO_MALLOC
@@ -172,6 +184,17 @@ typedef enum {
     PICO_MPEGTS_RESULT_UNKNOWN_PID_PACKET,
     PICO_MPEGTS_RESULT_UNKNOWN_ERROR,
 } picoMpegTSResult;
+
+typedef enum {
+    PICO_MPEGTS_SDT_RUNNING_STATUS_UNDEFINED         = 0,
+    PICO_MPEGTS_SDT_RUNNING_STATUS_NOT_RUNNING       = 1,
+    PICO_MPEGTS_SDT_RUNNING_STATUS_STARTS_IN_FEW_SEC = 2,
+    PICO_MPEGTS_SDT_RUNNING_STATUS_PAUSING           = 3,
+    PICO_MPEGTS_SDT_RUNNING_STATUS_RUNNING           = 4,
+    PICO_MPEGTS_SDT_RUNNING_STATUS_SERVICE_OFF_AIR   = 5,
+    PICO_MPEGTS_SDT_RUNNING_STATUS_RESERVED_6        = 6,
+    PICO_MPEGTS_SDT_RUNNING_STATUS_RESERVED_7        = 7,
+} picoMpegTSSDTRunningStatus;
 
 typedef struct picoMpegTS_t picoMpegTS_t;
 typedef picoMpegTS_t *picoMpegTS;
@@ -460,6 +483,114 @@ typedef struct {
 } picoMpegTSPSISectionHead_t;
 typedef picoMpegTSPSISectionHead_t *picoMpegTSPSISectionHead;
 
+typedef struct {
+    void *data;
+} picoMpegTSDescriptor_t;
+typedef picoMpegTSDescriptor_t *picoMpegTSDescriptor;
+
+typedef struct {
+    picoMpegTSDescriptor descriptors[PICO_MPEGTS_MAX_DESCRIPTORS];
+    size_t descriptorCount;
+} picoMpegTSDescriptorSet_t;
+typedef picoMpegTSDescriptorSet_t *picoMpegTSDescriptorSet;
+
+typedef struct {
+    picoMpegTSDescriptorSet_t descriptorSet;
+
+    struct {
+        // This is a 16-bit field which serves as a label
+        // for identification of this TS from any other
+        // multiplex within the delivery system.
+        uint16_t transportStreamId;
+
+        // This 16-bit field gives the label identifying
+        // the network_id of the originating delivery system.
+        uint16_t originalNetworkId;
+
+        picoMpegTSDescriptorSet_t descriptorSet;
+    } transportStreams[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
+    size_t transportStreamCount;
+} picoMpegTSNetworkInformationTablePayload_t;
+typedef picoMpegTSNetworkInformationTablePayload_t *picoMpegTSNetworkInformationTablePayload;
+
+typedef struct {
+    picoMpegTSDescriptorSet_t descriptorSet;
+
+    struct {
+        // This is a 16-bit field which serves as a label
+        // for identification of this TS from any other
+        // multiplex within the delivery system.
+        uint16_t transportStreamId;
+
+        // This 16-bit field gives the label identifying
+        // the network_id of the originating delivery system.
+        uint16_t originalNetworkId;
+
+        picoMpegTSDescriptorSet_t descriptorSet;
+    } services[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
+    size_t serviceCount;
+} picoMpegTSBoquetAssociationTablePayload_t;
+typedef picoMpegTSBoquetAssociationTablePayload_t *picoMpegTSBoquetAssociationTablePayload;
+
+typedef struct {
+    // This 16-bit field gives the label identifying
+    // the network_id of the originating delivery system.
+    uint16_t originalNetworkId;
+
+    struct {
+        // This is a 16-bit field which serves as a label
+        // for identification of this service within
+        // the transport stream.
+        uint16_t serviceId;
+
+        // This is a 1-bit field which when set to "1" 
+        // indicates that EIT schedule information for the service
+        // is present in the current TS, see ETSI TS 101 211 [i.1] 
+        // for information on maximum time interval between occurrences
+        // of an EIT schedule sub_table). If the flag is set 
+        // to 0 then the EIT schedule information for the 
+        // service should not be present in the TS.
+        bool eitScheduleFlag;
+
+        // This is a 1-bit field which when set to "1" indicates 
+        // that EIT_present_following information for the 
+        // service is present in the current TS, see ETSI TS 101 211 [i.1] 
+        // for information on maximum time interval between occurrences 
+        // of an EIT present/following sub_table. If the flag is 
+        // set to 0 then the EIT present/following information for 
+        // the service should not be present in the TS. 
+        bool eitPresentFollowingFlag;
+
+        // The running_status is a 3-bit field which indicates
+        // the current running status of the service.
+        picoMpegTSSDTRunningStatus runningStatus;
+
+        // This 1-bit field, when set to "0" indicates that all 
+        // the component streams of the service are not scrambled. 
+        // When set to "1" it indicates that access to one or more 
+        // streams may be controlled by a CA system.        
+        bool freeCAMode;
+
+        picoMpegTSDescriptorSet_t descriptorSet;
+    } services[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
+    size_t serviceCount;
+} picoMpegTSServiceDescriptionTablePayload_t;
+typedef picoMpegTSServiceDescriptionTablePayload_t *picoMpegTSServiceDescriptionTablePayload;
+
+typedef struct {
+    uint8_t tableId;
+    picoMpegTSPSISectionHead_t head;
+
+    bool hasSection[PICO_MPEGTS_MAX_SECTIONS];
+
+    union {
+        picoMpegTSNetworkInformationTablePayload_t nit;
+        picoMpegTSBoquetAssociationTablePayload_t bat;
+        picoMpegTSServiceDescriptionTablePayload_t sdt;
+    } data;
+} picoMpegTSTable_t;
+typedef picoMpegTSTable_t *picoMpegTSTable;
+
 picoMpegTS picoMpegTSCreate(bool storeParsedPackets);
 void picoMpegTSDestroy(picoMpegTS mpegts);
 picoMpegTSResult picoMpegTSGetParsedPackets(picoMpegTS mpegts, picoMpegTSPacket *packetsOut, size_t *packetCountOut);
@@ -483,6 +614,7 @@ const char *picoMpegTSPIDToString(uint16_t pid);
 const char *picoMpegTSTableIDToString(uint8_t tableID);
 const char *picoMpegTSAdaptionFieldControlToString(picoMpegTSAdaptionFieldControl afc);
 const char *picoMpegTSFilterTypeToString(picoMpegTSFilterType type);
+const char *picoMpegTSSDTRunningStatusToString(picoMpegTSSDTRunningStatus status);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_MPEGTS_IMPLEMENTATION)
 #define PICO_MPEGTS_IMPLEMENTATION
@@ -1572,6 +1704,30 @@ const char *picoMpegTSFilterTypeToString(picoMpegTSFilterType filterType)
             return "Null Filter";
         default:
             return "Unknown Filter Type";
+    }
+}
+
+const char *picoMpegTSSDTRunningStatusToString(picoMpegTSSDTRunningStatus status)
+{
+    switch (status) {
+        case PICO_MPEGTS_SDT_RUNNING_STATUS_UNDEFINED:
+            return "Undefined";
+        case PICO_MPEGTS_SDT_RUNNING_STATUS_NOT_RUNNING:
+            return "Not Running";
+        case PICO_MPEGTS_SDT_RUNNING_STATUS_STARTS_IN_FEW_SEC:
+            return "Starts in Few Seconds";
+        case PICO_MPEGTS_SDT_RUNNING_STATUS_PAUSING:
+            return "Pausing";
+        case PICO_MPEGTS_SDT_RUNNING_STATUS_RUNNING:
+            return "Running";
+        case PICO_MPEGTS_SDT_RUNNING_STATUS_SERVICE_OFF_AIR:
+            return "Service Off Air";
+        case PICO_MPEGTS_SDT_RUNNING_STATUS_RESERVED_6:
+            return "Reserved (6)";
+        case PICO_MPEGTS_SDT_RUNNING_STATUS_RESERVED_7:
+            return "Reserved (7)";
+        default:
+            return "Unknown Status";
     }
 }
 
