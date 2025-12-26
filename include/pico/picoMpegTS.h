@@ -1025,6 +1025,37 @@ typedef struct {
 } picoMpegTSPSISectionHead_t;
 typedef picoMpegTSPSISectionHead_t *picoMpegTSPSISectionHead;
 
+typedef struct {
+    // In program streams, the stream_id specifies the type and 
+    // number of the elementary stream as defined by the
+    // stream_id Table. In transport streams, the stream_id may 
+    // be set to any valid value which correctly describes the
+    // elementary stream type as defined in Table. In transport 
+    // streams, the elementary stream type is specified in the
+    // program-specific information. For AVC video streams conforming 
+    // to one or more profiles defined in Annex G 
+    // of Rec. ITU-T H.264 | ISO/IEC 14496-10, all video sub-bitstreams 
+    // of the same AVC video stream shall have the same stream_id value. 
+    // For AVC video streams conforming to one or more profiles defined 
+    // in Annex H of Rec. ITU-T H.264 | ISO/IEC 14496-10, all MVC video 
+    // sub-bitstreams of the same AVC video stream shall have the same stream_id
+    // value. For AVC video streams conforming to one or more 
+    // profiles defined in Annex I of Rec. ITU-T H.264 | ISO/IEC 14496-10, 
+    // all MVCD video sub-bitstreams of the same AVC video stream 
+    // shall have the same stream_id value.
+    uint8_t streamId;
+
+    // A 16-bit field specifying the number of bytes in the PES 
+    // packet following the last byte of the field.
+    // A value of 0 indicates that the PES packet length is 
+    // neither specified nor bounded and is allowed only in PES packets
+    // whose payload consists of bytes from a video elementary 
+    // stream contained in transport stream packets.
+    uint16_t pesPacketLength;
+} picoMpegTSPESHead_t;
+typedef picoMpegTSPESHead_t *picoMpegTSPESHead;
+
+
 // Time structures for DVB tables
 typedef struct {
     // Modified Julian Date (16 bits) + UTC time (24 bits BCD: HH:MM:SS)
@@ -2491,6 +2522,24 @@ static picoMpegTSResult __picoMpegTSOnTableReady(picoMpegTS mpegts, picoMpegTSTa
                 PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, pid));
             }
             break;
+        case PICO_MPEGTS_TABLE_ID_PMS:
+            // clear filters for ES PIDs that were in old PMT but not in new PMT
+            if (oldTable != NULL) {
+                for (size_t i = 0; i < oldTable->data.pms.streamCount; i++) {
+                    uint16_t oldPid = oldTable->data.pms.streams[i].elementaryPid;
+                    if (mpegts->pidFilters[oldPid] != NULL) {
+                        __picoMpegTSDestroyFilterContext(mpegts, mpegts->pidFilters[oldPid]);
+                        mpegts->pidFilters[oldPid] = NULL;
+                    }
+                }
+            }
+
+            // register filters for all ES PIDs in new PMT
+            for (size_t i = 0; i < newTable->data.pms.streamCount; i++) {
+                uint16_t pid = newTable->data.pms.streams[i].elementaryPid;
+                PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPESFilter(mpegts, pid));
+            }
+            break;
 
         default:
             // no post-processing needed for other tables
@@ -2831,6 +2880,17 @@ static picoMpegTSResult __picoMpegTSParseSectionHead(const uint8_t *data, picoMp
     sectionHeadOut->currentNextIndicator = (data[5] & 0x01) != 0;
     sectionHeadOut->sectionNumber        = data[6];
     sectionHeadOut->lastSectionNumber    = data[7];
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
+static picoMpegTSResult __picoMpegTSParsePESHead(const char* data, picoMpegTSPESHead pesHeadOut)
+{
+    PICO_ASSERT(data != NULL);
+    PICO_ASSERT(pesHeadOut != NULL);
+
+    pesHeadOut->streamId       = (uint8_t)data[3];
+    pesHeadOut->pesPacketLength = (uint16_t)((data[4] << 8) | data[5]);
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
