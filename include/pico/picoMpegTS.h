@@ -3104,11 +3104,197 @@ static picoMpegTSResult __picoMpegTSPESPacketParse(picoMpegTSPESPacket packet, p
     PICO_ASSERT(packet != NULL);
     PICO_ASSERT(filterContext != NULL);
 
-    // log the stream type
-    // PICO_MPEGTS_LOG("Parsing PES packet for PID %d/%d[%s]\n",
-    //                 filterContext->pid,
-    //                 packet->head.streamId,
-    //                 picoMpegTSPESStreamIDToString(packet->head.streamId));
+    uint8_t streamId = packet->head.streamId;
+
+    if (streamId == PICO_MPEGTS_PES_STREAM_ID_PADDING_STREAM) {
+        return PICO_MPEGTS_RESULT_SUCCESS;
+    }
+
+    bool hasOptionalFields = !(streamId == PICO_MPEGTS_PES_STREAM_ID_PROGRAM_STREAM_MAP ||
+                               streamId == PICO_MPEGTS_PES_STREAM_ID_PADDING_STREAM ||
+                               streamId == PICO_MPEGTS_PES_STREAM_ID_PRIVATE_STREAM_2 ||
+                               streamId == PICO_MPEGTS_PES_STREAM_ID_ECM_STREAM ||
+                               streamId == PICO_MPEGTS_PES_STREAM_ID_EMM_STREAM ||
+                               streamId == PICO_MPEGTS_PES_STREAM_ID_PROGRAM_STREAM_DIRECTORY ||
+                               streamId == PICO_MPEGTS_PES_STREAM_ID_DSMCC_STREAM ||
+                               streamId == PICO_MPEGTS_PES_STREAM_ID_ITU_T_H222_1_TYPE_E);
+
+    if (!hasOptionalFields) {
+        packet->data = (uint8_t *)PICO_MALLOC(filterContext->payloadAccumulatorSize);
+        if (packet->data == NULL) {
+            return PICO_MPEGTS_RESULT_MALLOC_ERROR;
+        }
+        size_t size = packet->head.pesPacketLength == 0 ? filterContext->payloadAccumulatorSize : packet->head.pesPacketLength;
+        memcpy(packet->data, filterContext->payloadAccumulator, size);
+        packet->dataLength = size;
+        return PICO_MPEGTS_RESULT_SUCCESS;
+    }
+
+    const uint8_t *data = filterContext->payloadAccumulator;
+    size_t offset       = 0;
+
+    uint8_t byte0 = data[offset++];
+    if ((byte0 >> 6) != 0x02) { // verify 10 marker bits
+        PICO_MPEGTS_LOG("PES packet missing '10' marker bits\n");
+        return PICO_MPEGTS_RESULT_INVALID_DATA;
+    }
+
+    packet->scramblingControl      = (byte0 >> 4) & 0x03;
+    packet->priority               = (byte0 & 0x08) != 0;
+    packet->dataAlignmentIndicator = (byte0 & 0x04) != 0;
+    packet->copyright              = (byte0 & 0x02) != 0;
+    packet->originalOrCopy         = (byte0 & 0x01) != 0;
+
+    uint8_t byte1                  = data[offset++];
+    packet->ptsDtsFlags            = (byte1 >> 6) & 0x03;
+    packet->escrFlag               = (byte1 & 0x20) != 0;
+    packet->escrRateFlag           = (byte1 & 0x10) != 0;
+    packet->dsmTrickModeFlag       = (byte1 & 0x08) != 0;
+    packet->additionalCopyInfoFlag = (byte1 & 0x04) != 0;
+    packet->pesCrcFlag             = (byte1 & 0x02) != 0;
+    packet->pesExtensionFlag       = (byte1 & 0x01) != 0;
+
+    uint8_t pesHeaderDataLength = data[offset++];
+    size_t headerDataEnd  = offset + pesHeaderDataLength;
+
+    // parse PTS (if ptsDtsFlags == '10' or '11')
+    if (packet->ptsDtsFlags == 0x02 || packet->ptsDtsFlags == 0x03) {
+        uint64_t pts32_30 = (uint64_t)((data[offset] >> 1) & 0x07) << 30;
+        uint64_t pts29_15 = (uint64_t)(((data[offset + 1] << 8) | data[offset + 2]) >> 1) << 15;
+        uint64_t pts14_0  = (uint64_t)(((data[offset + 3] << 8) | data[offset + 4]) >> 1);
+        packet->pts       = (uint32_t)(pts32_30 | pts29_15 | pts14_0);
+        offset += 5;
+    }
+
+    // parse DTS (if ptsDtsFlags == '11')
+    if (packet->ptsDtsFlags == 0x03) {
+        uint64_t dts32_30 = (uint64_t)((data[offset] >> 1) & 0x07) << 30;
+        uint64_t dts29_15 = (uint64_t)(((data[offset + 1] << 8) | data[offset + 2]) >> 1) << 15;
+        uint64_t dts14_0  = (uint64_t)(((data[offset + 3] << 8) | data[offset + 4]) >> 1);
+        packet->dts       = (uint32_t)(dts32_30 | dts29_15 | dts14_0);
+        offset += 5;
+    }
+
+    if (packet->escrFlag) {
+        uint64_t escrBase32_30 = (uint64_t)((data[offset] >> 3) & 0x07) << 30;
+        uint64_t escrBase29_15 = (uint64_t)(((data[offset] & 0x03) << 13) | (data[offset + 1] << 5) | ((data[offset + 2] >> 3) & 0x1F)) << 15;
+        uint64_t escrBase14_0  = (uint64_t)(((data[offset + 2] & 0x03) << 13) | (data[offset + 3] << 5) | ((data[offset + 4] >> 3) & 0x1F));
+        packet->escrBase       = (uint32_t)(escrBase32_30 | escrBase29_15 | escrBase14_0);
+        packet->escrExtension  = (uint16_t)(((data[offset + 4] & 0x03) << 7) | (data[offset + 5] >> 1));
+        offset += 6;
+    }
+
+    if (packet->escrRateFlag) {
+        packet->esRate = (uint32_t)(((data[offset] & 0x7F) << 15) | (data[offset + 1] << 7) | (data[offset + 2] >> 1));
+        offset += 3;
+    }
+
+    if (packet->dsmTrickModeFlag) {
+        uint8_t trickModeByte    = data[offset++];
+        packet->trickModeControl = (picoMpegTSPESTrickModeControl)((trickModeByte >> 5) & 0x07);
+
+        switch (packet->trickModeControl) {
+            case PICO_MPEGTS_PES_TRICK_MODE_CONTROL_FAST_FORWARD:
+                packet->trickModeParams.fastForward.fieldId             = (picoMpegTSPESTrickModeFieldId)((trickModeByte >> 3) & 0x03);
+                packet->trickModeParams.fastForward.intraSliceRefresh   = (trickModeByte & 0x04) != 0;
+                packet->trickModeParams.fastForward.frequencyTruncation = (picoMpegTSPESTrickModeFrequencyTruncation)(trickModeByte & 0x03);
+                break;
+            case PICO_MPEGTS_PES_TRICK_MODE_CONTROL_SLOW_MOTION:
+                packet->trickModeParams.slowMotion.repCntrl = trickModeByte & 0x1F;
+                break;
+            case PICO_MPEGTS_PES_TRICK_MODE_CONTROL_FREEZE_FRAME:
+                packet->trickModeParams.freezeFrame.fieldId = (picoMpegTSPESTrickModeFieldId)((trickModeByte >> 3) & 0x03);
+                break;
+            case PICO_MPEGTS_PES_TRICK_MODE_CONTROL_FAST_REVERSE:
+                packet->trickModeParams.fastReverse.fieldId             = (picoMpegTSPESTrickModeFieldId)((trickModeByte >> 3) & 0x03);
+                packet->trickModeParams.fastReverse.intraSliceRefresh   = (trickModeByte & 0x04) != 0;
+                packet->trickModeParams.fastReverse.frequencyTruncation = (picoMpegTSPESTrickModeFrequencyTruncation)(trickModeByte & 0x03);
+                break;
+            case PICO_MPEGTS_PES_TRICK_MODE_CONTROL_SLOW_REVERSE:
+                packet->trickModeParams.slowReverse.repCntrl = trickModeByte & 0x1F;
+                break;
+            default:
+                // reserved - 5 reserved bits
+                break;
+        }
+    }
+
+    if (packet->additionalCopyInfoFlag) {
+        packet->additionalCopyInfo = data[offset++] & 0x7F;
+    }
+
+    if (packet->pesCrcFlag) {
+        packet->previousPESPacketCrc = (uint16_t)(data[offset] << 8) | data[offset + 1];
+        offset += 2;
+    }
+
+    if (packet->pesExtensionFlag) {
+        picoMpegTSPESExtension_t *ext = &packet->pesExtension;
+        uint8_t extFlags              = data[offset++];
+
+        ext->pesPrivateDataFlag               = (extFlags & 0x80) != 0;
+        ext->packHeaderFieldFlag              = (extFlags & 0x40) != 0;
+        ext->programPacketSequenceCounterFlag = (extFlags & 0x20) != 0;
+        ext->pStdBufferFlag                   = (extFlags & 0x10) != 0;
+        ext->pesExtensionFlag2                = (extFlags & 0x01) != 0;
+
+        if (ext->pesPrivateDataFlag) {
+            memcpy(ext->pesPrivateData, &data[offset], 16);
+            offset += 16;
+        }
+
+        if (ext->packHeaderFieldFlag) {
+            ext->packFieldLength = data[offset++];
+            // TODO/NOTE: currently we do not parse the pack_header()
+            // field as there is not explicit need for it now.
+            PICO_MPEGTS_LOG("PES pack header field of length %d bytes found, skipping\n", ext->packFieldLength);
+            offset += ext->packFieldLength;
+        }
+
+        if (ext->programPacketSequenceCounterFlag) {
+            ext->programPacketSequenceCounter = data[offset++] & 0x7F;
+            uint8_t byte              = data[offset++];
+            ext->mpeg1Mpeg2Identifier = (byte & 0x40) != 0;
+            ext->originalStuffLength  = byte & 0x3F;
+        }
+
+        if (ext->pStdBufferFlag) {
+            uint16_t pstd        = (uint16_t)(data[offset] << 8) | data[offset + 1];
+            ext->pStdBufferScale = (pstd >> 13) & 0x01;
+            ext->pStdBufferSize  = pstd & 0x1FFF;
+            offset += 2;
+        }
+
+        if (ext->pesExtensionFlag2) {
+            ext->pesExtensionFieldLength = data[offset++] & 0x7F;
+            uint8_t extField           = data[offset++];
+            ext->streamIdExtensionFlag = (extField & 0x80) != 0;
+            if (!ext->streamIdExtensionFlag) {
+                ext->streamIdExtension = extField & 0x7F;
+            } else {
+                ext->trefExtensionFlag = (extField & 0x01) != 0;
+
+                if (!ext->trefExtensionFlag) {
+                    uint64_t tref32_30 = (uint64_t)((data[offset] >> 1) & 0x07) << 30;
+                    uint64_t tref29_15 = (uint64_t)(((data[offset + 1] << 8) | data[offset + 2]) >> 1) << 15;
+                    uint64_t tref14_0  = (uint64_t)(((data[offset + 3] << 8) | data[offset + 4]) >> 1);
+                    ext->tref          = tref32_30 | tref29_15 | tref14_0;
+                    offset += 5;
+                }
+            }
+        }
+    }
+
+    // skip any remaining stuffing bytes in the header data
+    offset = headerDataEnd;
+
+    packet->data       = (uint8_t *)PICO_MALLOC(filterContext->payloadAccumulatorSize - offset);
+    if (packet->data == NULL) {
+        return PICO_MPEGTS_RESULT_MALLOC_ERROR;
+    }
+    size_t size = filterContext->payloadAccumulatorSize - offset;
+    memcpy(packet->data, &filterContext->payloadAccumulator[offset], size);
+    packet->dataLength = size;
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -3121,7 +3307,6 @@ static picoMpegTSResult __picoMpegTSAddPESPacket(picoMpegTS mpegts, picoMpegTSFi
     if (filterContext->filterType != PICO_MPEGTS_FILTER_TYPE_PES) {
         return PICO_MPEGTS_RESULT_INVALID_DATA;
     }
-
 
     picoMpegTSPESPacket_t packet = {0};
     memset(&packet, 0, sizeof(picoMpegTSPESPacket_t));
@@ -5559,6 +5744,8 @@ void picoMpegTSPESPacketDebugPrint(picoMpegTSPESPacket packet)
             }
         }
     }
+
+    PICO_MPEGTS_LOG("  PES Data Length: %zu bytes\n", packet->dataLength);
 }
 
 static void __picoMpegTSDescriptorPayloadISO639LanguageDebugPrint(picoMpegTSDescriptor descriptor, int indent)
