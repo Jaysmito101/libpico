@@ -440,6 +440,146 @@ typedef enum {
     PICO_MPEGTS_AUDIO_TYPE_ALTERNATE_COMMENTARY       = 0x84,
 } picoMpegTSAudioType;
 
+typedef enum {
+    PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_UNDEFINED         = 0x0,
+    PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_MOVIE_DRAMA       = 0x1,
+    PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_NEWS_CURRENT      = 0x2,
+    PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_SHOW_GAME         = 0x3,
+    PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_SPORTS            = 0x4,
+    PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_CHILDREN_YOUTH    = 0x5,
+    PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_MUSIC_BALLET      = 0x6,
+    PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_ARTS_CULTURE      = 0x7,
+    PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_SOCIAL_POLITICAL  = 0x8,
+    PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_EDUCATION_SCIENCE = 0x9,
+    PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_LEISURE_HOBBIES   = 0xA,
+    PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_SPECIAL           = 0xB,
+    PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_ADULT             = 0xC,
+    PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_RESERVED_E        = 0xE,
+    PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_USER_DEFINED      = 0xF,
+} picoMpegTSContentNibbleLevel1;
+
+typedef enum {
+    PICO_MPEGTS_CONTENT_UNDEFINED = 0x00,
+
+    // Movie/Drama (0x1)
+    PICO_MPEGTS_CONTENT_MOVIE_DRAMA_GENERAL                  = 0x10,
+    PICO_MPEGTS_CONTENT_MOVIE_DETECTIVE_THRILLER             = 0x11,
+    PICO_MPEGTS_CONTENT_MOVIE_ADVENTURE_WESTERN_WAR          = 0x12,
+    PICO_MPEGTS_CONTENT_MOVIE_SCIENCE_FICTION_FANTASY_HORROR = 0x13,
+    PICO_MPEGTS_CONTENT_MOVIE_COMEDY                         = 0x14,
+    PICO_MPEGTS_CONTENT_MOVIE_SOAP_MELODRAMA_FOLKLORIC       = 0x15,
+    PICO_MPEGTS_CONTENT_MOVIE_ROMANCE                        = 0x16,
+    PICO_MPEGTS_CONTENT_MOVIE_SERIOUS_CLASSICAL_RELIGIOUS    = 0x17,
+    PICO_MPEGTS_CONTENT_MOVIE_ADULT_MOVIE_DRAMA              = 0x18,
+    PICO_MPEGTS_CONTENT_MOVIE_USER_DEFINED                   = 0x1F,
+
+    // News/Current affairs (0x2)
+    PICO_MPEGTS_CONTENT_NEWS_GENERAL                     = 0x20,
+    PICO_MPEGTS_CONTENT_NEWS_WEATHER_REPORT              = 0x21,
+    PICO_MPEGTS_CONTENT_NEWS_MAGAZINE                    = 0x22,
+    PICO_MPEGTS_CONTENT_NEWS_DOCUMENTARY                 = 0x23,
+    PICO_MPEGTS_CONTENT_NEWS_DISCUSSION_INTERVIEW_DEBATE = 0x24,
+    PICO_MPEGTS_CONTENT_NEWS_USER_DEFINED                = 0x2F,
+
+    // Show/Game show (0x3)
+    PICO_MPEGTS_CONTENT_SHOW_GENERAL                = 0x30,
+    PICO_MPEGTS_CONTENT_SHOW_GAME_SHOW_QUIZ_CONTEST = 0x31,
+    PICO_MPEGTS_CONTENT_SHOW_VARIETY_SHOW           = 0x32,
+    PICO_MPEGTS_CONTENT_SHOW_TALK_SHOW              = 0x33,
+    PICO_MPEGTS_CONTENT_SHOW_USER_DEFINED           = 0x3F,
+
+    // Sports (0x4)
+    PICO_MPEGTS_CONTENT_SPORTS_GENERAL         = 0x40,
+    PICO_MPEGTS_CONTENT_SPORTS_SPECIAL_EVENTS  = 0x41,
+    PICO_MPEGTS_CONTENT_SPORTS_MAGAZINES       = 0x42,
+    PICO_MPEGTS_CONTENT_SPORTS_FOOTBALL_SOCCER = 0x43,
+    PICO_MPEGTS_CONTENT_SPORTS_TENNIS_SQUASH   = 0x44,
+    PICO_MPEGTS_CONTENT_SPORTS_TEAM_SPORTS     = 0x45,
+    PICO_MPEGTS_CONTENT_SPORTS_ATHLETICS       = 0x46,
+    PICO_MPEGTS_CONTENT_SPORTS_MOTOR_SPORT     = 0x47,
+    PICO_MPEGTS_CONTENT_SPORTS_WATER_SPORT     = 0x48,
+    PICO_MPEGTS_CONTENT_SPORTS_WINTER_SPORTS   = 0x49,
+    PICO_MPEGTS_CONTENT_SPORTS_EQUESTRIAN      = 0x4A,
+    PICO_MPEGTS_CONTENT_SPORTS_MARTIAL_SPORTS  = 0x4B,
+    PICO_MPEGTS_CONTENT_SPORTS_USER_DEFINED    = 0x4F,
+
+    // Children's/Youth programmes (0x5)
+    PICO_MPEGTS_CONTENT_CHILDREN_GENERAL             = 0x50,
+    PICO_MPEGTS_CONTENT_CHILDREN_PRE_SCHOOL          = 0x51,
+    PICO_MPEGTS_CONTENT_CHILDREN_ENTERTAINMENT_6_14  = 0x52,
+    PICO_MPEGTS_CONTENT_CHILDREN_ENTERTAINMENT_10_16 = 0x53,
+    PICO_MPEGTS_CONTENT_CHILDREN_INFORMATIONAL       = 0x54,
+    PICO_MPEGTS_CONTENT_CHILDREN_CARTOONS_PUPPETS    = 0x55,
+    PICO_MPEGTS_CONTENT_CHILDREN_USER_DEFINED        = 0x5F,
+
+    // Music/Ballet/Dance (0x6)
+    PICO_MPEGTS_CONTENT_MUSIC_GENERAL          = 0x60,
+    PICO_MPEGTS_CONTENT_MUSIC_ROCK_POP         = 0x61,
+    PICO_MPEGTS_CONTENT_MUSIC_CLASSICAL        = 0x62,
+    PICO_MPEGTS_CONTENT_MUSIC_FOLK_TRADITIONAL = 0x63,
+    PICO_MPEGTS_CONTENT_MUSIC_JAZZ             = 0x64,
+    PICO_MPEGTS_CONTENT_MUSIC_MUSICAL_OPERA    = 0x65,
+    PICO_MPEGTS_CONTENT_MUSIC_BALLET           = 0x66,
+    PICO_MPEGTS_CONTENT_MUSIC_USER_DEFINED     = 0x6F,
+
+    // Arts/Culture (0x7)
+    PICO_MPEGTS_CONTENT_ARTS_GENERAL                 = 0x70,
+    PICO_MPEGTS_CONTENT_ARTS_PERFORMING_ARTS         = 0x71,
+    PICO_MPEGTS_CONTENT_ARTS_FINE_ARTS               = 0x72,
+    PICO_MPEGTS_CONTENT_ARTS_RELIGION                = 0x73,
+    PICO_MPEGTS_CONTENT_ARTS_POPULAR_CULTURE         = 0x74,
+    PICO_MPEGTS_CONTENT_ARTS_LITERATURE              = 0x75,
+    PICO_MPEGTS_CONTENT_ARTS_FILM_CINEMA             = 0x76,
+    PICO_MPEGTS_CONTENT_ARTS_EXPERIMENTAL_FILM_VIDEO = 0x77,
+    PICO_MPEGTS_CONTENT_ARTS_BROADCASTING_PRESS      = 0x78,
+    PICO_MPEGTS_CONTENT_ARTS_NEW_MEDIA               = 0x79,
+    PICO_MPEGTS_CONTENT_ARTS_MAGAZINES               = 0x7A,
+    PICO_MPEGTS_CONTENT_ARTS_FASHION                 = 0x7B,
+    PICO_MPEGTS_CONTENT_ARTS_USER_DEFINED            = 0x7F,
+
+    // Social/Political issues/Economics (0x8)
+    PICO_MPEGTS_CONTENT_SOCIAL_GENERAL            = 0x80,
+    PICO_MPEGTS_CONTENT_SOCIAL_MAGAZINES_REPORTS  = 0x81,
+    PICO_MPEGTS_CONTENT_SOCIAL_ECONOMICS_ADVISORY = 0x82,
+    PICO_MPEGTS_CONTENT_SOCIAL_REMARKABLE_PEOPLE  = 0x83,
+    PICO_MPEGTS_CONTENT_SOCIAL_USER_DEFINED       = 0x8F,
+
+    // Education/Science/Factual topics (0x9)
+    PICO_MPEGTS_CONTENT_EDUCATION_GENERAL           = 0x90,
+    PICO_MPEGTS_CONTENT_EDUCATION_NATURE_ANIMALS    = 0x91,
+    PICO_MPEGTS_CONTENT_EDUCATION_TECHNOLOGY        = 0x92,
+    PICO_MPEGTS_CONTENT_EDUCATION_MEDICINE          = 0x93,
+    PICO_MPEGTS_CONTENT_EDUCATION_FOREIGN_COUNTRIES = 0x94,
+    PICO_MPEGTS_CONTENT_EDUCATION_SOCIAL_SPIRITUAL  = 0x95,
+    PICO_MPEGTS_CONTENT_EDUCATION_FURTHER_EDUCATION = 0x96,
+    PICO_MPEGTS_CONTENT_EDUCATION_LANGUAGES         = 0x97,
+    PICO_MPEGTS_CONTENT_EDUCATION_USER_DEFINED      = 0x9F,
+
+    // Leisure hobbies (0xA)
+    PICO_MPEGTS_CONTENT_LEISURE_GENERAL                = 0xA0,
+    PICO_MPEGTS_CONTENT_LEISURE_TOURISM_TRAVEL         = 0xA1,
+    PICO_MPEGTS_CONTENT_LEISURE_HANDICRAFT             = 0xA2,
+    PICO_MPEGTS_CONTENT_LEISURE_MOTORING               = 0xA3,
+    PICO_MPEGTS_CONTENT_LEISURE_FITNESS_HEALTH         = 0xA4,
+    PICO_MPEGTS_CONTENT_LEISURE_COOKING                = 0xA5,
+    PICO_MPEGTS_CONTENT_LEISURE_ADVERTISEMENT_SHOPPING = 0xA6,
+    PICO_MPEGTS_CONTENT_LEISURE_GARDENING              = 0xA7,
+    PICO_MPEGTS_CONTENT_LEISURE_USER_DEFINED           = 0xAF,
+
+    // Special characteristics (0xB)
+    PICO_MPEGTS_CONTENT_SPECIAL_ORIGINAL_LANGUAGE  = 0xB0,
+    PICO_MPEGTS_CONTENT_SPECIAL_BLACK_AND_WHITE    = 0xB1,
+    PICO_MPEGTS_CONTENT_SPECIAL_UNPUBLISHED        = 0xB2,
+    PICO_MPEGTS_CONTENT_SPECIAL_LIVE_BROADCAST     = 0xB3,
+    PICO_MPEGTS_CONTENT_SPECIAL_PLANO_STEREOSCOPIC = 0xB4,
+    PICO_MPEGTS_CONTENT_SPECIAL_LOCAL_OR_REGIONAL  = 0xB5,
+    PICO_MPEGTS_CONTENT_SPECIAL_USER_DEFINED       = 0xBF,
+
+    // Adult (0xC)
+    PICO_MPEGTS_CONTENT_ADULT_GENERAL      = 0xC0,
+    PICO_MPEGTS_CONTENT_ADULT_USER_DEFINED = 0xCF,
+} picoMpegTSContentNibble;
+
 typedef struct picoMpegTS_t picoMpegTS_t;
 typedef picoMpegTS_t *picoMpegTS;
 
@@ -775,10 +915,22 @@ typedef picoMpegTSDescriptorStreamIdentifier_t *picoMpegTSDescriptorStreamIdenti
 typedef struct {
     uint16_t caSystemId;
     uint16_t caPid;
-    uint8_t privateData[256];
+    uint8_t privateData[64];
     size_t privateDataLength;
 } picoMpegTSDescriptorCA_t;
 typedef picoMpegTSDescriptorCA_t *picoMpegTSDescriptorCA;
+
+typedef struct {
+    uint8_t nibbleLevel1;
+    uint8_t nibbleLevel2;
+    uint8_t userByte;
+} picoMpegTSDescriptorContentEntry_t;
+
+typedef struct {
+    picoMpegTSDescriptorContentEntry_t entries[16];
+    size_t entryCount;
+} picoMpegTSDescriptorContent_t;
+typedef picoMpegTSDescriptorContent_t *picoMpegTSDescriptorContent;
 
 typedef struct {
     uint8_t data[PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH];
@@ -790,6 +942,7 @@ typedef struct {
         picoMpegTSDescriptorService_t service;
         picoMpegTSDescriptorStreamIdentifier_t streamIdentifier;
         picoMpegTSDescriptorCA_t ca;
+        picoMpegTSDescriptorContent_t content;
     } parsed;
 } picoMpegTSDescriptor_t;
 typedef picoMpegTSDescriptor_t *picoMpegTSDescriptor;
@@ -1115,6 +1268,8 @@ const char *picoMpegTSSDTRunningStatusToString(picoMpegTSSDTRunningStatus status
 const char *picoMpegTSDescriptorTagToString(uint8_t tag);
 const char *picoMpegTSServiceTypeToString(picoMpegTSServiceType type);
 const char *picoMpegTSAudioTypeToString(picoMpegTSAudioType type);
+const char *picoMpegTSContentNibbleLevel1ToString(uint8_t nibble);
+const char *picoMpegTSContentNibbleToString(picoMpegTSContentNibble nibble);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_MPEGTS_IMPLEMENTATION)
 #define PICO_MPEGTS_IMPLEMENTATION
@@ -1282,12 +1437,35 @@ static bool __picoMpegTSDescriptorPayloadParseCA(picoMpegTSDescriptor descriptor
     descriptor->parsed.ca.caPid      = (uint16_t)((descriptor->data[2] & 0x1F) << 8) | descriptor->data[3];
 
     descriptor->parsed.ca.privateDataLength = descriptor->dataLength - 4;
-    if (descriptor->parsed.ca.privateDataLength > 256) {
-        descriptor->parsed.ca.privateDataLength = 256;
+    if (descriptor->parsed.ca.privateDataLength > 64) {
+        descriptor->parsed.ca.privateDataLength = 64;
     }
 
     if (descriptor->parsed.ca.privateDataLength > 0) {
         memcpy(descriptor->parsed.ca.privateData, &descriptor->data[4], descriptor->parsed.ca.privateDataLength);
+    }
+
+    return true;
+}
+
+static bool __picoMpegTSDescriptorPayloadParseContent(picoMpegTSDescriptor descriptor)
+{
+    PICO_ASSERT(descriptor != NULL);
+    PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_CONTENT);
+
+    if (descriptor->dataLength % 2 != 0) {
+        return false;
+    }
+
+    descriptor->parsed.content.entryCount = descriptor->dataLength / 2;
+    if (descriptor->parsed.content.entryCount > 16) {
+        descriptor->parsed.content.entryCount = 16;
+    }
+
+    for (size_t i = 0; i < descriptor->parsed.content.entryCount; i++) {
+        descriptor->parsed.content.entries[i].nibbleLevel1 = (descriptor->data[i * 2] & 0xF0) >> 4;
+        descriptor->parsed.content.entries[i].nibbleLevel2 = descriptor->data[i * 2] & 0x0F;
+        descriptor->parsed.content.entries[i].userByte     = descriptor->data[i * 2 + 1];
     }
 
     return true;
@@ -1306,6 +1484,8 @@ static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
             return __picoMpegTSDescriptorPayloadParseStreamIdentifier(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_CA:
             return __picoMpegTSDescriptorPayloadParseCA(descriptor);
+        case PICO_MPEGTS_DESCRIPTOR_TAG_CONTENT:
+            return __picoMpegTSDescriptorPayloadParseContent(descriptor);
         default:
             return false;
     }
@@ -3103,6 +3283,265 @@ const char *picoMpegTSAudioTypeToString(picoMpegTSAudioType type)
     }
 }
 
+const char *picoMpegTSContentNibbleLevel1ToString(uint8_t nibble)
+{
+    switch ((picoMpegTSContentNibbleLevel1)nibble) {
+        case PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_UNDEFINED:
+            return "Undefined content";
+        case PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_MOVIE_DRAMA:
+            return "Movie/Drama";
+        case PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_NEWS_CURRENT:
+            return "News/Current affairs";
+        case PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_SHOW_GAME:
+            return "Show/Game show";
+        case PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_SPORTS:
+            return "Sports";
+        case PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_CHILDREN_YOUTH:
+            return "Children's/Youth programmes";
+        case PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_MUSIC_BALLET:
+            return "Music/Ballet/Dance";
+        case PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_ARTS_CULTURE:
+            return "Arts/Culture (without music)";
+        case PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_SOCIAL_POLITICAL:
+            return "Social/Political issues/Economics";
+        case PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_EDUCATION_SCIENCE:
+            return "Education/Science/Factual topics";
+        case PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_LEISURE_HOBBIES:
+            return "Leisure hobbies";
+        case PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_SPECIAL:
+            return "Special characteristics";
+        case PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_ADULT:
+            return "Adult";
+        case PICO_MPEGTS_CONTENT_NIBBLE_LEVEL_1_USER_DEFINED:
+            return "User defined";
+        default:
+            return "Reserved for future use";
+    }
+}
+
+const char *picoMpegTSContentNibbleToString(picoMpegTSContentNibble nibble)
+{
+    switch (nibble) {
+        case PICO_MPEGTS_CONTENT_UNDEFINED:
+            return "Undefined content";
+
+        // Movie/Drama
+        case PICO_MPEGTS_CONTENT_MOVIE_DRAMA_GENERAL:
+            return "movie/drama (general)";
+        case PICO_MPEGTS_CONTENT_MOVIE_DETECTIVE_THRILLER:
+            return "detective/thriller";
+        case PICO_MPEGTS_CONTENT_MOVIE_ADVENTURE_WESTERN_WAR:
+            return "adventure/western/war";
+        case PICO_MPEGTS_CONTENT_MOVIE_SCIENCE_FICTION_FANTASY_HORROR:
+            return "science fiction/fantasy/horror";
+        case PICO_MPEGTS_CONTENT_MOVIE_COMEDY:
+            return "comedy";
+        case PICO_MPEGTS_CONTENT_MOVIE_SOAP_MELODRAMA_FOLKLORIC:
+            return "soap/melodrama/folkloric";
+        case PICO_MPEGTS_CONTENT_MOVIE_ROMANCE:
+            return "romance";
+        case PICO_MPEGTS_CONTENT_MOVIE_SERIOUS_CLASSICAL_RELIGIOUS:
+            return "serious/classical/religious/historical movie/drama";
+        case PICO_MPEGTS_CONTENT_MOVIE_ADULT_MOVIE_DRAMA:
+            return "adult movie/drama";
+        case PICO_MPEGTS_CONTENT_MOVIE_USER_DEFINED:
+            return "movie user defined";
+
+        // News/Current affairs
+        case PICO_MPEGTS_CONTENT_NEWS_GENERAL:
+            return "news/current affairs (general)";
+        case PICO_MPEGTS_CONTENT_NEWS_WEATHER_REPORT:
+            return "news/weather report";
+        case PICO_MPEGTS_CONTENT_NEWS_MAGAZINE:
+            return "news magazine";
+        case PICO_MPEGTS_CONTENT_NEWS_DOCUMENTARY:
+            return "documentary";
+        case PICO_MPEGTS_CONTENT_NEWS_DISCUSSION_INTERVIEW_DEBATE:
+            return "discussion/interview/debate";
+        case PICO_MPEGTS_CONTENT_NEWS_USER_DEFINED:
+            return "news user defined";
+
+        // Show/Game show
+        case PICO_MPEGTS_CONTENT_SHOW_GENERAL:
+            return "show/game show (general)";
+        case PICO_MPEGTS_CONTENT_SHOW_GAME_SHOW_QUIZ_CONTEST:
+            return "game show/quiz/contest";
+        case PICO_MPEGTS_CONTENT_SHOW_VARIETY_SHOW:
+            return "variety show";
+        case PICO_MPEGTS_CONTENT_SHOW_TALK_SHOW:
+            return "talk show";
+        case PICO_MPEGTS_CONTENT_SHOW_USER_DEFINED:
+            return "show user defined";
+
+        // Sports
+        case PICO_MPEGTS_CONTENT_SPORTS_GENERAL:
+            return "sports (general)";
+        case PICO_MPEGTS_CONTENT_SPORTS_SPECIAL_EVENTS:
+            return "special events (Olympic Games, World Cup, etc.)";
+        case PICO_MPEGTS_CONTENT_SPORTS_MAGAZINES:
+            return "sports magazines";
+        case PICO_MPEGTS_CONTENT_SPORTS_FOOTBALL_SOCCER:
+            return "football/soccer";
+        case PICO_MPEGTS_CONTENT_SPORTS_TENNIS_SQUASH:
+            return "tennis/squash";
+        case PICO_MPEGTS_CONTENT_SPORTS_TEAM_SPORTS:
+            return "team sports (excluding football)";
+        case PICO_MPEGTS_CONTENT_SPORTS_ATHLETICS:
+            return "athletics";
+        case PICO_MPEGTS_CONTENT_SPORTS_MOTOR_SPORT:
+            return "motor sport";
+        case PICO_MPEGTS_CONTENT_SPORTS_WATER_SPORT:
+            return "water sport";
+        case PICO_MPEGTS_CONTENT_SPORTS_WINTER_SPORTS:
+            return "winter sports";
+        case PICO_MPEGTS_CONTENT_SPORTS_EQUESTRIAN:
+            return "equestrian";
+        case PICO_MPEGTS_CONTENT_SPORTS_MARTIAL_SPORTS:
+            return "martial sports";
+        case PICO_MPEGTS_CONTENT_SPORTS_USER_DEFINED:
+            return "sports user defined";
+
+        // Children's/Youth programmes
+        case PICO_MPEGTS_CONTENT_CHILDREN_GENERAL:
+            return "children's/youth programmes (general)";
+        case PICO_MPEGTS_CONTENT_CHILDREN_PRE_SCHOOL:
+            return "pre-school children's programmes";
+        case PICO_MPEGTS_CONTENT_CHILDREN_ENTERTAINMENT_6_14:
+            return "entertainment programmes for 6 to 14";
+        case PICO_MPEGTS_CONTENT_CHILDREN_ENTERTAINMENT_10_16:
+            return "entertainment programmes for 10 to 16";
+        case PICO_MPEGTS_CONTENT_CHILDREN_INFORMATIONAL:
+            return "informational/educational/school programmes";
+        case PICO_MPEGTS_CONTENT_CHILDREN_CARTOONS_PUPPETS:
+            return "cartoons/puppets";
+        case PICO_MPEGTS_CONTENT_CHILDREN_USER_DEFINED:
+            return "children user defined";
+
+        // Music/Ballet/Dance
+        case PICO_MPEGTS_CONTENT_MUSIC_GENERAL:
+            return "music/ballet/dance (general)";
+        case PICO_MPEGTS_CONTENT_MUSIC_ROCK_POP:
+            return "rock/pop";
+        case PICO_MPEGTS_CONTENT_MUSIC_CLASSICAL:
+            return "serious music/classical music";
+        case PICO_MPEGTS_CONTENT_MUSIC_FOLK_TRADITIONAL:
+            return "folk/traditional music";
+        case PICO_MPEGTS_CONTENT_MUSIC_JAZZ:
+            return "jazz";
+        case PICO_MPEGTS_CONTENT_MUSIC_MUSICAL_OPERA:
+            return "musical/opera";
+        case PICO_MPEGTS_CONTENT_MUSIC_BALLET:
+            return "ballet";
+        case PICO_MPEGTS_CONTENT_MUSIC_USER_DEFINED:
+            return "music user defined";
+
+        // Arts/Culture
+        case PICO_MPEGTS_CONTENT_ARTS_GENERAL:
+            return "arts/culture (without music, general)";
+        case PICO_MPEGTS_CONTENT_ARTS_PERFORMING_ARTS:
+            return "performing arts";
+        case PICO_MPEGTS_CONTENT_ARTS_FINE_ARTS:
+            return "fine arts";
+        case PICO_MPEGTS_CONTENT_ARTS_RELIGION:
+            return "religion";
+        case PICO_MPEGTS_CONTENT_ARTS_POPULAR_CULTURE:
+            return "popular culture/traditional arts";
+        case PICO_MPEGTS_CONTENT_ARTS_LITERATURE:
+            return "literature";
+        case PICO_MPEGTS_CONTENT_ARTS_FILM_CINEMA:
+            return "film/cinema";
+        case PICO_MPEGTS_CONTENT_ARTS_EXPERIMENTAL_FILM_VIDEO:
+            return "experimental film/video";
+        case PICO_MPEGTS_CONTENT_ARTS_BROADCASTING_PRESS:
+            return "broadcasting/press";
+        case PICO_MPEGTS_CONTENT_ARTS_NEW_MEDIA:
+            return "new media";
+        case PICO_MPEGTS_CONTENT_ARTS_MAGAZINES:
+            return "arts/culture magazines";
+        case PICO_MPEGTS_CONTENT_ARTS_FASHION:
+            return "fashion";
+        case PICO_MPEGTS_CONTENT_ARTS_USER_DEFINED:
+            return "arts user defined";
+
+        // Social/Political issues/Economics
+        case PICO_MPEGTS_CONTENT_SOCIAL_GENERAL:
+            return "social/political issues/economics (general)";
+        case PICO_MPEGTS_CONTENT_SOCIAL_MAGAZINES_REPORTS:
+            return "magazines/reports/documentary";
+        case PICO_MPEGTS_CONTENT_SOCIAL_ECONOMICS_ADVISORY:
+            return "economics/social advisory";
+        case PICO_MPEGTS_CONTENT_SOCIAL_REMARKABLE_PEOPLE:
+            return "remarkable people";
+        case PICO_MPEGTS_CONTENT_SOCIAL_USER_DEFINED:
+            return "social user defined";
+
+        // Education/Science/Factual topics
+        case PICO_MPEGTS_CONTENT_EDUCATION_GENERAL:
+            return "education/science/factual topics (general)";
+        case PICO_MPEGTS_CONTENT_EDUCATION_NATURE_ANIMALS:
+            return "nature/animals/environment";
+        case PICO_MPEGTS_CONTENT_EDUCATION_TECHNOLOGY:
+            return "technology/natural sciences";
+        case PICO_MPEGTS_CONTENT_EDUCATION_MEDICINE:
+            return "medicine/physiology/psychology";
+        case PICO_MPEGTS_CONTENT_EDUCATION_FOREIGN_COUNTRIES:
+            return "foreign countries/expeditions";
+        case PICO_MPEGTS_CONTENT_EDUCATION_SOCIAL_SPIRITUAL:
+            return "social/spiritual sciences";
+        case PICO_MPEGTS_CONTENT_EDUCATION_FURTHER_EDUCATION:
+            return "further education";
+        case PICO_MPEGTS_CONTENT_EDUCATION_LANGUAGES:
+            return "languages";
+        case PICO_MPEGTS_CONTENT_EDUCATION_USER_DEFINED:
+            return "education user defined";
+
+        // Leisure hobbies
+        case PICO_MPEGTS_CONTENT_LEISURE_GENERAL:
+            return "leisure hobbies (general)";
+        case PICO_MPEGTS_CONTENT_LEISURE_TOURISM_TRAVEL:
+            return "tourism/travel";
+        case PICO_MPEGTS_CONTENT_LEISURE_HANDICRAFT:
+            return "handicraft";
+        case PICO_MPEGTS_CONTENT_LEISURE_MOTORING:
+            return "motoring";
+        case PICO_MPEGTS_CONTENT_LEISURE_FITNESS_HEALTH:
+            return "fitness and health";
+        case PICO_MPEGTS_CONTENT_LEISURE_COOKING:
+            return "cooking";
+        case PICO_MPEGTS_CONTENT_LEISURE_ADVERTISEMENT_SHOPPING:
+            return "advertisement/shopping";
+        case PICO_MPEGTS_CONTENT_LEISURE_GARDENING:
+            return "gardening";
+        case PICO_MPEGTS_CONTENT_LEISURE_USER_DEFINED:
+            return "leisure user defined";
+
+        // Special characteristics
+        case PICO_MPEGTS_CONTENT_SPECIAL_ORIGINAL_LANGUAGE:
+            return "original language";
+        case PICO_MPEGTS_CONTENT_SPECIAL_BLACK_AND_WHITE:
+            return "black and white";
+        case PICO_MPEGTS_CONTENT_SPECIAL_UNPUBLISHED:
+            return "unpublished";
+        case PICO_MPEGTS_CONTENT_SPECIAL_LIVE_BROADCAST:
+            return "live broadcast";
+        case PICO_MPEGTS_CONTENT_SPECIAL_PLANO_STEREOSCOPIC:
+            return "plano-stereoscopic";
+        case PICO_MPEGTS_CONTENT_SPECIAL_LOCAL_OR_REGIONAL:
+            return "local or regional";
+        case PICO_MPEGTS_CONTENT_SPECIAL_USER_DEFINED:
+            return "special user defined";
+
+        // Adult
+        case PICO_MPEGTS_CONTENT_ADULT_GENERAL:
+            return "adult (general)";
+        case PICO_MPEGTS_CONTENT_ADULT_USER_DEFINED:
+            return "adult user defined";
+
+        default:
+            return "reserved or unknown content";
+    }
+}
+
 const char *picoMpegTSStreamTypeToString(uint8_t streamType)
 {
     switch (streamType) {
@@ -3570,6 +4009,7 @@ void picoMpegTSPacketDebugPrint(picoMpegTSPacket packet)
 
 static void __picoMpegTSDescriptorPayloadISO639LanguageDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
+    (void)indent;
     if (descriptor == NULL) {
         return;
     }
@@ -3585,6 +4025,7 @@ static void __picoMpegTSDescriptorPayloadISO639LanguageDebugPrint(picoMpegTSDesc
 
 static void __picoMpegTSDescriptorPayloadServiceDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
+    (void)indent;
     if (descriptor == NULL) {
         return;
     }
@@ -3598,6 +4039,7 @@ static void __picoMpegTSDescriptorPayloadServiceDebugPrint(picoMpegTSDescriptor 
 
 static void __picoMpegTSDescriptorPayloadStreamIdentifierDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
+    (void)indent;
     if (descriptor == NULL) {
         return;
     }
@@ -3607,6 +4049,7 @@ static void __picoMpegTSDescriptorPayloadStreamIdentifierDebugPrint(picoMpegTSDe
 
 static void __picoMpegTSDescriptorPayloadCADebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
+    (void)indent;
     if (descriptor == NULL) {
         return;
     }
@@ -3623,8 +4066,28 @@ static void __picoMpegTSDescriptorPayloadCADebugPrint(picoMpegTSDescriptor descr
     }
 }
 
+static void __picoMpegTSDescriptorPayloadContentDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+{
+    (void)indent;
+    if (descriptor == NULL) {
+        return;
+    }
+    PICO_MPEGTS_LOG("%*sContent Descriptor:\n", indent, "");
+    for (size_t i = 0; i < descriptor->parsed.content.entryCount; i++) {
+        PICO_MPEGTS_LOG("%*sEntry [%zu]:\n", indent + 2, "", i);
+        PICO_MPEGTS_LOG("%*sLevel 1\t: %s [0x%X]\n", indent + 4, "",
+                        picoMpegTSContentNibbleLevel1ToString(descriptor->parsed.content.entries[i].nibbleLevel1),
+                        descriptor->parsed.content.entries[i].nibbleLevel1);
+        PICO_MPEGTS_LOG("%*sLevel 2\t: %s [0x%X]\n", indent + 4, "",
+                        picoMpegTSContentNibbleToString((picoMpegTSContentNibble)((descriptor->parsed.content.entries[i].nibbleLevel1 << 4) | descriptor->parsed.content.entries[i].nibbleLevel2)),
+                        descriptor->parsed.content.entries[i].nibbleLevel2);
+        PICO_MPEGTS_LOG("%*sUser Byte\t: 0x%02X\n", indent + 4, "", descriptor->parsed.content.entries[i].userByte);
+    }
+}
+
 static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
+    (void)indent;
     if (descriptor == NULL) {
         return;
     }
@@ -3640,6 +4103,9 @@ static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descrip
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_CA:
             __picoMpegTSDescriptorPayloadCADebugPrint(descriptor, indent);
+            break;
+        case PICO_MPEGTS_DESCRIPTOR_TAG_CONTENT:
+            __picoMpegTSDescriptorPayloadContentDebugPrint(descriptor, indent);
             break;
         default:
             PICO_MPEGTS_LOG("%*sDescriptor Payload: \n", indent, "");
@@ -3678,6 +4144,8 @@ static void __picoMpegTSDescriptorSetDebugPrint(picoMpegTSDescriptorSet set, int
 
 static void __picoMpegTSUTCTimeDebugPrint(const picoMpegTSUTCTime_t *time, const char *label, int indent)
 {
+    (void)indent;
+    (void)label;
     if (time == NULL)
         return;
     PICO_MPEGTS_LOG("%*s%s: Date: %04u-%02u-%02u, Time: %02u:%02u:%02u\n",
@@ -3686,6 +4154,8 @@ static void __picoMpegTSUTCTimeDebugPrint(const picoMpegTSUTCTime_t *time, const
 
 static void __picoMpegTSDurationDebugPrint(const picoMpegTSDuration_t *duration, const char *label, int indent)
 {
+    (void)indent;
+    (void)label;
     if (duration == NULL)
         return;
     PICO_MPEGTS_LOG("%*s%s: %02X:%02X:%02X\n",
