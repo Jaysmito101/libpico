@@ -250,26 +250,25 @@ typedef enum {
 } picoMpegTSStreamType;
 
 typedef enum {
-    PICO_MPEGTS_DESCRIPTOR_TAG_RESERVED_0                   = 0,
-    PICO_MPEGTS_DESCRIPTOR_TAG_FORBIDDEN                    = 1,
-    PICO_MPEGTS_DESCRIPTOR_TAG_VIDEO_STREAM                 = 2,
-    PICO_MPEGTS_DESCRIPTOR_TAG_AUDIO_STREAM                 = 3,
-    PICO_MPEGTS_DESCRIPTOR_TAG_HIERARCHY                    = 4,
-    PICO_MPEGTS_DESCRIPTOR_TAG_REGISTRATION                 = 5,
-    PICO_MPEGTS_DESCRIPTOR_TAG_DATA_STREAM_ALIGNMENT        = 6,
-    PICO_MPEGTS_DESCRIPTOR_TAG_TARGET_BACKGROUND_GRID       = 7,
-    PICO_MPEGTS_DESCRIPTOR_TAG_VIDEO_WINDOW                 = 8,
-    PICO_MPEGTS_DESCRIPTOR_TAG_CA                           = 9,
-    PICO_MPEGTS_DESCRIPTOR_TAG_ISO_639_LANGUAGE             = 10,
-    PICO_MPEGTS_DESCRIPTOR_TAG_SYSTEM_CLOCK                 = 11,
-    PICO_MPEGTS_DESCRIPTOR_TAG_MULTIPLEX_BUFFER_UTILIZATION = 12,
-    PICO_MPEGTS_DESCRIPTOR_TAG_COPYRIGHT                    = 13,
-    PICO_MPEGTS_DESCRIPTOR_TAG_MAXIMUM_BITRATE              = 14,
-    PICO_MPEGTS_DESCRIPTOR_TAG_PRIVATE_DATA_INDICATOR       = 15,
-    PICO_MPEGTS_DESCRIPTOR_TAG_SMOOTHING_BUFFER             = 16,
-    PICO_MPEGTS_DESCRIPTOR_TAG_STD                          = 17,
-    PICO_MPEGTS_DESCRIPTOR_TAG_IBP                          = 18,
-    // 19-26 defined in ISO/IEC 13818-6
+    PICO_MPEGTS_DESCRIPTOR_TAG_RESERVED_0                      = 0,
+    PICO_MPEGTS_DESCRIPTOR_TAG_FORBIDDEN                       = 1,
+    PICO_MPEGTS_DESCRIPTOR_TAG_VIDEO_STREAM                    = 2,
+    PICO_MPEGTS_DESCRIPTOR_TAG_AUDIO_STREAM                    = 3,
+    PICO_MPEGTS_DESCRIPTOR_TAG_HIERARCHY                       = 4,
+    PICO_MPEGTS_DESCRIPTOR_TAG_REGISTRATION                    = 5,
+    PICO_MPEGTS_DESCRIPTOR_TAG_DATA_STREAM_ALIGNMENT           = 6,
+    PICO_MPEGTS_DESCRIPTOR_TAG_TARGET_BACKGROUND_GRID          = 7,
+    PICO_MPEGTS_DESCRIPTOR_TAG_VIDEO_WINDOW                    = 8,
+    PICO_MPEGTS_DESCRIPTOR_TAG_CA                              = 9,
+    PICO_MPEGTS_DESCRIPTOR_TAG_ISO_639_LANGUAGE                = 10,
+    PICO_MPEGTS_DESCRIPTOR_TAG_SYSTEM_CLOCK                    = 11,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MULTIPLEX_BUFFER_UTILIZATION    = 12,
+    PICO_MPEGTS_DESCRIPTOR_TAG_COPYRIGHT                       = 13,
+    PICO_MPEGTS_DESCRIPTOR_TAG_MAXIMUM_BITRATE                 = 14,
+    PICO_MPEGTS_DESCRIPTOR_TAG_PRIVATE_DATA_INDICATOR          = 15,
+    PICO_MPEGTS_DESCRIPTOR_TAG_SMOOTHING_BUFFER                = 16,
+    PICO_MPEGTS_DESCRIPTOR_TAG_STD                             = 17,
+    PICO_MPEGTS_DESCRIPTOR_TAG_IBP                             = 18, // 19-26 defined in ISO/IEC 13818-6
     PICO_MPEGTS_DESCRIPTOR_TAG_MPEG4_VIDEO                     = 27,
     PICO_MPEGTS_DESCRIPTOR_TAG_MPEG4_AUDIO                     = 28,
     PICO_MPEGTS_DESCRIPTOR_TAG_IOD                             = 29,
@@ -579,6 +578,159 @@ typedef enum {
     PICO_MPEGTS_CONTENT_ADULT_GENERAL      = 0xC0,
     PICO_MPEGTS_CONTENT_ADULT_USER_DEFINED = 0xCF,
 } picoMpegTSContentNibble;
+
+typedef enum {
+    PICO_MPEGTS_COMPONENT_STREAM_CONTENT_RESERVED     = 0x0,
+    PICO_MPEGTS_COMPONENT_STREAM_CONTENT_MPEG2_VIDEO  = 0x1,
+    PICO_MPEGTS_COMPONENT_STREAM_CONTENT_MPEG1_AUDIO  = 0x2, // MPEG-1 Layer 2 audio
+    PICO_MPEGTS_COMPONENT_STREAM_CONTENT_SUBTITLES    = 0x3,
+    PICO_MPEGTS_COMPONENT_STREAM_CONTENT_AC3_AUDIO    = 0x4,
+    PICO_MPEGTS_COMPONENT_STREAM_CONTENT_AVC_VIDEO    = 0x5,
+    PICO_MPEGTS_COMPONENT_STREAM_CONTENT_HE_AAC_AUDIO = 0x6,
+    PICO_MPEGTS_COMPONENT_STREAM_CONTENT_DTS_AUDIO    = 0x7,
+    PICO_MPEGTS_COMPONENT_STREAM_CONTENT_DVB_SRM      = 0x8,
+    PICO_MPEGTS_COMPONENT_STREAM_CONTENT_HEVC_VIDEO   = 0x9,
+    PICO_MPEGTS_COMPONENT_STREAM_CONTENT_RESERVED_A   = 0xA,
+    PICO_MPEGTS_COMPONENT_STREAM_CONTENT_RESERVED_B   = 0xB,
+    PICO_MPEGTS_COMPONENT_STREAM_CONTENT_RESERVED_C   = 0xC,
+    PICO_MPEGTS_COMPONENT_STREAM_CONTENT_RESERVED_D   = 0xD,
+    PICO_MPEGTS_COMPONENT_STREAM_CONTENT_RESERVED_E   = 0xE,
+    PICO_MPEGTS_COMPONENT_STREAM_CONTENT_EXTENSION    = 0xF, // Uses stream_content_ext for type
+} picoMpegTSComponentStreamContent;
+
+typedef enum {
+    // Reserved (stream_content = 0x0)
+    PICO_MPEGTS_COMPONENT_TYPE_RESERVED = 0x000,
+
+    // MPEG-2 video (stream_content = 0x1, component_type 0x00-0x10)
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_RESERVED            = 0x100,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_4_3_ASPECT_25HZ     = 0x101,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_16_9_PAN_25HZ       = 0x102,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_16_9_NO_PAN_25HZ    = 0x103,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_GT_16_9_25HZ        = 0x104,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_4_3_ASPECT_30HZ     = 0x105,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_16_9_PAN_30HZ       = 0x106,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_16_9_NO_PAN_30HZ    = 0x107,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_GT_16_9_30HZ        = 0x108,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_HD_4_3_ASPECT_25HZ  = 0x109,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_HD_16_9_PAN_25HZ    = 0x10A,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_HD_16_9_NO_PAN_25HZ = 0x10B,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_HD_GT_16_9_25HZ     = 0x10C,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_HD_4_3_ASPECT_30HZ  = 0x10D,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_HD_16_9_PAN_30HZ    = 0x10E,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_HD_16_9_NO_PAN_30HZ = 0x10F,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_HD_GT_16_9_30HZ     = 0x110,
+
+    // MPEG-1 Layer 2 audio (stream_content = 0x2, component_type 0x00-0x47)
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_RESERVED                 = 0x200,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_SINGLE_MONO              = 0x201,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_DUAL_MONO                = 0x202,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_STEREO                   = 0x203,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_MULTI_LINGUAL_MULTI_CHAN = 0x204,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_SURROUND_SOUND           = 0x205,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_VISUALLY_IMPAIRED        = 0x240,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_HARD_OF_HEARING          = 0x241,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_SUPPLEMENTARY            = 0x242,
+    PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_RECEIVER_MIX             = 0x247,
+
+    // Subtitling (stream_content = 0x3, component_type 0x00-0x24)
+    PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_RESERVED                   = 0x300,
+    PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_EBU_TELETEXT               = 0x301,
+    PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_EBU_TELETEXT_ASSOC         = 0x302,
+    PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_EBU_TELETEXT_VBI           = 0x303,
+    PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_NORMAL_NO_AR           = 0x310,
+    PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_NORMAL_4_3             = 0x311,
+    PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_NORMAL_16_9            = 0x312,
+    PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_NORMAL_2_21_1          = 0x313,
+    PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_NORMAL_HD              = 0x314,
+    PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_HARD_OF_HEARING_NO_AR  = 0x320,
+    PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_HARD_OF_HEARING_4_3    = 0x321,
+    PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_HARD_OF_HEARING_16_9   = 0x322,
+    PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_HARD_OF_HEARING_2_21_1 = 0x323,
+    PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_HARD_OF_HEARING_HD     = 0x324,
+
+    // AC-3 audio (stream_content = 0x4)
+    PICO_MPEGTS_COMPONENT_TYPE_AC3_RESERVED = 0x400,
+
+    // H.264/AVC video (stream_content = 0x5, component_type 0x00-0x10)
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_RESERVED            = 0x500,
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_SD_4_3_25HZ         = 0x501,
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_SD_16_9_PAN_25HZ    = 0x502,
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_SD_16_9_NO_PAN_25HZ = 0x503,
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_SD_GT_16_9_25HZ     = 0x504,
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_SD_4_3_30HZ         = 0x505,
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_SD_16_9_PAN_30HZ    = 0x506,
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_SD_16_9_NO_PAN_30HZ = 0x507,
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_SD_GT_16_9_30HZ     = 0x508,
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_HD_4_3_25HZ         = 0x509,
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_HD_16_9_PAN_25HZ    = 0x50A,
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_HD_16_9_NO_PAN_25HZ = 0x50B,
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_HD_GT_16_9_25HZ     = 0x50C,
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_HD_4_3_30HZ         = 0x50D,
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_HD_16_9_PAN_30HZ    = 0x50E,
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_HD_16_9_NO_PAN_30HZ = 0x50F,
+    PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_HD_GT_16_9_30HZ     = 0x510,
+
+    // HE AAC audio (stream_content = 0x6, component_type 0x00-0x47)
+    PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_RESERVED                 = 0x600,
+    PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_SINGLE_MONO              = 0x601,
+    PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_DUAL_MONO                = 0x602,
+    PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_STEREO                   = 0x603,
+    PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_MULTI_LINGUAL_MULTI_CHAN = 0x604,
+    PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_SURROUND_SOUND           = 0x605,
+    PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_VISUALLY_IMPAIRED        = 0x640,
+    PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_HARD_OF_HEARING          = 0x641,
+    PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_SUPPLEMENTARY            = 0x642,
+    PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_HEV2_SINGLE_MONO         = 0x643,
+    PICO_MPEGTS_COMPONENT_TYPE_HEV2_AAC_DUAL_MONO              = 0x644,
+    PICO_MPEGTS_COMPONENT_TYPE_HEV2_AAC_STEREO                 = 0x645,
+    PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_RECEIVER_MIX             = 0x647,
+
+    // DTS audio (stream_content = 0x7)
+    PICO_MPEGTS_COMPONENT_TYPE_DTS_RESERVED = 0x700,
+
+    // DVB SRM (stream_content = 0x8)
+    PICO_MPEGTS_COMPONENT_TYPE_SRM_RESERVED = 0x800,
+
+    // HEVC video (stream_content = 0x9, component_type 0x00-0x08)
+    PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_RESERVED         = 0x900,
+    PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_MAIN_HD_50HZ     = 0x901,
+    PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_MAIN_HD_60HZ     = 0x902,
+    PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_MAIN_10_HD_50HZ  = 0x903,
+    PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_MAIN_10_HD_60HZ  = 0x904,
+    PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_UHD_50HZ_SDR     = 0x905,
+    PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_UHD_60_120HZ_SDR = 0x906,
+    PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_UHD_50HZ_HDR     = 0x907,
+    PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_UHD_60_120HZ_HDR = 0x908,
+
+    // Extension types (stream_content = 0xF, stream_content_ext varies)
+    // Format: 0xFECC where E = stream_content_ext (0-F), CC = component_type
+    PICO_MPEGTS_COMPONENT_TYPE_EXT_RESERVED = 0xF000,
+
+    // AC-4 audio extension (stream_content_ext = 0x0)
+    PICO_MPEGTS_COMPONENT_TYPE_AC4_MAIN_MONO                        = 0xF000,
+    PICO_MPEGTS_COMPONENT_TYPE_AC4_MAIN_STEREO                      = 0xF001,
+    PICO_MPEGTS_COMPONENT_TYPE_AC4_MAIN_STEREO_DIALOGUE_ENHANCEMENT = 0xF002,
+    PICO_MPEGTS_COMPONENT_TYPE_AC4_MAIN_STEREO_VISUALLY_IMPAIRED    = 0xF003,
+    PICO_MPEGTS_COMPONENT_TYPE_AC4_MAIN_STEREO_HARD_OF_HEARING      = 0xF004,
+    PICO_MPEGTS_COMPONENT_TYPE_AC4_MAIN_MULTI_CHANNEL               = 0xF005,
+    PICO_MPEGTS_COMPONENT_TYPE_AC4_BCAST_MIX_MONO                   = 0xF006,
+    PICO_MPEGTS_COMPONENT_TYPE_AC4_BCAST_MIX_STEREO                 = 0xF007,
+    PICO_MPEGTS_COMPONENT_TYPE_AC4_BCAST_MIX_STEREO_DIALOGUE        = 0xF008,
+    PICO_MPEGTS_COMPONENT_TYPE_AC4_BCAST_MIX_STEREO_VI              = 0xF009,
+    PICO_MPEGTS_COMPONENT_TYPE_AC4_BCAST_MIX_STEREO_HOH             = 0xF00A,
+    PICO_MPEGTS_COMPONENT_TYPE_AC4_BCAST_MIX_MULTI_CHANNEL          = 0xF00B,
+    PICO_MPEGTS_COMPONENT_TYPE_AC4_RECEIVER_MIX_MONO                = 0xF00C,
+    PICO_MPEGTS_COMPONENT_TYPE_AC4_RECEIVER_MIX_STEREO              = 0xF00D,
+
+    // NGA component type extension (stream_content_ext = 0xE)
+    PICO_MPEGTS_COMPONENT_TYPE_NGA_CONTENT_LESS_16_9   = 0xFE00,
+    PICO_MPEGTS_COMPONENT_TYPE_NGA_CONTENT_16_9        = 0xFE01,
+    PICO_MPEGTS_COMPONENT_TYPE_NGA_CONTENT_GT_16_9     = 0xFE02,
+    PICO_MPEGTS_COMPONENT_TYPE_NGA_STEREOSCOPIC_TAB    = 0xFE03,
+    PICO_MPEGTS_COMPONENT_TYPE_NGA_HLG10_HDR           = 0xFE04,
+    PICO_MPEGTS_COMPONENT_TYPE_NGA_HEVC_TEMPORAL_VIDEO = 0xFE05,
+} picoMpegTSComponentType;
 
 typedef struct picoMpegTS_t picoMpegTS_t;
 typedef picoMpegTS_t *picoMpegTS;
@@ -933,6 +1085,28 @@ typedef struct {
 typedef picoMpegTSDescriptorContent_t *picoMpegTSDescriptorContent;
 
 typedef struct {
+    // Stream content identifies the high-level type (video, audio, subtitles, etc.)
+    uint8_t streamContent;
+
+    // Stream content extension (only used when streamContent == 0xF)
+    uint8_t streamContentExt;
+
+    // Component type further specifies the stream characteristics
+    uint8_t componentType;
+
+    // Component tag links this descriptor to the stream in PMT
+    uint8_t componentTag;
+
+    // ISO 639 language code
+    char languageCode[4];
+
+    // Textual description of the component
+    char text[256];
+    size_t textLength;
+} picoMpegTSDescriptorComponent_t;
+typedef picoMpegTSDescriptorComponent_t *picoMpegTSDescriptorComponent;
+
+typedef struct {
     uint8_t data[PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH];
     size_t dataLength;
     picoMpegTSDescriptorTag tag;
@@ -943,6 +1117,7 @@ typedef struct {
         picoMpegTSDescriptorStreamIdentifier_t streamIdentifier;
         picoMpegTSDescriptorCA_t ca;
         picoMpegTSDescriptorContent_t content;
+        picoMpegTSDescriptorComponent_t component;
     } parsed;
 } picoMpegTSDescriptor_t;
 typedef picoMpegTSDescriptor_t *picoMpegTSDescriptor;
@@ -1471,6 +1646,40 @@ static bool __picoMpegTSDescriptorPayloadParseContent(picoMpegTSDescriptor descr
     return true;
 }
 
+static bool __picoMpegTSDescriptorPayloadParseComponent(picoMpegTSDescriptor descriptor)
+{
+    PICO_ASSERT(descriptor != NULL);
+    PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_COMPONENT);
+
+    if (descriptor->dataLength < 6) {
+        return false;
+    }
+
+    descriptor->parsed.component.streamContent    = descriptor->data[0] & 0x0F;
+    descriptor->parsed.component.streamContentExt = (descriptor->data[0] & 0xF0) >> 4;
+
+    descriptor->parsed.component.componentType = descriptor->data[1];
+
+    descriptor->parsed.component.componentTag = descriptor->data[2];
+
+    descriptor->parsed.component.languageCode[0] = (char)descriptor->data[3];
+    descriptor->parsed.component.languageCode[1] = (char)descriptor->data[4];
+    descriptor->parsed.component.languageCode[2] = (char)descriptor->data[5];
+    descriptor->parsed.component.languageCode[3] = '\0';
+
+    descriptor->parsed.component.textLength = descriptor->dataLength - 6;
+    if (descriptor->parsed.component.textLength > 255) {
+        descriptor->parsed.component.textLength = 255;
+    }
+
+    if (descriptor->parsed.component.textLength > 0) {
+        memcpy(descriptor->parsed.component.text, &descriptor->data[6], descriptor->parsed.component.textLength);
+    }
+    descriptor->parsed.component.text[descriptor->parsed.component.textLength] = '\0';
+
+    return true;
+}
+
 static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
@@ -1486,6 +1695,8 @@ static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
             return __picoMpegTSDescriptorPayloadParseCA(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_CONTENT:
             return __picoMpegTSDescriptorPayloadParseContent(descriptor);
+        case PICO_MPEGTS_DESCRIPTOR_TAG_COMPONENT:
+            return __picoMpegTSDescriptorPayloadParseComponent(descriptor);
         default:
             return false;
     }
@@ -2097,9 +2308,10 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
         mpegts->partialTables[tableId] = __picoMpegTSTableCreate(tableId, head->versionNumber);
     }
 
-    // NOTE: we currently dont check if its an older version as the version number
-    // wraps around at 31 and will be a pain to handle
-    if (mpegts->partialTables[tableId]->versionNumber != head->versionNumber) {
+    if (mpegts->partialTables[tableId]->versionNumber > head->versionNumber) {
+        return PICO_MPEGTS_RESULT_SUCCESS;
+    }
+    if (mpegts->partialTables[tableId]->versionNumber < head->versionNumber) {
         __picoMpegTSTableDestroy(mpegts->partialTables[tableId]);
         mpegts->partialTables[tableId] = __picoMpegTSTableCreate(tableId, head->versionNumber);
     }
@@ -3925,6 +4137,276 @@ const char *picoMpegTSDescriptorTagToString(uint8_t tag)
     }
 }
 
+const char *picoMpegTSComponentStreamContentToString(uint8_t streamContent)
+{
+    switch (streamContent) {
+        case PICO_MPEGTS_COMPONENT_STREAM_CONTENT_RESERVED:
+            return "Reserved";
+        case PICO_MPEGTS_COMPONENT_STREAM_CONTENT_MPEG2_VIDEO:
+            return "MPEG-2 Video";
+        case PICO_MPEGTS_COMPONENT_STREAM_CONTENT_MPEG1_AUDIO:
+            return "MPEG-1 Layer 2 Audio";
+        case PICO_MPEGTS_COMPONENT_STREAM_CONTENT_SUBTITLES:
+            return "Subtitles";
+        case PICO_MPEGTS_COMPONENT_STREAM_CONTENT_AC3_AUDIO:
+            return "AC-3 Audio";
+        case PICO_MPEGTS_COMPONENT_STREAM_CONTENT_AVC_VIDEO:
+            return "H.264/AVC Video";
+        case PICO_MPEGTS_COMPONENT_STREAM_CONTENT_HE_AAC_AUDIO:
+            return "HE AAC Audio";
+        case PICO_MPEGTS_COMPONENT_STREAM_CONTENT_DTS_AUDIO:
+            return "DTS Audio";
+        case PICO_MPEGTS_COMPONENT_STREAM_CONTENT_DVB_SRM:
+            return "DVB SRM Data";
+        case PICO_MPEGTS_COMPONENT_STREAM_CONTENT_HEVC_VIDEO:
+            return "HEVC Video";
+        case PICO_MPEGTS_COMPONENT_STREAM_CONTENT_EXTENSION:
+            return "Extension";
+        default:
+            return "Reserved";
+    }
+}
+
+const char *picoMpegTSComponentTypeToString(uint16_t componentType)
+{
+    switch (componentType) {
+        // Reserved
+        case PICO_MPEGTS_COMPONENT_TYPE_RESERVED:
+            return "Reserved";
+
+        // MPEG-2 video
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_RESERVED:
+            return "MPEG-2 Video, reserved";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_4_3_ASPECT_25HZ:
+            return "MPEG-2 Video, 4:3 aspect ratio, 25 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_16_9_PAN_25HZ:
+            return "MPEG-2 Video, 16:9 pan vectors, 25 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_16_9_NO_PAN_25HZ:
+            return "MPEG-2 Video, 16:9 no pan, 25 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_GT_16_9_25HZ:
+            return "MPEG-2 Video, >16:9 aspect ratio, 25 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_4_3_ASPECT_30HZ:
+            return "MPEG-2 Video, 4:3 aspect ratio, 30 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_16_9_PAN_30HZ:
+            return "MPEG-2 Video, 16:9 pan vectors, 30 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_16_9_NO_PAN_30HZ:
+            return "MPEG-2 Video, 16:9 no pan, 30 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_GT_16_9_30HZ:
+            return "MPEG-2 Video, >16:9 aspect ratio, 30 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_HD_4_3_ASPECT_25HZ:
+            return "MPEG-2 HD Video, 4:3 aspect ratio, 25 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_HD_16_9_PAN_25HZ:
+            return "MPEG-2 HD Video, 16:9 pan vectors, 25 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_HD_16_9_NO_PAN_25HZ:
+            return "MPEG-2 HD Video, 16:9 no pan, 25 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_HD_GT_16_9_25HZ:
+            return "MPEG-2 HD Video, >16:9 aspect ratio, 25 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_HD_4_3_ASPECT_30HZ:
+            return "MPEG-2 HD Video, 4:3 aspect ratio, 30 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_HD_16_9_PAN_30HZ:
+            return "MPEG-2 HD Video, 16:9 pan vectors, 30 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_HD_16_9_NO_PAN_30HZ:
+            return "MPEG-2 HD Video, 16:9 no pan, 30 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG2_VIDEO_HD_GT_16_9_30HZ:
+            return "MPEG-2 HD Video, >16:9 aspect ratio, 30 Hz";
+
+        // MPEG-1 Layer 2 audio
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_RESERVED:
+            return "MPEG-1 Layer 2 Audio, reserved";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_SINGLE_MONO:
+            return "MPEG-1 Layer 2 Audio, single mono";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_DUAL_MONO:
+            return "MPEG-1 Layer 2 Audio, dual mono";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_STEREO:
+            return "MPEG-1 Layer 2 Audio, stereo";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_MULTI_LINGUAL_MULTI_CHAN:
+            return "MPEG-1 Layer 2 Audio, multilingual/multichannel";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_SURROUND_SOUND:
+            return "MPEG-1 Layer 2 Audio, surround sound";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_VISUALLY_IMPAIRED:
+            return "MPEG-1 Layer 2 Audio, for visually impaired";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_HARD_OF_HEARING:
+            return "MPEG-1 Layer 2 Audio, for hard of hearing";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_SUPPLEMENTARY:
+            return "MPEG-1 Layer 2 Audio, supplementary";
+        case PICO_MPEGTS_COMPONENT_TYPE_MPEG1_AUDIO_RECEIVER_MIX:
+            return "MPEG-1 Layer 2 Audio, receiver mix";
+
+        // Subtitles
+        case PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_RESERVED:
+            return "Subtitles, reserved";
+        case PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_EBU_TELETEXT:
+            return "EBU Teletext subtitles";
+        case PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_EBU_TELETEXT_ASSOC:
+            return "EBU Teletext subtitles, associated";
+        case PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_EBU_TELETEXT_VBI:
+            return "EBU Teletext subtitles, VBI";
+        case PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_NORMAL_NO_AR:
+            return "DVB subtitles, normal, no aspect ratio";
+        case PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_NORMAL_4_3:
+            return "DVB subtitles, normal, 4:3";
+        case PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_NORMAL_16_9:
+            return "DVB subtitles, normal, 16:9";
+        case PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_NORMAL_2_21_1:
+            return "DVB subtitles, normal, 2.21:1";
+        case PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_NORMAL_HD:
+            return "DVB subtitles, normal, HD";
+        case PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_HARD_OF_HEARING_NO_AR:
+            return "DVB subtitles, for hard of hearing, no aspect ratio";
+        case PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_HARD_OF_HEARING_4_3:
+            return "DVB subtitles, for hard of hearing, 4:3";
+        case PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_HARD_OF_HEARING_16_9:
+            return "DVB subtitles, for hard of hearing, 16:9";
+        case PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_HARD_OF_HEARING_2_21_1:
+            return "DVB subtitles, for hard of hearing, 2.21:1";
+        case PICO_MPEGTS_COMPONENT_TYPE_SUBTITLES_DVB_HARD_OF_HEARING_HD:
+            return "DVB subtitles, for hard of hearing, HD";
+
+        // AC-3 audio
+        case PICO_MPEGTS_COMPONENT_TYPE_AC3_RESERVED:
+            return "AC-3 Audio, reserved";
+
+        // H.264/AVC video
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_RESERVED:
+            return "H.264/AVC Video, reserved";
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_SD_4_3_25HZ:
+            return "H.264/AVC SD Video, 4:3 aspect ratio, 25 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_SD_16_9_PAN_25HZ:
+            return "H.264/AVC SD Video, 16:9 pan vectors, 25 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_SD_16_9_NO_PAN_25HZ:
+            return "H.264/AVC SD Video, 16:9 no pan, 25 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_SD_GT_16_9_25HZ:
+            return "H.264/AVC SD Video, >16:9 aspect ratio, 25 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_SD_4_3_30HZ:
+            return "H.264/AVC SD Video, 4:3 aspect ratio, 30 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_SD_16_9_PAN_30HZ:
+            return "H.264/AVC SD Video, 16:9 pan vectors, 30 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_SD_16_9_NO_PAN_30HZ:
+            return "H.264/AVC SD Video, 16:9 no pan, 30 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_SD_GT_16_9_30HZ:
+            return "H.264/AVC SD Video, >16:9 aspect ratio, 30 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_HD_4_3_25HZ:
+            return "H.264/AVC HD Video, 4:3 aspect ratio, 25 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_HD_16_9_PAN_25HZ:
+            return "H.264/AVC HD Video, 16:9 pan vectors, 25 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_HD_16_9_NO_PAN_25HZ:
+            return "H.264/AVC HD Video, 16:9 no pan, 25 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_HD_GT_16_9_25HZ:
+            return "H.264/AVC HD Video, >16:9 aspect ratio, 25 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_HD_4_3_30HZ:
+            return "H.264/AVC HD Video, 4:3 aspect ratio, 30 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_HD_16_9_PAN_30HZ:
+            return "H.264/AVC HD Video, 16:9 pan vectors, 30 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_HD_16_9_NO_PAN_30HZ:
+            return "H.264/AVC HD Video, 16:9 no pan, 30 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_AVC_VIDEO_HD_GT_16_9_30HZ:
+            return "H.264/AVC HD Video, >16:9 aspect ratio, 30 Hz";
+
+        // HE AAC audio
+        case PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_RESERVED:
+            return "HE AAC Audio, reserved";
+        case PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_SINGLE_MONO:
+            return "HE AAC Audio, single mono";
+        case PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_DUAL_MONO:
+            return "HE AAC Audio, dual mono";
+        case PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_STEREO:
+            return "HE AAC Audio, stereo";
+        case PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_MULTI_LINGUAL_MULTI_CHAN:
+            return "HE AAC Audio, multilingual/multichannel";
+        case PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_SURROUND_SOUND:
+            return "HE AAC Audio, surround sound";
+        case PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_VISUALLY_IMPAIRED:
+            return "HE AAC Audio, for visually impaired";
+        case PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_HARD_OF_HEARING:
+            return "HE AAC Audio, for hard of hearing";
+        case PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_SUPPLEMENTARY:
+            return "HE AAC Audio, supplementary";
+        case PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_HEV2_SINGLE_MONO:
+            return "HE AAC v2 Audio, single mono";
+        case PICO_MPEGTS_COMPONENT_TYPE_HEV2_AAC_DUAL_MONO:
+            return "HE AAC v2 Audio, dual mono";
+        case PICO_MPEGTS_COMPONENT_TYPE_HEV2_AAC_STEREO:
+            return "HE AAC v2 Audio, stereo";
+        case PICO_MPEGTS_COMPONENT_TYPE_HE_AAC_RECEIVER_MIX:
+            return "HE AAC Audio, receiver mix";
+
+        // DTS audio
+        case PICO_MPEGTS_COMPONENT_TYPE_DTS_RESERVED:
+            return "DTS Audio, reserved";
+
+        // DVB SRM
+        case PICO_MPEGTS_COMPONENT_TYPE_SRM_RESERVED:
+            return "DVB SRM Data, reserved";
+
+        // HEVC video
+        case PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_RESERVED:
+            return "HEVC Video, reserved";
+        case PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_MAIN_HD_50HZ:
+            return "HEVC Main Profile HD, 50 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_MAIN_HD_60HZ:
+            return "HEVC Main Profile HD, 60 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_MAIN_10_HD_50HZ:
+            return "HEVC Main 10 Profile HD, 50 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_MAIN_10_HD_60HZ:
+            return "HEVC Main 10 Profile HD, 60 Hz";
+        case PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_UHD_50HZ_SDR:
+            return "HEVC UHD Video, 50 Hz SDR";
+        case PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_UHD_60_120HZ_SDR:
+            return "HEVC UHD Video, 60/120 Hz SDR";
+        case PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_UHD_50HZ_HDR:
+            return "HEVC UHD Video, 50 Hz HDR";
+        case PICO_MPEGTS_COMPONENT_TYPE_HEVC_VIDEO_UHD_60_120HZ_HDR:
+            return "HEVC UHD Video, 60/120 Hz HDR";
+
+        // AC-4 extension (stream_content_ext = 0x0)
+        case PICO_MPEGTS_COMPONENT_TYPE_AC4_MAIN_MONO:
+            return "AC-4 Main audio, mono";
+        case PICO_MPEGTS_COMPONENT_TYPE_AC4_MAIN_STEREO:
+            return "AC-4 Main audio, stereo";
+        case PICO_MPEGTS_COMPONENT_TYPE_AC4_MAIN_STEREO_DIALOGUE_ENHANCEMENT:
+            return "AC-4 Main audio, stereo, dialogue enhancement";
+        case PICO_MPEGTS_COMPONENT_TYPE_AC4_MAIN_STEREO_VISUALLY_IMPAIRED:
+            return "AC-4 Main audio, stereo, for visually impaired";
+        case PICO_MPEGTS_COMPONENT_TYPE_AC4_MAIN_STEREO_HARD_OF_HEARING:
+            return "AC-4 Main audio, stereo, for hard of hearing";
+        case PICO_MPEGTS_COMPONENT_TYPE_AC4_MAIN_MULTI_CHANNEL:
+            return "AC-4 Main audio, multichannel";
+        case PICO_MPEGTS_COMPONENT_TYPE_AC4_BCAST_MIX_MONO:
+            return "AC-4 Broadcast-mix audio, mono";
+        case PICO_MPEGTS_COMPONENT_TYPE_AC4_BCAST_MIX_STEREO:
+            return "AC-4 Broadcast-mix audio, stereo";
+        case PICO_MPEGTS_COMPONENT_TYPE_AC4_BCAST_MIX_STEREO_DIALOGUE:
+            return "AC-4 Broadcast-mix audio, stereo, dialogue enhancement";
+        case PICO_MPEGTS_COMPONENT_TYPE_AC4_BCAST_MIX_STEREO_VI:
+            return "AC-4 Broadcast-mix audio, stereo, for visually impaired";
+        case PICO_MPEGTS_COMPONENT_TYPE_AC4_BCAST_MIX_STEREO_HOH:
+            return "AC-4 Broadcast-mix audio, stereo, for hard of hearing";
+        case PICO_MPEGTS_COMPONENT_TYPE_AC4_BCAST_MIX_MULTI_CHANNEL:
+            return "AC-4 Broadcast-mix audio, multichannel";
+        case PICO_MPEGTS_COMPONENT_TYPE_AC4_RECEIVER_MIX_MONO:
+            return "AC-4 Receiver-mix audio, mono";
+        case PICO_MPEGTS_COMPONENT_TYPE_AC4_RECEIVER_MIX_STEREO:
+            return "AC-4 Receiver-mix audio, stereo";
+
+        // NGA component type extension (stream_content_ext = 0xE)
+        case PICO_MPEGTS_COMPONENT_TYPE_NGA_CONTENT_LESS_16_9:
+            return "NGA Video, less than 16:9 aspect ratio";
+        case PICO_MPEGTS_COMPONENT_TYPE_NGA_CONTENT_16_9:
+            return "NGA Video, 16:9 aspect ratio";
+        case PICO_MPEGTS_COMPONENT_TYPE_NGA_CONTENT_GT_16_9:
+            return "NGA Video, greater than 16:9 aspect ratio";
+        case PICO_MPEGTS_COMPONENT_TYPE_NGA_STEREOSCOPIC_TAB:
+            return "NGA Video, stereoscopic top-and-bottom";
+        case PICO_MPEGTS_COMPONENT_TYPE_NGA_HLG10_HDR:
+            return "NGA Video, HLG10 HDR";
+        case PICO_MPEGTS_COMPONENT_TYPE_NGA_HEVC_TEMPORAL_VIDEO:
+            return "NGA HEVC temporal video subset";
+
+        default:
+            return "Unknown Component Type";
+    }
+}
+
 void picoMpegTsPsiSectionHeadDebugPrint(picoMpegTSPSISectionHead sectionHead)
 {
     PICO_ASSERT(sectionHead != NULL);
@@ -4085,6 +4567,35 @@ static void __picoMpegTSDescriptorPayloadContentDebugPrint(picoMpegTSDescriptor 
     }
 }
 
+static void __picoMpegTSDescriptorPayloadComponentDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+{
+    (void)indent;
+    if (descriptor == NULL) {
+        return;
+    }
+    PICO_MPEGTS_LOG("%*sComponent Descriptor:\n", indent, "");
+    PICO_MPEGTS_LOG("%*sStream Content\t: %s [0x%X]\n", indent + 2, "",
+                    picoMpegTSComponentStreamContentToString(descriptor->parsed.component.streamContent),
+                    descriptor->parsed.component.streamContent);
+    if (descriptor->parsed.component.streamContent == 0xF) {
+        PICO_MPEGTS_LOG("%*sStream Content Ext\t: 0x%X\n", indent + 2, "", descriptor->parsed.component.streamContentExt);
+    }
+
+    uint16_t combinedType = (descriptor->parsed.component.streamContent == 0xF)
+                                ? (uint16_t)(0xF000 | (descriptor->parsed.component.streamContentExt << 8) | descriptor->parsed.component.componentType)
+                                : (uint16_t)((descriptor->parsed.component.streamContent << 8) | descriptor->parsed.component.componentType);
+    (void)combinedType; // Suppress unused variable warning when logging is disabled
+
+    PICO_MPEGTS_LOG("%*sComponent Type\t: %s [0x%02X]\n", indent + 2, "",
+                    picoMpegTSComponentTypeToString(combinedType),
+                    descriptor->parsed.component.componentType);
+    PICO_MPEGTS_LOG("%*sComponent Tag\t: 0x%02X\n", indent + 2, "", descriptor->parsed.component.componentTag);
+    PICO_MPEGTS_LOG("%*sLanguage Code\t: %s\n", indent + 2, "", descriptor->parsed.component.languageCode);
+    if (descriptor->parsed.component.textLength > 0) {
+        PICO_MPEGTS_LOG("%*sText\t: %s\n", indent + 2, "", descriptor->parsed.component.text);
+    }
+}
+
 static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     (void)indent;
@@ -4106,6 +4617,9 @@ static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descrip
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_CONTENT:
             __picoMpegTSDescriptorPayloadContentDebugPrint(descriptor, indent);
+            break;
+        case PICO_MPEGTS_DESCRIPTOR_TAG_COMPONENT:
+            __picoMpegTSDescriptorPayloadComponentDebugPrint(descriptor, indent);
             break;
         default:
             PICO_MPEGTS_LOG("%*sDescriptor Payload: \n", indent, "");
@@ -4361,14 +4875,14 @@ void picoMpegTSTableDebugPrint(picoMpegTSTable table)
 
     PICO_MPEGTS_LOG("MPEG-TS Table:\n");
     PICO_MPEGTS_LOG("  Table ID: 0x%02X (%s)\n", table->tableId, picoMpegTSTableIDToString(table->tableId));
-    PICO_MPEGTS_LOG("  Version Number: %u\n", table->versionNumber);
+    PICO_MPEGTS_LOG("  Version Number: %u [%x]\n", table->versionNumber, table->versionNumber);
 
     int sectionCount = 0;
     for (int i = 0; i < PICO_MPEGTS_MAX_SECTIONS; i++) {
         if (table->hasSection[i])
             sectionCount++;
     }
-    PICO_MPEGTS_LOG("  Sections Present: %d\n", sectionCount);
+    PICO_MPEGTS_LOG("  Sections Present: %d/%d\n", sectionCount, table->head.lastSectionNumber + 1);
     (void)sectionCount;
 
     switch (table->tableId) {
