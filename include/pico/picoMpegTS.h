@@ -2012,6 +2012,12 @@ static void __picoMpegTSTableDestroy(picoMpegTSTable table)
             break;
 
         default:
+            if ((table->tableId >= 0x50 && table->tableId <= 0x5F) ||
+                (table->tableId >= 0x60 && table->tableId <= 0x6F)) {
+                for (size_t i = 0; i < table->data.eit.eventCount; i++) {
+                    __picoMpegTSDescriptorSetDestroy(&table->data.eit.events[i].descriptorSet);
+                }
+            }
             break;
     }
 
@@ -2496,6 +2502,9 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
             break;
 
         default:
+            if ((tableId >= 0x50 && tableId <= 0x5F) || (tableId >= 0x60 && tableId <= 0x6F)) {
+                PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseEIT(mpegts, &table->data.eit, filterContext));
+            }
             break;
     }
 
@@ -3518,6 +3527,12 @@ const char *picoMpegTSTableIDToString(uint8_t tableID)
         case PICO_MPEGTS_TABLE_ID_SIS:
             return "Selection Information Section (SIS)";
         default:
+            if (tableID >= 0x50 && tableID <= 0x5F) {
+                return "Event Information Section (Actual TS, Schedule) (EIS)";
+            }
+            if (tableID >= 0x60 && tableID <= 0x6F) {
+                return "Event Information Section (Other TS, Schedule) (EIS)";
+            }
             if (tableID >= PICO_MPEGTS_TABLE_ID_USER_DEFINED_START && tableID <= PICO_MPEGTS_TABLE_ID_USER_DEFINED_END) {
                 return "User Defined Table ID";
             }
@@ -5145,7 +5160,12 @@ void picoMpegTSTableDebugPrint(picoMpegTSTable table)
             break;
 
         default:
-            PICO_MPEGTS_LOG("  (Unknown or unsupported table type)\n");
+            if ((table->tableId >= 0x50 && table->tableId <= 0x5F) ||
+                (table->tableId >= 0x60 && table->tableId <= 0x6F)) {
+                __picoMpegTSEITDebugPrint(&table->data.eit);
+            } else {
+                PICO_MPEGTS_LOG("  (Unknown or unsupported table type)\n");
+            }
             break;
     }
 }
