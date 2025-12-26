@@ -1104,6 +1104,9 @@ typedef struct {
     // whose payload consists of bytes from a video elementary
     // stream contained in transport stream packets.
     uint16_t pesPacketLength;
+
+    // The PID of the elementary stream to which this PES packet belongs.
+    uint16_t pid;
 } picoMpegTSPESHead_t;
 typedef picoMpegTSPESHead_t *picoMpegTSPESHead;
 
@@ -3311,6 +3314,7 @@ static picoMpegTSResult __picoMpegTSAddPESPacket(picoMpegTS mpegts, picoMpegTSFi
     picoMpegTSPESPacket_t packet = {0};
     memset(&packet, 0, sizeof(picoMpegTSPESPacket_t));
     memcpy(&packet.head, &filterContext->head.pes, sizeof(picoMpegTSPESHead_t));
+    packet.head.pid = filterContext->pid;
 
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSPESPacketParse(&packet, filterContext));
 
@@ -5669,6 +5673,7 @@ void picoMpegTSPESPacketDebugPrint(picoMpegTSPESPacket packet)
     }
 
     PICO_MPEGTS_LOG("PES Packet:\n");
+    PICO_MPEGTS_LOG("  PID: %s [0x%04X]\n", picoMpegTSPIDToString(packet->head.pid), packet->head.pid);
     PICO_MPEGTS_LOG("  Stream ID: %s [0x%02X]\n", picoMpegTSPESStreamIDToString(packet->head.streamId), packet->head.streamId);
     PICO_MPEGTS_LOG("  Data Length: %zu bytes\n", packet->dataLength);
     PICO_MPEGTS_LOG("  Scrambling Control: %u\n", packet->scramblingControl);
