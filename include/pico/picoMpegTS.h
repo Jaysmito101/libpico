@@ -34,6 +34,7 @@ SOFTWARE.
 #define PICO_MPEGTS_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -764,6 +765,30 @@ typedef enum {
     PICO_MPEGTS_COMPONENT_TYPE_NGA_HLG10_HDR           = 0xFE04,
     PICO_MPEGTS_COMPONENT_TYPE_NGA_HEVC_TEMPORAL_VIDEO = 0xFE05,
 } picoMpegTSComponentType;
+
+typedef enum {
+    PICO_MPEGTS_PES_TRICK_MODE_CONTROL_FAST_FORWARD   = 0x00,
+    PICO_MPEGTS_PES_TRICK_MODE_CONTROL_SLOW_MOTION    = 0x01,
+    PICO_MPEGTS_PES_TRICK_MODE_CONTROL_FREEZE_FRAME   = 0x02,
+    PICO_MPEGTS_PES_TRICK_MODE_CONTROL_FAST_REVERSE   = 0x03,
+    PICO_MPEGTS_PES_TRICK_MODE_CONTROL_SLOW_REVERSE   = 0x04,
+    PICO_MPEGTS_PES_TRICK_MODE_CONTROL_RESERVED_START = 0x05,
+    PICO_MPEGTS_PES_TRICK_MODE_CONTROL_RESERVED_END   = 0x07,
+} picoMpegTSPESTrickModeControl;
+
+typedef enum {
+    PICO_MPEGTS_PES_TRICK_MODE_FIELD_ID_TOP_FIELD    = 0x00,
+    PICO_MPEGTS_PES_TRICK_MODE_FIELD_ID_BOTTOM_FIELD = 0x01,
+    PICO_MPEGTS_PES_TRICK_MODE_FIELD_ID_FRAME        = 0x02,
+    PICO_MPEGTS_PES_TRICK_MODE_FIELD_ID_RESERVED     = 0x03,
+} picoMpegTSPESTrickModeFieldId;
+
+typedef enum {
+    PICO_MPEGTS_PES_TRICK_MODE_FREQUENCY_TRUNCATION_DC_ONLY          = 0x00,
+    PICO_MPEGTS_PES_TRICK_MODE_FREQUENCY_TRUNCATION_FIRST_3          = 0x01,
+    PICO_MPEGTS_PES_TRICK_MODE_FREQUENCY_TRUNCATION_FIRST_6          = 0x02,
+    PICO_MPEGTS_PES_TRICK_MODE_FREQUENCY_TRUNCATION_ALL_COEFFICIENTS = 0x03,
+} picoMpegTSPESTrickModeFrequencyTruncation;
 
 typedef struct picoMpegTS_t picoMpegTS_t;
 typedef picoMpegTS_t *picoMpegTS;
@@ -1527,6 +1552,215 @@ typedef picoMpegTSTable_t *picoMpegTSTable;
 
 typedef struct {
     picoMpegTSPSISectionHead_t head;
+    picoMpegTSPESStreamID streamId;
+    size_t rawSize;
+
+    // The 2-bit PES_scrambling_control field indicates
+    // the scrambling mode of the PES packet payload.
+    // When scrambling is performed at the PES level,
+    // the PES packet header, including the optional
+    // fields when present, shall not be scrambled
+    uint8_t scramblingControl;
+
+    // This is a 1-bit field indicating the priority of
+    // the payload in this PES packet. A '1' indicates a higher
+    // priority of the payload of the PES packet payload
+    // than a PES packet payload with this field set to '0'.
+    // A multiplexor can use the PES_priority bit to prioritize
+    // its data within an elementary stream. This field
+    // shall not be changed by the transport mechanism.
+    bool priority;
+
+    // This is a 1-bit flag. When set to a value of '1',
+    // it indicates that the PES packet header is
+    // immediately followed by the video syntax element or
+    // audio sync word indicated in the data_stream_alignment_descriptor
+    // in 2.6.10 if this descriptor is present. If set to
+    // a value of '1' and the descriptor is not present,
+    // alignment as indicated in alignment_type '01' is required.
+    // When set to a value of '0', it is not defined whether
+    // any such alignment occurs or not.
+    bool dataAlignmentIndicator;
+
+    // This is a 1-bit field. When set to '1' it indicates that
+    // the material of the associated PES packet payload is
+    // protected by copyright. When set to '0' it is not
+    // defined whether the material is protected by copyright.
+    // A copyright descriptor described in 2.6.24 is associated
+    // with the elementary stream which contains this PES
+    // packet and the copyright flag is set to '1' if the
+    // descriptor applies to the material contained in this PES packet.
+    bool copyright;
+
+    // This is a 1-bit field. When set to '1' the contents
+    // of the associated PES packet payload is an original.
+    // When set to '0' it indicates that the contents of
+    // the associated PES packet payload are a copy.
+    bool originalOrCopy;
+
+    // This is a 2-bit field. When the PTS_DTS_flags field is set
+    // to '10', the PTS fields shall be present in the PES packet header.
+    // When the PTS_DTS_flags field is set to '11', both the PTS
+    // fields and DTS fields shall be present in the PES packet header.
+    // When the PTS_DTS_flags field is set to '00' no PTS or DTS
+    // fields shall be present in the PES packet header.
+    // The value '01' is forbidden
+    uint8_t ptsDtsFlags;
+
+    // Presentation times shall be related to decoding times as follows:
+    // The PTS is a 33-bit number coded in three separate fields.
+    // It indicates the time of presentation, tpn(k), in the system
+    // target decoder of a presentation unit k of elementary stream n.
+    // The value of PTS is specified in units of the period of the system clock
+    // frequency divided by 300 (yielding 90 kHz). The presentation time is
+    // derived from the PTS according to equation below:
+    // PTS(k) = ((system_clock_frequency * tpn(k)) DIV 300) % 2^33
+    uint32_t pts;
+
+    // The DTS is a 33-bit number coded in three separate fields.
+    // It indicates the decoding time, tdn(j), in the system target
+    // decoder of an access unit j of elementary stream n.
+    // The value of DTS is specified in units of the period of the
+    // system clock frequency divided by 300 (yielding 90 kHz).
+    // The decoding time derived from the DTS according to equation below:
+    // DTS(j) = ((system_clock_frequency * tdn(j)) DIV 300) % 2^33
+    uint32_t dts;
+
+    // A 1-bit flag, which when set to '1' indicates that ESCR
+    // base and extension fields are present in the PES packet header.
+    // When set to '0' it indicates that no ESCR fields are present.
+    bool escrFlag;
+
+    // The elementary stream clock reference is a 42-bit field coded in
+    // two parts. The first part, ESCR_base, is a 33-bit field whose
+    // value is given by ESCR_base(i), as given in equation. The second part,
+    // ESCR_ext, is a 9-bit field whose value is given by ESCR_ext(i),
+    // as given in equation 2-15. The ESCR field indicates the
+    // intended time of arrival of the byte containing the last bit of
+    // the ESCR_base at the input of the PES-STD for PES streams.
+    // ESCR(i) = ESCR_base(i) * 300 + ESCR_ext(i)
+    uint32_t escrBase;
+    uint16_t escrExtension;
+
+    // A 1-bit flag, which when set to '1' indicates that
+    // the ESCR_rate field is present in the PES packet header.
+    // When set to '0' it indicates that no ESCR_rate field is present.
+    bool escrRateFlag;
+
+    // The ES_rate field is a 22-bit unsigned integer specifying the
+    // rate at which the system target decoder receives bytes of the PES
+    // packet in the case of a PES stream. The ES_rate is valid in the PES packet
+    // in which it is included and in subsequent PES packets of the same
+    // PES stream until a new ES_rate field is encountered.
+    // The value of the ES_rate is measured in units of 50 bytes/second.
+    // The value '0' is forbidden. The value of the ES_rate is
+    // used to define the time of arrival of bytes at the input of a
+    // P-STD for PES streams defined in 2.5.2.4. The value encoded
+    // in the ES_rate field may vary from PES_packet to PES_packet.
+    uint32_t esRate;
+
+    // A 1-bit flag, which when set to '1' it indicates the
+    // presence of an 8-bit trick mode field.
+    // When set to '0' it indicates that this field is not present.
+    bool dsmTrickModeFlag;
+
+    // A 3-bit field that indicates which trick mode is applied to
+    // the associated video stream. In cases of other types of
+    // elementary streams, the meanings of this field and those
+    // defined by the following five bits are undefined. For the
+    // definition of trick_mode status, refer to the trick mode section of 2.4.2.4.
+    // When trick_mode status is false, the number of times N, a
+    // picture is output by the decoding process for progressive
+    // sequences, is specified for each picture by the
+    // repeat_first_field and top_field_first fields in the case of
+    // Rec. ITU-T H.262 | ISO/IEC 13818-2 video, and is specified
+    // through the sequence header in the case of ISO/IEC 11172-2 Video.
+    picoMpegTSPESTrickModeControl trickModeControl;
+
+    union {
+        struct {
+            // A 2-bit field that indicates which field(s) should be displayed.
+            picoMpegTSPESTrickModeFieldId fieldId;
+
+            // A 1-bit flag, which when set to '1', indicates that there may be
+            // missing macroblocks between coded slices of video data in this
+            // PES packet. When set to '0' this may not occur. For more information, see
+            // Rec. ITU-T H.262 | ISO/IEC 13818-2. The decoder may replace missing
+            // macroblocks with co-sited macroblocks of previously decoded pictures.
+            bool intraSliceRefresh;
+
+            // A 2-bit field which indicates that a restricted set of coefficients
+            // may have been used in coding the video data in this PES packet.
+            picoMpegTSPESTrickModeFrequencyTruncation frequencyTruncation;
+        } fastForward;
+
+        struct {
+            // A 5-bit field that indicates the number of times each field
+            // in an interlaced picture should be displayed, or the
+            // number of times that a progressive picture should be displayed.
+            // It is a function of the trick_mode_control field and the
+            // top_field_first bit in the video sequence header whether the
+            // top field or the bottom field should be displayed first in the
+            // case of interlaced pictures. The value '0' is forbidden.
+            uint8_t repCntrl;
+        } slowMotion;
+
+        struct {
+            // A 2-bit field that indicates which field(s) should be displayed.
+            picoMpegTSPESTrickModeFieldId fieldId;
+        } freezeFrame;
+
+        struct {
+            // A 2-bit field that indicates which field(s) should be displayed.
+            picoMpegTSPESTrickModeFieldId fieldId;
+
+            // A 1-bit flag, which when set to '1', indicates that there may be
+            // missing macroblocks between coded slices of video data in this
+            // PES packet. When set to '0' this may not occur. For more information, see
+            // Rec. ITU-T H.262 | ISO/IEC 13818-2. The decoder may replace missing
+            // macroblocks with co-sited macroblocks of previously decoded pictures.
+            bool intraSliceRefresh;
+
+            // A 2-bit field which indicates that a restricted set of coefficients
+            // may have been used in coding the video data in this PES packet.
+            picoMpegTSPESTrickModeFrequencyTruncation frequencyTruncation;
+        } fastReverse;
+
+        struct {
+            // A 5-bit field that indicates the number of times each field
+            // in an interlaced picture should be displayed, or the
+            // number of times that a progressive picture should be displayed.
+            // It is a function of the trick_mode_control field and the
+            // top_field_first bit in the video sequence header whether the
+            // top field or the bottom field should be displayed first in the
+            // case of interlaced pictures. The value '0' is forbidden.
+            uint8_t repCntrl;
+        } slowReverse;
+
+    } trickModeParams;
+
+    // A 1-bit flag, which when set to '1' indicates that
+    // additional copy information is present in the PES packet header.
+    bool additionalCopyInfoFlag;
+
+    // This 7-bit field contains private data relating to copyright information.
+    uint8_t additionalCopyInfo;
+
+    // A 1-bit flag, which when set to '1' indicates that
+    // the PES CRC field is present in the PES packet header.
+    bool pesCrcFlag;
+
+    // The previous_PES_packet_CRC is a 16-bit field that contains
+    // the CRC value that yields a zero output of the 16 registers 
+    // in the decoder similar to the one defined in Annex A, but with the polynomial:
+    // x^16 + x^12 + x^5 + 1
+    // after processing the data bytes of the previous PES packet, 
+    // exclusive of the PES packet header.
+    uint16_t previousPESPacketCrc;
+
+    // A 1-bit flag, which when set to '1' indicates that
+    // the PES extension field is present in the PES packet header.
+    bool pesExtensionFlag;
 
 } picoMpegTSPESPacket_t;
 typedef picoMpegTSPESPacket_t *picoMpegTSPESPacket;
@@ -1573,6 +1807,9 @@ const char *picoMpegTSAudioTypeToString(picoMpegTSAudioType type);
 const char *picoMpegTSContentNibbleLevel1ToString(uint8_t nibble);
 const char *picoMpegTSContentNibbleToString(picoMpegTSContentNibble nibble);
 const char *picoMpegTSPESStreamIDToString(uint8_t streamId);
+const char *picoMpegTSPESTrickModeControlToString(uint8_t trickModeControl);
+const char *picoMpegTSPESTrickModeFieldIdToString(picoMpegTSPESTrickModeFieldId fieldId);
+const char *picoMpegTSPESTrickModeFrequencyTruncationToString(picoMpegTSPESTrickModeFrequencyTruncation frequencyTruncation);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_MPEGTS_IMPLEMENTATION)
 #define PICO_MPEGTS_IMPLEMENTATION
@@ -2739,6 +2976,9 @@ static picoMpegTSResult __picoMpegTSAddPESPacket(picoMpegTS mpegts, picoMpegTSFi
 
     picoMpegTSPESHead head = &filterContext->head.pes;
 
+    // log the stream type
+    PICO_MPEGTS_LOG("PES stream type: 0x%02x [%s] [%zu bytes]\n", head->streamId, picoMpegTSPESStreamIDToString(head->streamId), filterContext->payloadAccumulatorSize);
+
     // stream id must be a video or
     (void)head;
 
@@ -3043,8 +3283,7 @@ static picoMpegTSResult __picoMpegTSFilterContextFlush(picoMpegTS mpegts, picoMp
             uint8_t tableId = filterContext->head.psi.tableId;
             PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSTableAddSection(mpegts, tableId, filterContext));
         } else {
-            PICO_MPEGTS_LOG("PES filters are not yet implemented\n");
-            return PICO_MPEGTS_RESULT_SUCCESS;
+            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSAddPESPacket(mpegts, filterContext));
         }
     }
 
@@ -4233,6 +4472,56 @@ const char *picoMpegTSPESStreamIDToString(uint8_t streamId)
                 return "video_stream";
             }
             return "unknown_stream_id";
+    }
+}
+
+const char *picoMpegTSPESTrickModeControlToString(uint8_t trickModeControl)
+{
+    switch (trickModeControl) {
+        case PICO_MPEGTS_PES_TRICK_MODE_CONTROL_FAST_FORWARD:
+            return "Fast Forward";
+        case PICO_MPEGTS_PES_TRICK_MODE_CONTROL_SLOW_MOTION:
+            return "Slow Motion";
+        case PICO_MPEGTS_PES_TRICK_MODE_CONTROL_FREEZE_FRAME:
+            return "Freeze Frame";
+        case PICO_MPEGTS_PES_TRICK_MODE_CONTROL_FAST_REVERSE:
+            return "Fast Reverse";
+        case PICO_MPEGTS_PES_TRICK_MODE_CONTROL_SLOW_REVERSE:
+            return "Slow Reverse";
+        default:
+            return "Unknown Trick Mode Control";
+    }
+}
+
+const char *picoMpegTSPESTrickModeFieldIdToString(picoMpegTSPESTrickModeFieldId fieldId)
+{
+    switch (fieldId) {
+        case PICO_MPEGTS_PES_TRICK_MODE_FIELD_ID_TOP_FIELD:
+            return "Display from top field only";
+        case PICO_MPEGTS_PES_TRICK_MODE_FIELD_ID_BOTTOM_FIELD:
+            return "Display from bottom field only";
+        case PICO_MPEGTS_PES_TRICK_MODE_FIELD_ID_FRAME:
+            return "Display complete frame";
+        case PICO_MPEGTS_PES_TRICK_MODE_FIELD_ID_RESERVED:
+            return "Reserved";
+        default:
+            return "Unknown Field ID";
+    }
+}
+
+const char *picoMpegTSPESTrickModeFrequencyTruncationToString(picoMpegTSPESTrickModeFrequencyTruncation frequencyTruncation)
+{
+    switch (frequencyTruncation) {
+        case PICO_MPEGTS_PES_TRICK_MODE_FREQUENCY_TRUNCATION_DC_ONLY:
+            return "Only DC coefficient is non-zero";
+        case PICO_MPEGTS_PES_TRICK_MODE_FREQUENCY_TRUNCATION_FIRST_3:
+            return "Only the first three coefficients are non-zero";
+        case PICO_MPEGTS_PES_TRICK_MODE_FREQUENCY_TRUNCATION_FIRST_6:
+            return "Only the first six coefficients are non-zero";
+        case PICO_MPEGTS_PES_TRICK_MODE_FREQUENCY_TRUNCATION_ALL_COEFFICIENTS:
+            return "All coefficients maybe non-zero";
+        default:
+            return "Unknown Frequency Truncation";
     }
 }
 
