@@ -428,6 +428,18 @@ typedef enum {
     PICO_MPEGTS_SERVICE_TYPE_RESERVED_FF                        = 0xFF,
 } picoMpegTSServiceType;
 
+typedef enum {
+    PICO_MPEGTS_AUDIO_TYPE_UNDEFINED                  = 0x00,
+    PICO_MPEGTS_AUDIO_TYPE_CLEAN_EFFECTS              = 0x01,
+    PICO_MPEGTS_AUDIO_TYPE_HEARING_IMPAIRED           = 0x02,
+    PICO_MPEGTS_AUDIO_TYPE_VISUAL_IMPAIRED_COMMENTARY = 0x03, // 0x04 - 0x7F User Private
+    PICO_MPEGTS_AUDIO_TYPE_PRIMARY                    = 0x80,
+    PICO_MPEGTS_AUDIO_TYPE_NATIVE                     = 0x81,
+    PICO_MPEGTS_AUDIO_TYPE_EMERGENCY                  = 0x82,
+    PICO_MPEGTS_AUDIO_TYPE_PRIMARY_COMMENTARY         = 0x83,
+    PICO_MPEGTS_AUDIO_TYPE_ALTERNATE_COMMENTARY       = 0x84,
+} picoMpegTSAudioType;
+
 typedef struct picoMpegTS_t picoMpegTS_t;
 typedef picoMpegTS_t *picoMpegTS;
 
@@ -736,8 +748,13 @@ typedef struct {
 typedef picoMpegTSDuration_t *picoMpegTSDuration;
 
 typedef struct {
-    uint8_t languageCode[3];
-    uint8_t languageType;
+    uint8_t languageCode[4];
+    picoMpegTSAudioType audioType;
+} picoMpegTSDescriptorISO639LanguageEntry_t;
+
+typedef struct {
+    picoMpegTSDescriptorISO639LanguageEntry_t entries[16];
+    size_t entryCount;
 } picoMpegTSDescriptorISO639Language_t;
 typedef picoMpegTSDescriptorISO639Language_t *picoMpegTSDescriptorISO639Language;
 
@@ -1088,6 +1105,7 @@ const char *picoMpegTSFilterTypeToString(picoMpegTSFilterType type);
 const char *picoMpegTSSDTRunningStatusToString(picoMpegTSSDTRunningStatus status);
 const char *picoMpegTSDescriptorTagToString(uint8_t tag);
 const char *picoMpegTSServiceTypeToString(picoMpegTSServiceType type);
+const char *picoMpegTSAudioTypeToString(picoMpegTSAudioType type);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_MPEGTS_IMPLEMENTATION)
 #define PICO_MPEGTS_IMPLEMENTATION
@@ -1170,14 +1188,23 @@ static bool __picoMpegTSDescriptorPayloadParseISO639Language(picoMpegTSDescripto
     PICO_ASSERT(descriptor != NULL);
     PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_ISO_639_LANGUAGE);
 
-    if (descriptor->dataLength != 4) {
+    if (descriptor->dataLength % 4 != 0) {
         return false;
     }
 
-    descriptor->parsed.iso639Language.languageCode[0] = descriptor->data[0];
-    descriptor->parsed.iso639Language.languageCode[1] = descriptor->data[1];
-    descriptor->parsed.iso639Language.languageCode[2] = descriptor->data[2];
-    descriptor->parsed.iso639Language.languageType    = descriptor->data[3];
+    descriptor->parsed.iso639Language.entryCount = descriptor->dataLength / 4;
+    if (descriptor->parsed.iso639Language.entryCount > 16) {
+        descriptor->parsed.iso639Language.entryCount = 16;
+    }
+
+    for (size_t i = 0; i < descriptor->parsed.iso639Language.entryCount; i++) {
+        descriptor->parsed.iso639Language.entries[i].languageCode[0] = descriptor->data[i * 4 + 0];
+        descriptor->parsed.iso639Language.entries[i].languageCode[1] = descriptor->data[i * 4 + 1];
+        descriptor->parsed.iso639Language.entries[i].languageCode[2] = descriptor->data[i * 4 + 2];
+        descriptor->parsed.iso639Language.entries[i].languageCode[3] = '\0';
+        descriptor->parsed.iso639Language.entries[i].audioType       = (picoMpegTSAudioType)descriptor->data[i * 4 + 3];
+    }
+
     return true;
 }
 
@@ -3012,6 +3039,35 @@ const char *picoMpegTSServiceTypeToString(picoMpegTSServiceType type)
     }
 }
 
+const char *picoMpegTSAudioTypeToString(picoMpegTSAudioType type)
+{
+    switch (type) {
+        case PICO_MPEGTS_AUDIO_TYPE_UNDEFINED:
+            return "Undefined";
+        case PICO_MPEGTS_AUDIO_TYPE_CLEAN_EFFECTS:
+            return "Clean effects";
+        case PICO_MPEGTS_AUDIO_TYPE_HEARING_IMPAIRED:
+            return "Hearing impaired";
+        case PICO_MPEGTS_AUDIO_TYPE_VISUAL_IMPAIRED_COMMENTARY:
+            return "Visual impaired commentary";
+        case PICO_MPEGTS_AUDIO_TYPE_PRIMARY:
+            return "Primary";
+        case PICO_MPEGTS_AUDIO_TYPE_NATIVE:
+            return "Native";
+        case PICO_MPEGTS_AUDIO_TYPE_EMERGENCY:
+            return "Emergency";
+        case PICO_MPEGTS_AUDIO_TYPE_PRIMARY_COMMENTARY:
+            return "Primary commentary";
+        case PICO_MPEGTS_AUDIO_TYPE_ALTERNATE_COMMENTARY:
+            return "Alternate commentary";
+        default:
+            if (type >= 0x04 && type <= 0x7F) {
+                return "User Private";
+            }
+            return "Reserved";
+    }
+}
+
 const char *picoMpegTSStreamTypeToString(uint8_t streamType)
 {
     switch (streamType) {
@@ -3482,9 +3538,14 @@ static void __picoMpegTSDescriptorPayloadISO639LanguageDebugPrint(picoMpegTSDesc
     if (descriptor == NULL) {
         return;
     }
-    PICO_MPEGTS_LOG("%*sISO 639 Language Descriptor: \n", indent, "");
-    PICO_MPEGTS_LOG("%*sLanguage\t:%s\n", indent + 2, "", descriptor->data);
-    PICO_MPEGTS_LOG("%*sLanguage Type\t:%0x\n", indent + 2, "", *(descriptor->data + 3));
+    PICO_MPEGTS_LOG("%*sISO 639 Language Descriptor:\n", indent, "");
+    for (size_t i = 0; i < descriptor->parsed.iso639Language.entryCount; i++) {
+        PICO_MPEGTS_LOG("%*sEntry [%zu]:\n", indent + 2, "", i);
+        PICO_MPEGTS_LOG("%*sLanguage\t: %s\n", indent + 4, "", descriptor->parsed.iso639Language.entries[i].languageCode);
+        PICO_MPEGTS_LOG("%*sAudio Type\t: %s [0x%02X]\n", indent + 4, "",
+                        picoMpegTSAudioTypeToString(descriptor->parsed.iso639Language.entries[i].audioType),
+                        descriptor->parsed.iso639Language.entries[i].audioType);
+    }
 }
 
 static void __picoMpegTSDescriptorPayloadServiceDebugPrint(picoMpegTSDescriptor descriptor, int indent)
