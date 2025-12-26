@@ -1138,6 +1138,12 @@ typedef struct {
 typedef picoMpegTSDescriptorServiceList_t *picoMpegTSDescriptorServiceList;
 
 typedef struct {
+    char name[256];
+    uint8_t nameLength;
+} picoMpegTSDescriptorNetworkName_t;
+typedef picoMpegTSDescriptorNetworkName_t *picoMpegTSDescriptorNetworkName;
+
+typedef struct {
     uint8_t data[PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH];
     size_t dataLength;
     picoMpegTSDescriptorTag tag;
@@ -1151,6 +1157,7 @@ typedef struct {
         picoMpegTSDescriptorComponent_t component;
         picoMpegTSDescriptorShortEvent_t shortEvent;
         picoMpegTSDescriptorServiceList_t serviceList;
+        picoMpegTSDescriptorNetworkName_t networkName;
 
     } parsed;
 } picoMpegTSDescriptor_t;
@@ -1796,6 +1803,22 @@ static bool __picoMpegTSDescriptorPayloadParseServiceList(picoMpegTSDescriptor d
     return true;
 }
 
+static bool __picoMpegTSDescriptorPayloadParseNetworkName(picoMpegTSDescriptor descriptor)
+{
+    PICO_ASSERT(descriptor != NULL);
+    PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_NETWORK_NAME);
+
+    descriptor->parsed.networkName.nameLength = (uint8_t)descriptor->dataLength;
+    if (descriptor->parsed.networkName.nameLength > 255) {
+        descriptor->parsed.networkName.nameLength = 255;
+    }
+
+    memcpy(descriptor->parsed.networkName.name, descriptor->data, descriptor->parsed.networkName.nameLength);
+    descriptor->parsed.networkName.name[descriptor->parsed.networkName.nameLength] = '\0';
+
+    return true;
+}
+
 static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
@@ -1817,6 +1840,8 @@ static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
             return __picoMpegTSDescriptorPayloadParseShortEvent(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE_LIST:
             return __picoMpegTSDescriptorPayloadParseServiceList(descriptor);
+        case PICO_MPEGTS_DESCRIPTOR_TAG_NETWORK_NAME:
+            return __picoMpegTSDescriptorPayloadParseNetworkName(descriptor);
         default:
             return false;
     }
@@ -4860,6 +4885,16 @@ static void __picoMpegTSDescriptorPayloadServiceListDebugPrint(picoMpegTSDescrip
     }
 }
 
+static void __picoMpegTSDescriptorPayloadNetworkNameDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+{
+    (void)indent;
+    if (descriptor == NULL) {
+        return;
+    }
+    PICO_MPEGTS_LOG("%*sNetwork Name Descriptor:\n", indent, "");
+    PICO_MPEGTS_LOG("%*sNetwork Name\t: %s\n", indent + 2, "", descriptor->parsed.networkName.name);
+}
+
 static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     (void)indent;
@@ -4890,6 +4925,9 @@ static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descrip
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE_LIST:
             __picoMpegTSDescriptorPayloadServiceListDebugPrint(descriptor, indent);
+            break;
+        case PICO_MPEGTS_DESCRIPTOR_TAG_NETWORK_NAME:
+            __picoMpegTSDescriptorPayloadNetworkNameDebugPrint(descriptor, indent);
             break;
         default:
             PICO_MPEGTS_LOG("%*sDescriptor Payload: \n", indent, "");
