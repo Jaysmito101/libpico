@@ -773,6 +773,14 @@ typedef struct {
 typedef picoMpegTSDescriptorStreamIdentifier_t *picoMpegTSDescriptorStreamIdentifier;
 
 typedef struct {
+    uint16_t caSystemId;
+    uint16_t caPid;
+    uint8_t privateData[256];
+    size_t privateDataLength;
+} picoMpegTSDescriptorCA_t;
+typedef picoMpegTSDescriptorCA_t *picoMpegTSDescriptorCA;
+
+typedef struct {
     uint8_t data[PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH];
     size_t dataLength;
     picoMpegTSDescriptorTag tag;
@@ -781,6 +789,7 @@ typedef struct {
         picoMpegTSDescriptorISO639Language_t iso639Language;
         picoMpegTSDescriptorService_t service;
         picoMpegTSDescriptorStreamIdentifier_t streamIdentifier;
+        picoMpegTSDescriptorCA_t ca;
     } parsed;
 } picoMpegTSDescriptor_t;
 typedef picoMpegTSDescriptor_t *picoMpegTSDescriptor;
@@ -1260,6 +1269,30 @@ static bool __picoMpegTSDescriptorPayloadParseStreamIdentifier(picoMpegTSDescrip
     return true;
 }
 
+static bool __picoMpegTSDescriptorPayloadParseCA(picoMpegTSDescriptor descriptor)
+{
+    PICO_ASSERT(descriptor != NULL);
+    PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_CA);
+
+    if (descriptor->dataLength < 4) {
+        return false;
+    }
+
+    descriptor->parsed.ca.caSystemId = (uint16_t)(descriptor->data[0] << 8) | descriptor->data[1];
+    descriptor->parsed.ca.caPid      = (uint16_t)((descriptor->data[2] & 0x1F) << 8) | descriptor->data[3];
+
+    descriptor->parsed.ca.privateDataLength = descriptor->dataLength - 4;
+    if (descriptor->parsed.ca.privateDataLength > 256) {
+        descriptor->parsed.ca.privateDataLength = 256;
+    }
+
+    if (descriptor->parsed.ca.privateDataLength > 0) {
+        memcpy(descriptor->parsed.ca.privateData, &descriptor->data[4], descriptor->parsed.ca.privateDataLength);
+    }
+
+    return true;
+}
+
 static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
@@ -1271,6 +1304,8 @@ static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
             return __picoMpegTSDescriptorPayloadParseService(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_STREAM_IDENTIFIER:
             return __picoMpegTSDescriptorPayloadParseStreamIdentifier(descriptor);
+        case PICO_MPEGTS_DESCRIPTOR_TAG_CA:
+            return __picoMpegTSDescriptorPayloadParseCA(descriptor);
         default:
             return false;
     }
@@ -3570,6 +3605,24 @@ static void __picoMpegTSDescriptorPayloadStreamIdentifierDebugPrint(picoMpegTSDe
     PICO_MPEGTS_LOG("%*sComponent Tag\t: 0x%02X\n", indent + 2, "", descriptor->parsed.streamIdentifier.componentTag);
 }
 
+static void __picoMpegTSDescriptorPayloadCADebugPrint(picoMpegTSDescriptor descriptor, int indent)
+{
+    if (descriptor == NULL) {
+        return;
+    }
+    PICO_MPEGTS_LOG("%*sCA Descriptor:\n", indent, "");
+    PICO_MPEGTS_LOG("%*sCA System ID\t: 0x%04X\n", indent + 2, "", descriptor->parsed.ca.caSystemId);
+    PICO_MPEGTS_LOG("%*sCA PID\t: 0x%04X\n", indent + 2, "", descriptor->parsed.ca.caPid);
+    PICO_MPEGTS_LOG("%*sPrivate Data Length : %zu\n", indent + 2, "", descriptor->parsed.ca.privateDataLength);
+    if (descriptor->parsed.ca.privateDataLength > 0) {
+        PICO_MPEGTS_LOG("%*sPrivate Data\t: ", indent + 2, "");
+        for (size_t i = 0; i < descriptor->parsed.ca.privateDataLength; i++) {
+            PICO_MPEGTS_LOG("%02X ", descriptor->parsed.ca.privateData[i]);
+        }
+        PICO_MPEGTS_LOG("\n");
+    }
+}
+
 static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     if (descriptor == NULL) {
@@ -3584,6 +3637,9 @@ static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descrip
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_STREAM_IDENTIFIER:
             __picoMpegTSDescriptorPayloadStreamIdentifierDebugPrint(descriptor, indent);
+            break;
+        case PICO_MPEGTS_DESCRIPTOR_TAG_CA:
+            __picoMpegTSDescriptorPayloadCADebugPrint(descriptor, indent);
             break;
         default:
             PICO_MPEGTS_LOG("%*sDescriptor Payload: \n", indent, "");
