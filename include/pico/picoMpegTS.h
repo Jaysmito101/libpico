@@ -1144,6 +1144,17 @@ typedef struct {
 typedef picoMpegTSDescriptorNetworkName_t *picoMpegTSDescriptorNetworkName;
 
 typedef struct {
+    char countryCode[4];
+    uint8_t rating;
+} picoMpegTSDescriptorParentalRatingEntry_t;
+
+typedef struct {
+    picoMpegTSDescriptorParentalRatingEntry_t entries[16];
+    size_t entryCount;
+} picoMpegTSDescriptorParentalRating_t;
+typedef picoMpegTSDescriptorParentalRating_t *picoMpegTSDescriptorParentalRating;
+
+typedef struct {
     uint8_t data[PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH];
     size_t dataLength;
     picoMpegTSDescriptorTag tag;
@@ -1158,6 +1169,7 @@ typedef struct {
         picoMpegTSDescriptorShortEvent_t shortEvent;
         picoMpegTSDescriptorServiceList_t serviceList;
         picoMpegTSDescriptorNetworkName_t networkName;
+        picoMpegTSDescriptorParentalRating_t parentalRating;
 
     } parsed;
 } picoMpegTSDescriptor_t;
@@ -1819,6 +1831,29 @@ static bool __picoMpegTSDescriptorPayloadParseNetworkName(picoMpegTSDescriptor d
     return true;
 }
 
+static bool __picoMpegTSDescriptorPayloadParseParentalRating(picoMpegTSDescriptor descriptor)
+{
+    PICO_ASSERT(descriptor != NULL);
+    PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_PARENTAL_RATING);
+
+    if (descriptor->dataLength % 4 != 0) {
+        return false;
+    }
+
+    descriptor->parsed.parentalRating.entryCount = descriptor->dataLength / 4;
+    if (descriptor->parsed.parentalRating.entryCount > 16) {
+        descriptor->parsed.parentalRating.entryCount = 16;
+    }
+
+    for (size_t i = 0; i < descriptor->parsed.parentalRating.entryCount; i++) {
+        memcpy(descriptor->parsed.parentalRating.entries[i].countryCode, &descriptor->data[i * 4], 3);
+        descriptor->parsed.parentalRating.entries[i].countryCode[3] = '\0';
+        descriptor->parsed.parentalRating.entries[i].rating         = descriptor->data[i * 4 + 3];
+    }
+
+    return true;
+}
+
 static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
@@ -1842,6 +1877,8 @@ static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
             return __picoMpegTSDescriptorPayloadParseServiceList(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_NETWORK_NAME:
             return __picoMpegTSDescriptorPayloadParseNetworkName(descriptor);
+        case PICO_MPEGTS_DESCRIPTOR_TAG_PARENTAL_RATING:
+            return __picoMpegTSDescriptorPayloadParseParentalRating(descriptor);
         default:
             return false;
     }
@@ -4895,6 +4932,28 @@ static void __picoMpegTSDescriptorPayloadNetworkNameDebugPrint(picoMpegTSDescrip
     PICO_MPEGTS_LOG("%*sNetwork Name\t: %s\n", indent + 2, "", descriptor->parsed.networkName.name);
 }
 
+static void __picoMpegTSDescriptorPayloadParentalRatingDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+{
+    (void)indent;
+    if (descriptor == NULL) {
+        return;
+    }
+    PICO_MPEGTS_LOG("%*sParental Rating Descriptor:\n", indent, "");
+    for (size_t i = 0; i < descriptor->parsed.parentalRating.entryCount; i++) {
+        PICO_MPEGTS_LOG("%*sEntry [%zu]:\n", indent + 2, "", i);
+        PICO_MPEGTS_LOG("%*sCountry Code\t: %.3s\n", indent + 4, "", descriptor->parsed.parentalRating.entries[i].countryCode);
+
+        uint8_t rating = descriptor->parsed.parentalRating.entries[i].rating;
+        if (rating == 0x00) {
+            PICO_MPEGTS_LOG("%*sRating\t: Undefined [0x00]\n", indent + 4, "");
+        } else if (rating >= 0x01 && rating <= 0x0F) {
+            PICO_MPEGTS_LOG("%*sRating\t: Minimum Age %u [0x%02X]\n", indent + 4, "", rating + 3, rating);
+        } else {
+            PICO_MPEGTS_LOG("%*sRating\t: Defined by broadcaster [0x%02X]\n", indent + 4, "", rating);
+        }
+    }
+}
+
 static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     (void)indent;
@@ -4928,6 +4987,9 @@ static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descrip
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_NETWORK_NAME:
             __picoMpegTSDescriptorPayloadNetworkNameDebugPrint(descriptor, indent);
+            break;
+        case PICO_MPEGTS_DESCRIPTOR_TAG_PARENTAL_RATING:
+            __picoMpegTSDescriptorPayloadParentalRatingDebugPrint(descriptor, indent);
             break;
         default:
             PICO_MPEGTS_LOG("%*sDescriptor Payload: \n", indent, "");
