@@ -1865,6 +1865,8 @@ typedef struct {
 
     picoMpegTSPESExtension_t pesExtension;
 
+    uint8_t *data;
+    size_t dataLength;
 } picoMpegTSPESPacket_t;
 typedef picoMpegTSPESPacket_t *picoMpegTSPESPacket;
 
@@ -2001,6 +2003,25 @@ static void __picoMpegTSFilterContextFlushPayloadAccumulator(picoMpegTSFilterCon
 static picoMpegTSResult __picoMpegTSReplaceOrRegisterPSIFilter(picoMpegTS mpegts, uint16_t pid);
 static picoMpegTSResult __picoMpegTSReplaceOrRegisterPESFilter(picoMpegTS mpegts, uint16_t pid);
 static void __picoMpegTSDestroyFilterContext(picoMpegTS mpegts, picoMpegTSFilterContext context);
+
+static void __picoMpegTSPesPacketDestroy(picoMpegTSPESPacket packet)
+{
+    PICO_ASSERT(packet != NULL);
+    if (packet->data) {
+        PICO_FREE(packet->data);
+    }
+    PICO_FREE(packet);
+}
+
+static picoMpegTSPESPacket __picoMpegTSPesPacketCreate(void)
+{
+    picoMpegTSPESPacket packet = (picoMpegTSPESPacket)PICO_MALLOC(sizeof(picoMpegTSPESPacket_t));
+    if (!packet) {
+        return NULL;
+    }
+    memset(packet, 0, sizeof(picoMpegTSPESPacket_t));
+    return packet;
+}
 
 static bool __picoMpegTSDescriptorPayloadParseISO639Language(picoMpegTSDescriptor descriptor)
 {
@@ -3092,8 +3113,25 @@ static picoMpegTSResult __picoMpegTSAddPESPacket(picoMpegTS mpegts, picoMpegTSFi
     // log the stream type
     PICO_MPEGTS_LOG("PES stream type: 0x%02x [%s] [%zu bytes]\n", head->streamId, picoMpegTSPESStreamIDToString(head->streamId), filterContext->payloadAccumulatorSize);
 
-    // stream id must be a video or
-    (void)head;
+    picoMpegTSPESPacket_t packet = {0};
+    memset(&packet, 0, sizeof(picoMpegTSPESPacket_t));
+    memcpy(&packet.head, head, sizeof(picoMpegTSPESHead_t));
+
+    if (mpegts->pesPacketCapacity == mpegts->pesPacketCount) {
+        mpegts->pesPacketCapacity = mpegts->pesPacketCapacity == 0 ? 8 : mpegts->pesPacketCapacity * 2;
+        mpegts->pesPackets        = (picoMpegTSPESPacket *)PICO_REALLOC(mpegts->pesPackets, mpegts->pesPacketCapacity * sizeof(picoMpegTSPESPacket));
+        if (!mpegts->pesPackets) {
+            return PICO_MPEGTS_RESULT_MALLOC_ERROR;
+        }
+    }
+
+    picoMpegTSPESPacket packetPtr = __picoMpegTSPesPacketCreate();
+    if (!packetPtr) {
+        return PICO_MPEGTS_RESULT_MALLOC_ERROR;
+    }
+    memcpy(packetPtr, &packet, sizeof(picoMpegTSPESPacket_t));
+    mpegts->pesPackets[mpegts->pesPacketCount] = packetPtr;
+    mpegts->pesPacketCount++;
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -3711,6 +3749,15 @@ void picoMpegTSDestroy(picoMpegTS mpegts)
                 __picoMpegTSTableDestroy(mpegts->parsedTables[i][v]);
             }
         }
+    }
+
+    if (mpegts->pesPackets) {
+        for (size_t i = 0; i < mpegts->pesPacketCount; i++) {
+            if (mpegts->pesPackets[i]) {
+                __picoMpegTSPesPacketDestroy(mpegts->pesPackets[i]);
+            }
+        }
+        PICO_FREE(mpegts->pesPackets);
     }
 
     PICO_FREE(mpegts);
