@@ -1551,6 +1551,107 @@ typedef struct {
 typedef picoMpegTSTable_t *picoMpegTSTable;
 
 typedef struct {
+    // A 1-bit flag which when set to '1' indicates that the PES packet header
+    // contains private data. When set to '0' indicates that private data is
+    // not present in the PES header.
+    bool pesPrivateDataFlag;
+
+    // This is a 16-byte field which contains private data. This data,
+    // combined with the fields before and after, shall not emulate the
+    // packet_start_code_prefix (0x000001).
+    uint8_t pesPrivateData[16];
+
+    // A 1-bit flag which when set to '1' indicates that an ISO/IEC 11172-1 pack
+    // header or a program stream pack header is stored in this PES packet header.
+    // If this field is in a PES packet that is contained in a program stream,
+    // then this field shall be set to '0'. In a transport stream, when set to
+    // the value '0' it indicates that no pack header is present in the PES header.
+    bool packHeaderFieldFlag;
+
+    // This is an 8-bit field which indicates the length, in bytes, of the
+    // pack_header_field().
+    uint8_t packFieldLength;
+
+    // A 1-bit flag which when set to '1' indicates that the
+    // program_packet_sequence_counter, MPEG1_MPEG2_identifier, and
+    // original_stuff_length fields are present in this PES packet.
+    // When set to a value of '0' it indicates that these fields are not present.
+    bool programPacketSequenceCounterFlag;
+
+    // The program_packet_sequence_counter field is a 7-bit field. It is an optional
+    // counter that increments with each successive PES packet from a program stream
+    // or from an ISO/IEC 11172-1 stream or the PES packets associated with a single
+    // program definition in a transport stream, providing functionality similar to
+    // a continuity counter. The counter will wrap around to 0 after its maximum value.
+    uint8_t programPacketSequenceCounter;
+
+    // A 1-bit flag which when set to '1' indicates that this PES packet carries
+    // information from an ISO/IEC 11172-1 stream. When set to '0' it indicates
+    // that this PES packet carries information from a program stream.
+    bool mpeg1Mpeg2Identifier;
+
+    // This 6-bit field specifies the number of stuffing bytes used in the original
+    // Rec. ITU-T H.222.0 | ISO/IEC 13818-1 PES packet header or in the original
+    // ISO/IEC 11172-1 packet header.
+    uint8_t originalStuffLength;
+
+    // A 1-bit flag which when set to '1' indicates that the P-STD_buffer_scale
+    // and P-STD_buffer_size are present in the PES packet header. When set to
+    // a value of '0' it indicates that these fields are not present in the PES header.
+    bool pStdBufferFlag;
+
+    // The P-STD_buffer_scale is a 1-bit field, the meaning of which is only
+    // defined if this PES packet is contained in a program stream. It indicates
+    // the scaling factor used to interpret the subsequent P-STD_buffer_size field.
+    // If the preceding stream_id indicates an audio stream, P-STD_buffer_scale
+    // shall have the value '0'. If the preceding stream_id indicates a video stream,
+    // P-STD_buffer_scale shall have the value '1'. For all other stream types,
+    // the value may be either '1' or '0'.
+    bool pStdBufferScale;
+
+    // The P-STD_buffer_size is a 13-bit unsigned integer, the meaning of which is
+    // only defined if this PES packet is contained in a program stream. It defines
+    // the size of the input buffer, BSn, in the P-STD. If P-STD_buffer_scale has
+    // the value '0', then the P-STD_buffer_size measures the buffer size in units
+    // of 128 bytes. If P-STD_buffer_scale has the value '1', then the P-STD_buffer_size
+    // measures the buffer size in units of 1024 bytes.
+    uint16_t pStdBufferSize;
+
+    // A 1-bit flag which when set to '1' indicates the presence of the
+    // PES_extension_field_length field and associated fields. When set to a
+    // value of '0' this indicates that the PES_extension_field_length field
+    // and any associated fields are not present.
+    bool pesExtensionFlag2;
+
+    // This is a 7-bit field which specifies the length, in bytes, of the data
+    // following this field in the PES extension field up to and including any
+    // reserved bytes.
+    uint8_t pesExtensionFieldLength;
+
+    // A 1-bit flag, which when set to '0' indicates that a stream_id_extension
+    // field is present in the PES packet header. The value of '1' for this flag is reserved.
+    bool streamIdExtensionFlag;
+
+    // In program streams, the stream_id_extension specifies the type and number
+    // of the elementary stream as defined by the stream_id_extension Table.
+    // In transport streams, the stream_id_extension may be set to any valid value
+    // which correctly describes the elementary stream type.
+    // This field shall not be used unless the value of stream_id is '1111 1101'.
+    uint8_t streamIdExtension;
+
+    // When stream_id_extension_flag is '1', this indicates if the tref_extension_flag
+    // is present. A 1-bit flag, which when set to '0' indicates that the TREF field
+    // is present in the PES packet header.
+    bool trefExtensionFlag;
+
+    // TREF is a 33-bit field coded in three separate fields. It indicates the value
+    // of the TREF field in the access unit transported in this PES packet.
+    uint64_t tref;
+
+} picoMpegTSPESExtension_t;
+typedef picoMpegTSPESExtension_t *picoMpegTSPESExtension;
+
+typedef struct {
     picoMpegTSPSISectionHead_t head;
     picoMpegTSPESStreamID streamId;
     size_t rawSize;
@@ -1751,16 +1852,18 @@ typedef struct {
     bool pesCrcFlag;
 
     // The previous_PES_packet_CRC is a 16-bit field that contains
-    // the CRC value that yields a zero output of the 16 registers 
+    // the CRC value that yields a zero output of the 16 registers
     // in the decoder similar to the one defined in Annex A, but with the polynomial:
     // x^16 + x^12 + x^5 + 1
-    // after processing the data bytes of the previous PES packet, 
+    // after processing the data bytes of the previous PES packet,
     // exclusive of the PES packet header.
     uint16_t previousPESPacketCrc;
 
     // A 1-bit flag, which when set to '1' indicates that
     // the PES extension field is present in the PES packet header.
     bool pesExtensionFlag;
+
+    picoMpegTSPESExtension_t pesExtension;
 
 } picoMpegTSPESPacket_t;
 typedef picoMpegTSPESPacket_t *picoMpegTSPESPacket;
