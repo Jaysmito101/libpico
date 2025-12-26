@@ -2886,13 +2886,13 @@ static picoMpegTSResult __picoMpegTSParseSectionHead(const uint8_t *data, picoMp
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSParsePESHead(const char *data, picoMpegTSPESHead pesHeadOut)
+static picoMpegTSResult __picoMpegTSParsePESHead(const uint8_t *data, picoMpegTSPESHead pesHeadOut)
 {
     PICO_ASSERT(data != NULL);
     PICO_ASSERT(pesHeadOut != NULL);
 
     pesHeadOut->streamId        = (uint8_t)data[3];
-    pesHeadOut->pesPacketLength = (uint16_t)((data[4] << 8) | data[5]);
+    pesHeadOut->pesPacketLength = ((uint16_t)(data[4] << 8) | data[5]);
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -2987,13 +2987,13 @@ static picoMpegTSResult __picoMpegTSFilterContextFlush(picoMpegTS mpegts, picoMp
     PICO_ASSERT(filterContext != NULL);
 
     // time to actually deal with the data
-    if (filterContext->payloadAccumulatorSize > filterContext->expectedPayloadSize && filterContext->hasHead) {
+    if (filterContext->payloadAccumulatorSize >= filterContext->expectedPayloadSize && filterContext->hasHead) {
         if (filterContext->filterType == PICO_MPEGTS_FILTER_TYPE_SECTION) {
             uint8_t tableId = filterContext->head.psi.tableId;
             PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSTableAddSection(mpegts, tableId, filterContext));
         } else {
-            PICO_MPEGTS_LOG("PES filters are not yet implemented");
-            return PICO_MPEGTS_RESULT_UNKNOWN_ERROR;
+            PICO_MPEGTS_LOG("PES filters are not yet implemented\n");
+            return PICO_MPEGTS_RESULT_SUCCESS;
         }
     }
 
@@ -3041,24 +3041,27 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
         // then push the rest of the data after the pointer field, the call head
         size_t payloadOffset = 0;
         if (packet->payloadUnitStartIndicator) {
-            uint8_t pointerField = packet->payload[0];
-            // first push data before pointer field
-            if (pointerField > 0) {
-                size_t prePointerSize = pointerField;
-                if (prePointerSize > packet->payloadSize - 1) {
-                    prePointerSize = packet->payloadSize - 1;
+            if (filterContext->filterType == PICO_MPEGTS_FILTER_TYPE_SECTION) {
+                uint8_t pointerField = packet->payload[0];
+                // first push data before pointer field
+                if (pointerField > 0) {
+                    size_t prePointerSize = pointerField;
+                    if (prePointerSize > packet->payloadSize - 1) {
+                        prePointerSize = packet->payloadSize - 1;
+                    }
+                    PICO_MPEGTS_RETURN_ON_ERROR(
+                        __picoMpegTSFilterContextPushData(
+                            filterContext,
+                            &packet->payload[1],
+                            prePointerSize));
                 }
-                PICO_MPEGTS_RETURN_ON_ERROR(
-                    __picoMpegTSFilterContextPushData(
-                        filterContext,
-                        &packet->payload[1],
-                        prePointerSize));
+
+                PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterContextFlush(mpegts, filterContext, 0));
+
+                // now move the offset to after the pointer field
+                payloadOffset = 1 + pointerField;
             }
 
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterContextFlush(mpegts, filterContext, 0));
-
-            // now move the offset to after the pointer field
-            payloadOffset = 1 + pointerField;
             PICO_MPEGTS_RETURN_ON_ERROR(
                 __picoMpegTSFilterContextPushData(
                     filterContext,
@@ -3075,7 +3078,7 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
             } else {
                 PICO_MPEGTS_RETURN_ON_ERROR(
                     __picoMpegTSParsePESHead(
-                        (const char *)filterContext->payloadAccumulator,
+                        filterContext->payloadAccumulator,
                         &filterContext->head.pes));
                 __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 6);
                 filterContext->expectedPayloadSize = filterContext->head.pes.pesPacketLength;
