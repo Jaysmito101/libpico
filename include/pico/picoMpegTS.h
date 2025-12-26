@@ -3099,6 +3099,20 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
+static picoMpegTSResult __picoMpegTSPESPacketParse(picoMpegTSPESPacket packet, picoMpegTSFilterContext filterContext)
+{
+    PICO_ASSERT(packet != NULL);
+    PICO_ASSERT(filterContext != NULL);
+
+    // log the stream type
+    // PICO_MPEGTS_LOG("Parsing PES packet for PID %d/%d[%s]\n",
+    //                 filterContext->pid,
+    //                 packet->head.streamId,
+    //                 picoMpegTSPESStreamIDToString(packet->head.streamId));
+
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
 static picoMpegTSResult __picoMpegTSAddPESPacket(picoMpegTS mpegts, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
@@ -3108,14 +3122,12 @@ static picoMpegTSResult __picoMpegTSAddPESPacket(picoMpegTS mpegts, picoMpegTSFi
         return PICO_MPEGTS_RESULT_INVALID_DATA;
     }
 
-    picoMpegTSPESHead head = &filterContext->head.pes;
-
-    // log the stream type
-    PICO_MPEGTS_LOG("PES stream type: 0x%02x [%s] [%zu bytes]\n", head->streamId, picoMpegTSPESStreamIDToString(head->streamId), filterContext->payloadAccumulatorSize);
 
     picoMpegTSPESPacket_t packet = {0};
     memset(&packet, 0, sizeof(picoMpegTSPESPacket_t));
-    memcpy(&packet.head, head, sizeof(picoMpegTSPESHead_t));
+    memcpy(&packet.head, &filterContext->head.pes, sizeof(picoMpegTSPESHead_t));
+
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSPESPacketParse(&packet, filterContext));
 
     if (mpegts->pesPacketCapacity == mpegts->pesPacketCount) {
         mpegts->pesPacketCapacity = mpegts->pesPacketCapacity == 0 ? 8 : mpegts->pesPacketCapacity * 2;
