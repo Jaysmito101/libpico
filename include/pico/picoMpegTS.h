@@ -400,6 +400,34 @@ typedef enum {
     PICO_MPEGTS_SDT_RUNNING_STATUS_RESERVED_7        = 7,
 } picoMpegTSSDTRunningStatus;
 
+typedef enum {
+    PICO_MPEGTS_SERVICE_TYPE_DIGITAL_TELEVISION                 = 0x01,
+    PICO_MPEGTS_SERVICE_TYPE_DIGITAL_RADIO_SOUND                = 0x02,
+    PICO_MPEGTS_SERVICE_TYPE_TELETEXT                           = 0x03,
+    PICO_MPEGTS_SERVICE_TYPE_NVOD_REFERENCE                     = 0x04,
+    PICO_MPEGTS_SERVICE_TYPE_NVOD_TIME_SHIFTED                  = 0x05,
+    PICO_MPEGTS_SERVICE_TYPE_MOSAIC                             = 0x06,
+    PICO_MPEGTS_SERVICE_TYPE_FM_RADIO                           = 0x07,
+    PICO_MPEGTS_SERVICE_TYPE_DVB_SRM                            = 0x08,
+    PICO_MPEGTS_SERVICE_TYPE_ADVANCED_CODEC_DIGITAL_RADIO_SOUND = 0x0A,
+    PICO_MPEGTS_SERVICE_TYPE_H264_AVC_MOSAIC                    = 0x0B,
+    PICO_MPEGTS_SERVICE_TYPE_DATA_BROADCAST                     = 0x0C,
+    PICO_MPEGTS_SERVICE_TYPE_DVB_MHP                            = 0x10,
+    PICO_MPEGTS_SERVICE_TYPE_MPEG2_HD_DIGITAL_TELEVISION        = 0x11,
+    PICO_MPEGTS_SERVICE_TYPE_H264_AVC_SD_DIGITAL_TELEVISION     = 0x16,
+    PICO_MPEGTS_SERVICE_TYPE_H264_AVC_SD_NVOD_TIME_SHIFTED      = 0x17,
+    PICO_MPEGTS_SERVICE_TYPE_H264_AVC_SD_NVOD_REFERENCE         = 0x18,
+    PICO_MPEGTS_SERVICE_TYPE_H264_AVC_HD_DIGITAL_TELEVISION     = 0x19,
+    PICO_MPEGTS_SERVICE_TYPE_H264_AVC_HD_NVOD_TIME_SHIFTED      = 0x1A,
+    PICO_MPEGTS_SERVICE_TYPE_H264_AVC_HD_NVOD_REFERENCE         = 0x1B,
+    PICO_MPEGTS_SERVICE_TYPE_H264_AVC_FCP_HD_DIGITAL_TELEVISION = 0x1C,
+    PICO_MPEGTS_SERVICE_TYPE_H264_AVC_FCP_HD_NVOD_TIME_SHIFTED  = 0x1D,
+    PICO_MPEGTS_SERVICE_TYPE_H264_AVC_FCP_HD_NVOD_REFERENCE     = 0x1E,
+    PICO_MPEGTS_SERVICE_TYPE_HEVC_DIGITAL_TELEVISION            = 0x1F,
+    PICO_MPEGTS_SERVICE_TYPE_HEVC_UHD_DIGITAL_TELEVISION        = 0x20,
+    PICO_MPEGTS_SERVICE_TYPE_RESERVED_FF                        = 0xFF,
+} picoMpegTSServiceType;
+
 typedef struct picoMpegTS_t picoMpegTS_t;
 typedef picoMpegTS_t *picoMpegTS;
 
@@ -714,12 +742,22 @@ typedef struct {
 typedef picoMpegTSDescriptorISO639Language_t *picoMpegTSDescriptorISO639Language;
 
 typedef struct {
+    picoMpegTSServiceType serviceType;
+    uint8_t serviceProviderNameLength;
+    uint8_t serviceProviderName[64];
+    uint8_t serviceNameLength;
+    uint8_t serviceName[64];
+} picoMpegTSDescriptorService_t;
+typedef picoMpegTSDescriptorService_t *picoMpegTSDescriptorService;
+
+typedef struct {
     uint8_t data[PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH];
     size_t dataLength;
     picoMpegTSDescriptorTag tag;
     bool isParsed;
     union {
         picoMpegTSDescriptorISO639Language_t iso639Language;
+        picoMpegTSDescriptorService_t service;
     } parsed;
 } picoMpegTSDescriptor_t;
 typedef picoMpegTSDescriptor_t *picoMpegTSDescriptor;
@@ -1043,6 +1081,7 @@ const char *picoMpegTSAdaptionFieldControlToString(picoMpegTSAdaptionFieldContro
 const char *picoMpegTSFilterTypeToString(picoMpegTSFilterType type);
 const char *picoMpegTSSDTRunningStatusToString(picoMpegTSSDTRunningStatus status);
 const char *picoMpegTSDescriptorTagToString(uint8_t tag);
+const char *picoMpegTSServiceTypeToString(picoMpegTSServiceType type);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_MPEGTS_IMPLEMENTATION)
 #define PICO_MPEGTS_IMPLEMENTATION
@@ -1136,6 +1175,45 @@ static bool __picoMpegTSDescriptorPayloadParseISO639Language(picoMpegTSDescripto
     return true;
 }
 
+static bool __picoMpegTSDescriptorPayloadParseService(picoMpegTSDescriptor descriptor)
+{
+    PICO_ASSERT(descriptor != NULL);
+    PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE);
+
+    if (descriptor->dataLength < 2) {
+        return false;
+    }
+
+    descriptor->parsed.service.serviceType               = descriptor->data[0];
+    descriptor->parsed.service.serviceProviderNameLength = descriptor->data[1];
+
+    if (descriptor->dataLength < 2 + descriptor->parsed.service.serviceProviderNameLength + 1) {
+        return false;
+    }
+
+    if (descriptor->parsed.service.serviceProviderNameLength > 64) {
+        return false;
+    }
+
+    memcpy(descriptor->parsed.service.serviceProviderName, &descriptor->data[2], descriptor->parsed.service.serviceProviderNameLength);
+    descriptor->parsed.service.serviceProviderName[descriptor->parsed.service.serviceProviderNameLength] = '\0';
+
+    descriptor->parsed.service.serviceNameLength = descriptor->data[2 + descriptor->parsed.service.serviceProviderNameLength];
+
+    if (descriptor->dataLength < 2 + descriptor->parsed.service.serviceProviderNameLength + 1 + descriptor->parsed.service.serviceNameLength) {
+        return false;
+    }
+
+    if (descriptor->parsed.service.serviceNameLength > 64) {
+        return false;
+    }
+
+    memcpy(descriptor->parsed.service.serviceName, &descriptor->data[3 + descriptor->parsed.service.serviceProviderNameLength], descriptor->parsed.service.serviceNameLength);
+    descriptor->parsed.service.serviceName[descriptor->parsed.service.serviceNameLength] = '\0';
+
+    return true;
+}
+
 static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
@@ -1143,6 +1221,8 @@ static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
     switch (descriptor->tag) {
         case PICO_MPEGTS_DESCRIPTOR_TAG_ISO_639_LANGUAGE:
             return __picoMpegTSDescriptorPayloadParseISO639Language(descriptor);
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE:
+            return __picoMpegTSDescriptorPayloadParseService(descriptor);
         default:
             return false;
     }
@@ -2853,6 +2933,64 @@ const char *picoMpegTSSDTRunningStatusToString(picoMpegTSSDTRunningStatus status
     }
 }
 
+const char *picoMpegTSServiceTypeToString(picoMpegTSServiceType type)
+{
+    switch (type) {
+        case PICO_MPEGTS_SERVICE_TYPE_DIGITAL_TELEVISION:
+            return "Digital Television";
+        case PICO_MPEGTS_SERVICE_TYPE_DIGITAL_RADIO_SOUND:
+            return "Digital Radio Sound";
+        case PICO_MPEGTS_SERVICE_TYPE_TELETEXT:
+            return "Teletext";
+        case PICO_MPEGTS_SERVICE_TYPE_NVOD_REFERENCE:
+            return "NVOD Reference";
+        case PICO_MPEGTS_SERVICE_TYPE_NVOD_TIME_SHIFTED:
+            return "NVOD Time-Shifted";
+        case PICO_MPEGTS_SERVICE_TYPE_MOSAIC:
+            return "Mosaic";
+        case PICO_MPEGTS_SERVICE_TYPE_FM_RADIO:
+            return "FM Radio";
+        case PICO_MPEGTS_SERVICE_TYPE_DVB_SRM:
+            return "DVB SRM";
+        case PICO_MPEGTS_SERVICE_TYPE_ADVANCED_CODEC_DIGITAL_RADIO_SOUND:
+            return "Advanced Codec Digital Radio Sound";
+        case PICO_MPEGTS_SERVICE_TYPE_H264_AVC_MOSAIC:
+            return "H.264/AVC Mosaic";
+        case PICO_MPEGTS_SERVICE_TYPE_DATA_BROADCAST:
+            return "Data Broadcast";
+        case PICO_MPEGTS_SERVICE_TYPE_DVB_MHP:
+            return "DVB MHP";
+        case PICO_MPEGTS_SERVICE_TYPE_MPEG2_HD_DIGITAL_TELEVISION:
+            return "MPEG-2 HD Digital Television";
+        case PICO_MPEGTS_SERVICE_TYPE_H264_AVC_SD_DIGITAL_TELEVISION:
+            return "H.264/AVC SD Digital Television";
+        case PICO_MPEGTS_SERVICE_TYPE_H264_AVC_SD_NVOD_TIME_SHIFTED:
+            return "H.264/AVC SD NVOD Time-Shifted";
+        case PICO_MPEGTS_SERVICE_TYPE_H264_AVC_SD_NVOD_REFERENCE:
+            return "H.264/AVC SD NVOD Reference";
+        case PICO_MPEGTS_SERVICE_TYPE_H264_AVC_HD_DIGITAL_TELEVISION:
+            return "H.264/AVC HD Digital Television";
+        case PICO_MPEGTS_SERVICE_TYPE_H264_AVC_HD_NVOD_TIME_SHIFTED:
+            return "H.264/AVC HD NVOD Time-Shifted";
+        case PICO_MPEGTS_SERVICE_TYPE_H264_AVC_HD_NVOD_REFERENCE:
+            return "H.264/AVC HD NVOD Reference";
+        case PICO_MPEGTS_SERVICE_TYPE_H264_AVC_FCP_HD_DIGITAL_TELEVISION:
+            return "H.264/AVC FCP HD Digital Television";
+        case PICO_MPEGTS_SERVICE_TYPE_H264_AVC_FCP_HD_NVOD_TIME_SHIFTED:
+            return "H.264/AVC FCP HD NVOD Time-Shifted";
+        case PICO_MPEGTS_SERVICE_TYPE_H264_AVC_FCP_HD_NVOD_REFERENCE:
+            return "H.264/AVC FCP HD NVOD Reference";
+        case PICO_MPEGTS_SERVICE_TYPE_HEVC_DIGITAL_TELEVISION:
+            return "HEVC Digital Television";
+        case PICO_MPEGTS_SERVICE_TYPE_HEVC_UHD_DIGITAL_TELEVISION:
+            return "HEVC UHD Digital Television";
+        case PICO_MPEGTS_SERVICE_TYPE_RESERVED_FF:
+            return "Reserved (0xFF)";
+        default:
+            return "Reserved/Unknown Service Type";
+    }
+}
+
 const char *picoMpegTSStreamTypeToString(uint8_t streamType)
 {
     switch (streamType) {
@@ -3328,6 +3466,19 @@ static void __picoMpegTSDescriptorPayloadISO639LanguageDebugPrint(picoMpegTSDesc
     PICO_MPEGTS_LOG("%*sLanguage Type\t:%0x\n", indent + 2, "", *(descriptor->data + 3));
 }
 
+static void __picoMpegTSDescriptorPayloadServiceDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+{
+    if (descriptor == NULL) {
+        return;
+    }
+    PICO_MPEGTS_LOG("%*sService Descriptor:\n", indent, "");
+    PICO_MPEGTS_LOG("%*sService Type\t: %s [0x%02X]\n", indent + 2, "",
+                    picoMpegTSServiceTypeToString(descriptor->parsed.service.serviceType),
+                    descriptor->parsed.service.serviceType);
+    PICO_MPEGTS_LOG("%*sProvider Name\t: %s\n", indent + 2, "", descriptor->parsed.service.serviceProviderName);
+    PICO_MPEGTS_LOG("%*sService Name\t: %s\n", indent + 2, "", descriptor->parsed.service.serviceName);
+}
+
 static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     if (descriptor == NULL) {
@@ -3336,6 +3487,9 @@ static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descrip
     switch (descriptor->tag) {
         case PICO_MPEGTS_DESCRIPTOR_TAG_ISO_639_LANGUAGE:
             __picoMpegTSDescriptorPayloadISO639LanguageDebugPrint(descriptor, indent);
+            break;
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE:
+            __picoMpegTSDescriptorPayloadServiceDebugPrint(descriptor, indent);
             break;
         default:
             PICO_MPEGTS_LOG("%*sDescriptor Payload: \n", indent, "");
