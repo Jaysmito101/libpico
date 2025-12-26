@@ -1652,9 +1652,7 @@ typedef struct {
 typedef picoMpegTSPESExtension_t *picoMpegTSPESExtension;
 
 typedef struct {
-    picoMpegTSPSISectionHead_t head;
-    picoMpegTSPESStreamID streamId;
-    size_t rawSize;
+    picoMpegTSPESHead_t head;
 
     // The 2-bit PES_scrambling_control field indicates
     // the scrambling mode of the PES packet payload.
@@ -1875,6 +1873,7 @@ typedef struct {
     bool printCurrentTables;
     bool printParsedTables;
     bool printPartialTables;
+    bool printPESPackets;
 } picoMpegTSDebugPrintInfo_t;
 typedef picoMpegTSDebugPrintInfo_t *picoMpegTSDebugPrintInfo;
 
@@ -1901,6 +1900,7 @@ void picoMpegTSPacketAdaptationFieldDebugPrint(picoMpegTSPacketAdaptationField a
 void picoMpegTSPacketAdaptationFieldExtensionDebugPrint(picoMpegTSAdaptionFieldExtension adaptationFieldExtension);
 void picoMpegTsPsiSectionHeadDebugPrint(picoMpegTSPSISectionHead sectionHead);
 void picoMpegTSTableDebugPrint(picoMpegTSTable table);
+void picoMpegTSPESPacketDebugPrint(picoMpegTSPESPacket packet);
 
 bool picoMpegTSIsStreamIDAudio(picoMpegTSPESStreamID streamId);
 bool picoMpegTSIsStreamIDVideo(picoMpegTSPESStreamID streamId);
@@ -3827,6 +3827,14 @@ void picoMpegTSDebugPrint(picoMpegTS mpegts, picoMpegTSDebugPrintInfo info)
         }
         PICO_MPEGTS_LOG("-----------------------------------------------------\n");
     }
+
+    if (info->printPESPackets) {
+        PICO_MPEGTS_LOG("PES Packets:\n");
+        for (size_t i = 0; i < mpegts->pesPacketCount; i++) {
+            picoMpegTSPESPacketDebugPrint(mpegts->pesPackets[i]);
+        }
+        PICO_MPEGTS_LOG("-----------------------------------------------------\n");
+    }
 }
 
 // NOTE: Irrespective of type of packet we just use the first 188 bytes for parsing
@@ -5453,6 +5461,91 @@ void picoMpegTSPacketDebugPrint(picoMpegTSPacket packet)
     if (packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_ADAPTATION_ONLY ||
         packet->adaptionFieldControl == PICO_MPEGTS_ADAPTATION_FIELD_CONTROL_BOTH) {
         picoMpegTSPacketAdaptationFieldDebugPrint(&packet->adaptionField);
+    }
+}
+
+void picoMpegTSPESPacketDebugPrint(picoMpegTSPESPacket packet)
+{
+    if (packet == NULL) {
+        PICO_MPEGTS_LOG("PES Packet: NULL\n");
+        return;
+    }
+
+    PICO_MPEGTS_LOG("PES Packet:\n");
+    PICO_MPEGTS_LOG("  Stream ID: %s [0x%02X]\n", picoMpegTSPESStreamIDToString(packet->head.streamId), packet->head.streamId);
+    PICO_MPEGTS_LOG("  Data Length: %zu bytes\n", packet->dataLength);
+    PICO_MPEGTS_LOG("  Scrambling Control: %u\n", packet->scramblingControl);
+    PICO_MPEGTS_LOG("  Priority: %s\n", packet->priority ? "true" : "false");
+    PICO_MPEGTS_LOG("  Data Alignment Indicator: %s\n", packet->dataAlignmentIndicator ? "true" : "false");
+    PICO_MPEGTS_LOG("  Copyright: %s\n", packet->copyright ? "true" : "false");
+    PICO_MPEGTS_LOG("  Original or Copy: %s\n", packet->originalOrCopy ? "Original" : "Copy");
+    PICO_MPEGTS_LOG("  PTS/DTS Flags: %u\n", packet->ptsDtsFlags);
+
+    if (packet->ptsDtsFlags == 2 || packet->ptsDtsFlags == 3) {
+        PICO_MPEGTS_LOG("  PTS: %u (%.3f seconds)\n", packet->pts, (double)packet->pts / 90000.0);
+    }
+    if (packet->ptsDtsFlags == 3) {
+        PICO_MPEGTS_LOG("  DTS: %u (%.3f seconds)\n", packet->dts, (double)packet->dts / 90000.0);
+    }
+
+    PICO_MPEGTS_LOG("  ESCR Flag: %s\n", packet->escrFlag ? "true" : "false");
+    if (packet->escrFlag) {
+        PICO_MPEGTS_LOG("    ESCR Base: %u\n", packet->escrBase);
+        PICO_MPEGTS_LOG("    ESCR Extension: %u\n", packet->escrExtension);
+    }
+
+    PICO_MPEGTS_LOG("  ES Rate Flag: %s\n", packet->escrRateFlag ? "true" : "false");
+    if (packet->escrRateFlag) {
+        PICO_MPEGTS_LOG("    ES Rate: %u (%.3f bytes/sec)\n", packet->esRate, (double)packet->esRate * 50.0);
+    }
+
+    PICO_MPEGTS_LOG("  DSM Trick Mode Flag: %s\n", packet->dsmTrickModeFlag ? "true" : "false");
+    if (packet->dsmTrickModeFlag) {
+        PICO_MPEGTS_LOG("    Trick Mode Control: %u\n", packet->trickModeControl);
+    }
+
+    PICO_MPEGTS_LOG("  Additional Copy Info Flag: %s\n", packet->additionalCopyInfoFlag ? "true" : "false");
+    if (packet->additionalCopyInfoFlag) {
+        PICO_MPEGTS_LOG("    Additional Copy Info: 0x%02X\n", packet->additionalCopyInfo);
+    }
+
+    PICO_MPEGTS_LOG("  PES CRC Flag: %s\n", packet->pesCrcFlag ? "true" : "false");
+    if (packet->pesCrcFlag) {
+        PICO_MPEGTS_LOG("    Previous PES Packet CRC: 0x%04X\n", packet->previousPESPacketCrc);
+    }
+
+    PICO_MPEGTS_LOG("  PES Extension Flag: %s\n", packet->pesExtensionFlag ? "true" : "false");
+    if (packet->pesExtensionFlag) {
+        picoMpegTSPESExtension_t *ext = &packet->pesExtension;
+        PICO_MPEGTS_LOG("    PES Private Data Flag: %s\n", ext->pesPrivateDataFlag ? "true" : "false");
+        PICO_MPEGTS_LOG("    Pack Header Field Flag: %s\n", ext->packHeaderFieldFlag ? "true" : "false");
+        PICO_MPEGTS_LOG("    Program Packet Sequence Counter Flag: %s\n", ext->programPacketSequenceCounterFlag ? "true" : "false");
+        PICO_MPEGTS_LOG("    P-STD Buffer Flag: %s\n", ext->pStdBufferFlag ? "true" : "false");
+        PICO_MPEGTS_LOG("    PES Extension Flag 2: %s\n", ext->pesExtensionFlag2 ? "true" : "false");
+
+        if (ext->programPacketSequenceCounterFlag) {
+            PICO_MPEGTS_LOG("      Program Packet Sequence Counter: %u\n", ext->programPacketSequenceCounter);
+            PICO_MPEGTS_LOG("      MPEG1 MPEG2 Identifier: %s\n", ext->mpeg1Mpeg2Identifier ? "MPEG-2" : "MPEG-1");
+            PICO_MPEGTS_LOG("      Original Stuff Length: %u\n", ext->originalStuffLength);
+        }
+
+        if (ext->pStdBufferFlag) {
+            PICO_MPEGTS_LOG("      P-STD Buffer Scale: %u\n", ext->pStdBufferScale);
+            PICO_MPEGTS_LOG("      P-STD Buffer Size: %u\n", ext->pStdBufferSize);
+        }
+
+        if (ext->pesExtensionFlag2) {
+            PICO_MPEGTS_LOG("      Stream ID Extension Flag: %s\n", ext->streamIdExtensionFlag ? "true" : "false");
+            if (!ext->streamIdExtensionFlag) {
+                PICO_MPEGTS_LOG("        Stream ID Extension: 0x%02X\n", ext->streamIdExtension);
+            }
+            if (ext->streamIdExtensionFlag) {
+                PICO_MPEGTS_LOG("        TREF Extension Flag: %s\n", ext->trefExtensionFlag ? "true" : "false");
+                if (!ext->trefExtensionFlag) {
+                    PICO_MPEGTS_LOG("          TREF: %llu\n", (unsigned long long)ext->tref);
+                }
+            }
+        }
     }
 }
 
