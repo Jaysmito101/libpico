@@ -1026,35 +1026,34 @@ typedef struct {
 typedef picoMpegTSPSISectionHead_t *picoMpegTSPSISectionHead;
 
 typedef struct {
-    // In program streams, the stream_id specifies the type and 
+    // In program streams, the stream_id specifies the type and
     // number of the elementary stream as defined by the
-    // stream_id Table. In transport streams, the stream_id may 
+    // stream_id Table. In transport streams, the stream_id may
     // be set to any valid value which correctly describes the
-    // elementary stream type as defined in Table. In transport 
+    // elementary stream type as defined in Table. In transport
     // streams, the elementary stream type is specified in the
-    // program-specific information. For AVC video streams conforming 
-    // to one or more profiles defined in Annex G 
-    // of Rec. ITU-T H.264 | ISO/IEC 14496-10, all video sub-bitstreams 
-    // of the same AVC video stream shall have the same stream_id value. 
-    // For AVC video streams conforming to one or more profiles defined 
-    // in Annex H of Rec. ITU-T H.264 | ISO/IEC 14496-10, all MVC video 
+    // program-specific information. For AVC video streams conforming
+    // to one or more profiles defined in Annex G
+    // of Rec. ITU-T H.264 | ISO/IEC 14496-10, all video sub-bitstreams
+    // of the same AVC video stream shall have the same stream_id value.
+    // For AVC video streams conforming to one or more profiles defined
+    // in Annex H of Rec. ITU-T H.264 | ISO/IEC 14496-10, all MVC video
     // sub-bitstreams of the same AVC video stream shall have the same stream_id
-    // value. For AVC video streams conforming to one or more 
-    // profiles defined in Annex I of Rec. ITU-T H.264 | ISO/IEC 14496-10, 
-    // all MVCD video sub-bitstreams of the same AVC video stream 
+    // value. For AVC video streams conforming to one or more
+    // profiles defined in Annex I of Rec. ITU-T H.264 | ISO/IEC 14496-10,
+    // all MVCD video sub-bitstreams of the same AVC video stream
     // shall have the same stream_id value.
     uint8_t streamId;
 
-    // A 16-bit field specifying the number of bytes in the PES 
+    // A 16-bit field specifying the number of bytes in the PES
     // packet following the last byte of the field.
-    // A value of 0 indicates that the PES packet length is 
+    // A value of 0 indicates that the PES packet length is
     // neither specified nor bounded and is allowed only in PES packets
-    // whose payload consists of bytes from a video elementary 
+    // whose payload consists of bytes from a video elementary
     // stream contained in transport stream packets.
     uint16_t pesPacketLength;
 } picoMpegTSPESHead_t;
 typedef picoMpegTSPESHead_t *picoMpegTSPESHead;
-
 
 // Time structures for DVB tables
 typedef struct {
@@ -1557,6 +1556,7 @@ typedef void *(*picoMpegTSFilterContextConstructorFunc)(picoMpegTS mpegts, picoM
 struct picoMpegTSFilterContext_t {
     bool hasHead;
     picoMpegTSPSISectionHead_t psiSectionHead;
+    picoMpegTSPESHead_t pesHead;
     uint16_t pid;
 
     uint8_t *payloadAccumulator;
@@ -2884,12 +2884,12 @@ static picoMpegTSResult __picoMpegTSParseSectionHead(const uint8_t *data, picoMp
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSParsePESHead(const char* data, picoMpegTSPESHead pesHeadOut)
+static picoMpegTSResult __picoMpegTSParsePESHead(const char *data, picoMpegTSPESHead pesHeadOut)
 {
     PICO_ASSERT(data != NULL);
     PICO_ASSERT(pesHeadOut != NULL);
 
-    pesHeadOut->streamId       = (uint8_t)data[3];
+    pesHeadOut->streamId        = (uint8_t)data[3];
     pesHeadOut->pesPacketLength = (uint16_t)((data[4] << 8) | data[5]);
 
     return PICO_MPEGTS_RESULT_SUCCESS;
@@ -3069,12 +3069,16 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
                         filterContext->payloadAccumulator,
                         &filterContext->psiSectionHead));
                 __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 8);
-                filterContext->hasHead             = true;
                 filterContext->expectedPayloadSize = filterContext->psiSectionHead.sectionLength - 5;
             } else {
-                PICO_MPEGTS_LOG("PES filters not implemented yet\n");
-                return PICO_MPEGTS_RESULT_UNKNOWN_ERROR;
+                PICO_MPEGTS_RETURN_ON_ERROR(
+                    __picoMpegTSParsePESHead(
+                        (const char *)filterContext->payloadAccumulator,
+                        &filterContext->pesHead));
+                __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 6);
+                filterContext->expectedPayloadSize = filterContext->pesHead.pesPacketLength;
             }
+            filterContext->hasHead = true;
         } else {
             // no pointer field, just push all data
             PICO_MPEGTS_RETURN_ON_ERROR(
@@ -3394,7 +3398,7 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
     // otherwise we just ignore the packet
 
     if (__picoMpegTSIsPIDCustom(packet.pid) && !packet.payloadUnitStartIndicator) {
-        // TODO: not sure fi we need to handle this manually? as proper pes filters 
+        // TODO: not sure fi we need to handle this manually? as proper pes filters
         // should get registered by respective table updates (pmst/sdt/eit)
         return PICO_MPEGTS_RESULT_SUCCESS;
     }
