@@ -1890,7 +1890,7 @@ picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket pac
 picoMpegTSTable picoMpegTSGetTable(picoMpegTS mpegts, picoMpegTSTableID tableID);
 picoMpegTSTable picoMpegTSGetParsedTable(picoMpegTS mpegts, picoMpegTSTableID tableID, uint8_t versionNumber);
 picoMpegTSTable picoMpegTSGetPartialTable(picoMpegTS mpegts, picoMpegTSTableID tableID, uint8_t versionNumber);
-picoMpegTSPESPacket* picoMpegTSGetPESPackets(picoMpegTS mpegts, size_t *packetCountOut);
+picoMpegTSPESPacket *picoMpegTSGetPESPackets(picoMpegTS mpegts, size_t *packetCountOut);
 
 void picoMpegTSDebugPrint(picoMpegTS mpegts, picoMpegTSDebugPrintInfo info);
 
@@ -3651,12 +3651,13 @@ picoMpegTSTable picoMpegTSGetPartialTable(picoMpegTS mpegts, picoMpegTSTableID t
     return mpegts->partialTables[tableID][versionIndex];
 }
 
-picoMpegTSPESPacket* picoMpegTSGetPESPackets(picoMpegTS mpegts, size_t *packetCountOut)
+picoMpegTSPESPacket *picoMpegTSGetPESPackets(picoMpegTS mpegts, size_t *packetCountOut)
 {
     PICO_ASSERT(mpegts != NULL);
-    PICO_ASSERT(packetCountOut != NULL);
 
-    *packetCountOut = mpegts->pesPacketCount;
+    if (packetCountOut) {
+        *packetCountOut = mpegts->pesPacketCount;
+    }
     return mpegts->pesPackets;
 }
 
