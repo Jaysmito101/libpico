@@ -751,6 +751,11 @@ typedef struct {
 typedef picoMpegTSDescriptorService_t *picoMpegTSDescriptorService;
 
 typedef struct {
+    uint8_t componentTag;
+} picoMpegTSDescriptorStreamIdentifier_t;
+typedef picoMpegTSDescriptorStreamIdentifier_t *picoMpegTSDescriptorStreamIdentifier;
+
+typedef struct {
     uint8_t data[PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH];
     size_t dataLength;
     picoMpegTSDescriptorTag tag;
@@ -758,6 +763,7 @@ typedef struct {
     union {
         picoMpegTSDescriptorISO639Language_t iso639Language;
         picoMpegTSDescriptorService_t service;
+        picoMpegTSDescriptorStreamIdentifier_t streamIdentifier;
     } parsed;
 } picoMpegTSDescriptor_t;
 typedef picoMpegTSDescriptor_t *picoMpegTSDescriptor;
@@ -1214,6 +1220,19 @@ static bool __picoMpegTSDescriptorPayloadParseService(picoMpegTSDescriptor descr
     return true;
 }
 
+static bool __picoMpegTSDescriptorPayloadParseStreamIdentifier(picoMpegTSDescriptor descriptor)
+{
+    PICO_ASSERT(descriptor != NULL);
+    PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_STREAM_IDENTIFIER);
+
+    if (descriptor->dataLength != 1) {
+        return false;
+    }
+
+    descriptor->parsed.streamIdentifier.componentTag = descriptor->data[0];
+    return true;
+}
+
 static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
@@ -1223,6 +1242,8 @@ static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
             return __picoMpegTSDescriptorPayloadParseISO639Language(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE:
             return __picoMpegTSDescriptorPayloadParseService(descriptor);
+        case PICO_MPEGTS_DESCRIPTOR_TAG_STREAM_IDENTIFIER:
+            return __picoMpegTSDescriptorPayloadParseStreamIdentifier(descriptor);
         default:
             return false;
     }
@@ -3479,6 +3500,15 @@ static void __picoMpegTSDescriptorPayloadServiceDebugPrint(picoMpegTSDescriptor 
     PICO_MPEGTS_LOG("%*sService Name\t: %s\n", indent + 2, "", descriptor->parsed.service.serviceName);
 }
 
+static void __picoMpegTSDescriptorPayloadStreamIdentifierDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+{
+    if (descriptor == NULL) {
+        return;
+    }
+    PICO_MPEGTS_LOG("%*sStream Identifier Descriptor:\n", indent, "");
+    PICO_MPEGTS_LOG("%*sComponent Tag\t: 0x%02X\n", indent + 2, "", descriptor->parsed.streamIdentifier.componentTag);
+}
+
 static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     if (descriptor == NULL) {
@@ -3490,6 +3520,9 @@ static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descrip
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE:
             __picoMpegTSDescriptorPayloadServiceDebugPrint(descriptor, indent);
+            break;
+        case PICO_MPEGTS_DESCRIPTOR_TAG_STREAM_IDENTIFIER:
+            __picoMpegTSDescriptorPayloadStreamIdentifierDebugPrint(descriptor, indent);
             break;
         default:
             PICO_MPEGTS_LOG("%*sDescriptor Payload: \n", indent, "");
