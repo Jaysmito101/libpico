@@ -913,10 +913,6 @@ typedef struct {
         // event in the original stream.
         picoMpegTSSDTRunningStatus runningStatus;
 
-        // This 12-bit field gives the total length in bytes of
-        // the service descriptor loop.
-        uint16_t serviceLoopLength;
-
         // Descriptors on the service and event contained in the
         // partial TS.
         picoMpegTSDescriptorSet_t descriptorSet;
@@ -3493,10 +3489,9 @@ static void __picoMpegTSSITDebugPrint(const picoMpegTSServiceInformationTablePay
     __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&sit->transmissionInfoDescriptorSet, 4);
     PICO_MPEGTS_LOG("    Service Count: %zu\n", sit->serviceCount);
     for (size_t i = 0; i < sit->serviceCount; i++) {
-        PICO_MPEGTS_LOG("    [%zu] Service ID: 0x%04X, Running Status: %s, Service Loop Length: %u\n",
+        PICO_MPEGTS_LOG("    [%zu] Service ID: 0x%04X, Running Status: %s\n",
                         i, sit->services[i].serviceId,
-                        picoMpegTSSDTRunningStatusToString(sit->services[i].runningStatus),
-                        sit->services[i].serviceLoopLength);
+                        picoMpegTSSDTRunningStatusToString(sit->services[i].runningStatus));
         PICO_MPEGTS_LOG("      Descriptors: %zu\n", sit->services[i].descriptorSet.count);
         __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&sit->services[i].descriptorSet, 6);
     }
