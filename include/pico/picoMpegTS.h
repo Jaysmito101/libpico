@@ -708,9 +708,19 @@ typedef struct {
 typedef picoMpegTSDuration_t *picoMpegTSDuration;
 
 typedef struct {
+    uint8_t languageCode[3];
+    uint8_t languageType;
+} picoMpegTSDescriptorISO639Language_t;
+typedef picoMpegTSDescriptorISO639Language_t *picoMpegTSDescriptorISO639Language;
+
+typedef struct {
     uint8_t data[PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH];
     size_t dataLength;
     picoMpegTSDescriptorTag tag;
+    bool isParsed;
+    union {
+        picoMpegTSDescriptorISO639Language_t iso639Language;
+    } parsed;
 } picoMpegTSDescriptor_t;
 typedef picoMpegTSDescriptor_t *picoMpegTSDescriptor;
 
@@ -1110,6 +1120,34 @@ static void __picoMpegTSFilterContextFlushPayloadAccumulator(picoMpegTSFilterCon
 static picoMpegTSResult __picoMpegTSReplaceOrRegisterPSIFilter(picoMpegTS mpegts, uint16_t pid);
 static void __picoMpegTSDestroyFilterContext(picoMpegTS mpegts, picoMpegTSFilterContext context);
 
+static bool __picoMpegTSDescriptorPayloadParseISO639Language(picoMpegTSDescriptor descriptor)
+{
+    PICO_ASSERT(descriptor != NULL);
+    PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_ISO_639_LANGUAGE);
+
+    if (descriptor->dataLength != 4) {
+        return false;
+    }
+
+    descriptor->parsed.iso639Language.languageCode[0] = descriptor->data[0];
+    descriptor->parsed.iso639Language.languageCode[1] = descriptor->data[1];
+    descriptor->parsed.iso639Language.languageCode[2] = descriptor->data[2];
+    descriptor->parsed.iso639Language.languageType    = descriptor->data[3];
+    return true;
+}
+
+static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
+{
+    PICO_ASSERT(descriptor != NULL);
+
+    switch (descriptor->tag) {
+        case PICO_MPEGTS_DESCRIPTOR_TAG_ISO_639_LANGUAGE:
+            return __picoMpegTSDescriptorPayloadParseISO639Language(descriptor);
+        default:
+            return false;
+    }
+}
+
 static picoMpegTSResult __picoMpegTSDescriptorParse(picoMpegTSDescriptor descriptor, const uint8_t *data, size_t dataSize, size_t *bytesConsumed)
 {
     PICO_ASSERT(descriptor != NULL);
@@ -1140,6 +1178,8 @@ static picoMpegTSResult __picoMpegTSDescriptorParse(picoMpegTSDescriptor descrip
                         descriptorLength, PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH);
     }
     memcpy(descriptor->data, &data[2], copyLength);
+
+    descriptor->isParsed = __picoMpegTSDescriptorPayloadParse(descriptor);
 
     *bytesConsumed = 2 + descriptorLength;
     return PICO_MPEGTS_RESULT_SUCCESS;
@@ -3278,16 +3318,57 @@ void picoMpegTSPacketDebugPrint(picoMpegTSPacket packet)
     }
 }
 
+static void __picoMpegTSDescriptorPayloadISO639LanguageDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+{
+    if (descriptor == NULL) {
+        return;
+    }
+    PICO_MPEGTS_LOG("%*sISO 639 Language Descriptor: \n", indent, "");
+    PICO_MPEGTS_LOG("%*sLanguage\t:%s\n", indent + 2, "", descriptor->data);
+    PICO_MPEGTS_LOG("%*sLanguage Type\t:%0x\n", indent + 2, "", *(descriptor->data + 3));
+}
+
+static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+{
+    if (descriptor == NULL) {
+        return;
+    }
+    switch (descriptor->tag) {
+        case PICO_MPEGTS_DESCRIPTOR_TAG_ISO_639_LANGUAGE:
+            __picoMpegTSDescriptorPayloadISO639LanguageDebugPrint(descriptor, indent);
+            break;
+        default:
+            PICO_MPEGTS_LOG("%*sDescriptor Payload: \n", indent, "");
+            for (size_t i = 0; i < descriptor->dataLength; i++) {
+                PICO_MPEGTS_LOG("%02X ", descriptor->data[i]);
+            }
+            PICO_MPEGTS_LOG("\n");
+            break;
+    }
+}
+
+static void __picoMpegTSDescriptorDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+{
+    if (descriptor == NULL) {
+        return;
+    }
+    PICO_MPEGTS_LOG("%*sDescriptor: Tag=0x%02X (%s), Length=%zu, Parsed=%s\n",
+                    indent, "", descriptor->tag,
+                    picoMpegTSDescriptorTagToString(descriptor->tag),
+                    descriptor->dataLength,
+                    descriptor->isParsed ? "true" : "false");
+    if (descriptor->isParsed) {
+        __picoMpegTSDescriptorPayloadDebugPrint(descriptor, indent + 2);
+    }
+}
+
 static void __picoMpegTSDescriptorSetDebugPrint(picoMpegTSDescriptorSet set, int indent)
 {
     if (set == NULL || set->count == 0) {
         return;
     }
     for (size_t i = 0; i < set->count; i++) {
-        PICO_MPEGTS_LOG("%*sDescriptor %zu: Tag=0x%02X (%s), Length=%zu\n",
-                        indent, "", i, set->descriptors[i].tag,
-                        picoMpegTSDescriptorTagToString(set->descriptors[i].tag),
-                        set->descriptors[i].dataLength);
+        __picoMpegTSDescriptorDebugPrint(&set->descriptors[i], indent);
     }
 }
 
