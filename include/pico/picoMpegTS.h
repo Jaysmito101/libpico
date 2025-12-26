@@ -1107,6 +1107,20 @@ typedef struct {
 typedef picoMpegTSDescriptorComponent_t *picoMpegTSDescriptorComponent;
 
 typedef struct {
+    // ISO 639 language code
+    char languageCode[3];
+
+    // Event name (short title)
+    char eventName[64];
+    uint8_t eventNameLength;
+
+    // Event description text
+    char text[64];
+    uint8_t textLength;
+} picoMpegTSDescriptorShortEvent_t;
+typedef picoMpegTSDescriptorShortEvent_t *picoMpegTSDescriptorShortEvent;
+
+typedef struct {
     uint8_t data[PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH];
     size_t dataLength;
     picoMpegTSDescriptorTag tag;
@@ -1118,6 +1132,7 @@ typedef struct {
         picoMpegTSDescriptorCA_t ca;
         picoMpegTSDescriptorContent_t content;
         picoMpegTSDescriptorComponent_t component;
+        picoMpegTSDescriptorShortEvent_t shortEvent;
     } parsed;
 } picoMpegTSDescriptor_t;
 typedef picoMpegTSDescriptor_t *picoMpegTSDescriptor;
@@ -1680,6 +1695,57 @@ static bool __picoMpegTSDescriptorPayloadParseComponent(picoMpegTSDescriptor des
     return true;
 }
 
+static bool __picoMpegTSDescriptorPayloadParseShortEvent(picoMpegTSDescriptor descriptor)
+{
+    PICO_ASSERT(descriptor != NULL);
+    PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_SHORT_EVENT);
+
+    descriptor->parsed.shortEvent.languageCode[0] = (char)descriptor->data[0];
+    descriptor->parsed.shortEvent.languageCode[1] = (char)descriptor->data[1];
+    descriptor->parsed.shortEvent.languageCode[2] = (char)descriptor->data[2];
+
+    uint8_t eventNameLength                       = descriptor->data[3];
+    descriptor->parsed.shortEvent.eventNameLength = eventNameLength;
+
+    if (4 + eventNameLength > descriptor->dataLength) {
+        return false;
+    }
+
+    if (eventNameLength > 63) {
+        eventNameLength                               = 63;
+        descriptor->parsed.shortEvent.eventNameLength = 63;
+    }
+
+    if (eventNameLength > 0) {
+        memcpy(descriptor->parsed.shortEvent.eventName, &descriptor->data[4], eventNameLength);
+    }
+    descriptor->parsed.shortEvent.eventName[eventNameLength] = '\0';
+    size_t textLengthPos                                     = 4 + descriptor->parsed.shortEvent.eventNameLength;
+
+    if (textLengthPos >= descriptor->dataLength) {
+        return false;
+    }
+
+    uint8_t textLength                       = descriptor->data[textLengthPos];
+    descriptor->parsed.shortEvent.textLength = textLength;
+
+    if (textLengthPos + 1 + textLength > descriptor->dataLength) {
+        return false;
+    }
+
+    if (textLength > 63) {
+        textLength                               = 63;
+        descriptor->parsed.shortEvent.textLength = 63;
+    }
+
+    if (textLength > 0) {
+        memcpy(descriptor->parsed.shortEvent.text, &descriptor->data[textLengthPos + 1], textLength);
+    }
+    descriptor->parsed.shortEvent.text[textLength] = '\0';
+
+    return true;
+}
+
 static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
@@ -1697,6 +1763,8 @@ static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
             return __picoMpegTSDescriptorPayloadParseContent(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_COMPONENT:
             return __picoMpegTSDescriptorPayloadParseComponent(descriptor);
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SHORT_EVENT:
+            return __picoMpegTSDescriptorPayloadParseShortEvent(descriptor);
         default:
             return false;
     }
@@ -4596,6 +4664,22 @@ static void __picoMpegTSDescriptorPayloadComponentDebugPrint(picoMpegTSDescripto
     }
 }
 
+static void __picoMpegTSDescriptorPayloadShortEventDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+{
+    (void)indent;
+    if (descriptor == NULL) {
+        return;
+    }
+    PICO_MPEGTS_LOG("%*sShort Event Descriptor:\n", indent, "");
+    PICO_MPEGTS_LOG("%*sLanguage Code\t: %.3s\n", indent + 2, "", descriptor->parsed.shortEvent.languageCode);
+    if (descriptor->parsed.shortEvent.eventNameLength > 0) {
+        PICO_MPEGTS_LOG("%*sEvent Name\t: %s\n", indent + 2, "", descriptor->parsed.shortEvent.eventName);
+    }
+    if (descriptor->parsed.shortEvent.textLength > 0) {
+        PICO_MPEGTS_LOG("%*sEvent Text\t: %s\n", indent + 2, "", descriptor->parsed.shortEvent.text);
+    }
+}
+
 static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     (void)indent;
@@ -4620,6 +4704,9 @@ static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descrip
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_COMPONENT:
             __picoMpegTSDescriptorPayloadComponentDebugPrint(descriptor, indent);
+            break;
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SHORT_EVENT:
+            __picoMpegTSDescriptorPayloadShortEventDebugPrint(descriptor, indent);
             break;
         default:
             PICO_MPEGTS_LOG("%*sDescriptor Payload: \n", indent, "");
