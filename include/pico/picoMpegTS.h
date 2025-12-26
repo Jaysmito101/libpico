@@ -38,12 +38,9 @@ SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define PICO_IMPLEMENTATION
-
-#ifndef PICO_INITIAL_PARSED_PACKETS_CAPACITY
-#define PICO_INITIAL_PARSED_PACKETS_CAPACITY 1024
-#endif
 
 #define PICO_MPEGTS_RETURN_ON_ERROR(resultVar)   \
     do {                                         \
@@ -52,6 +49,10 @@ SOFTWARE.
             return res;                          \
         }                                        \
     } while (0)
+
+#ifndef PICO_INITIAL_PARSED_PACKETS_CAPACITY
+#define PICO_INITIAL_PARSED_PACKETS_CAPACITY 1024
+#endif
 
 // Maximum number of PIDs (13-bit PID = 0x0000 to 0x1FFF)
 #ifndef PICO_MPEGTS_MAX_PIDS
@@ -67,7 +68,11 @@ SOFTWARE.
 #endif
 
 #ifndef PICO_MPEGTS_MAX_SECTIONS
-#define PICO_MPEGTS_MAX_SECTIONS 256 // maximum sections to be parsed per table
+#define PICO_MPEGTS_MAX_SECTIONS 256
+#endif
+
+#ifndef PICO_MPEGTS_TABLE_VERSION_AGE_THRESHOLD_SECONDS
+#define PICO_MPEGTS_TABLE_VERSION_AGE_THRESHOLD_SECONDS 7200
 #endif
 
 #define PICO_MPEGTS_CC_UNINITIALIZED 42
@@ -96,6 +101,7 @@ SOFTWARE.
 #define PICO_MPEGTS_MAX_PID_COUNT              8192
 #define PICO_MPEGTS_MAX_TABLE_COUNT            256
 #define PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH 256
+#define PICO_MPEGTS_MAX_VERSIONS               32
 
 typedef enum {
     PICO_MPEGTS_PACKET_TYPE_DEFAULT = 188,
@@ -1406,6 +1412,7 @@ typedef picoMpegTSMetadataSectionPayload_t *picoMpegTSMetadataSectionPayload;
 typedef struct {
     uint8_t tableId;
     uint8_t versionNumber;
+    uint64_t completedTimestamp;
     picoMpegTSPSISectionHead_t head;
 
     bool hasSection[PICO_MPEGTS_MAX_SECTIONS];
@@ -1500,11 +1507,9 @@ struct picoMpegTS_t {
     uint32_t ignoredPacketCount;
 
     picoMpegTSFilterContext pidFilters[PICO_MPEGTS_MAX_PID_COUNT];
-    // these are the final tables
     picoMpegTSTable tables[PICO_MPEGTS_MAX_TABLE_COUNT];
-
-    // these are the partial tables being built
-    picoMpegTSTable partialTables[PICO_MPEGTS_MAX_TABLE_COUNT];
+    picoMpegTSTable partialTables[PICO_MPEGTS_MAX_TABLE_COUNT][PICO_MPEGTS_MAX_VERSIONS];
+    picoMpegTSTable parsedTables[PICO_MPEGTS_MAX_TABLE_COUNT][PICO_MPEGTS_MAX_VERSIONS];
 };
 
 static picoMpegTSResult __picoMpegTSDescriptorSetAdd(picoMpegTSDescriptorSet set, const picoMpegTSDescriptor descriptor)
@@ -1895,6 +1900,37 @@ static picoMpegTSTable __picoMpegTSTableCreate(uint8_t tableId, uint8_t versionN
     table->tableId       = tableId;
     table->versionNumber = versionNumber;
     return table;
+}
+
+static uint64_t __picoMpegTSGetCurrentTimestamp(void)
+{
+#ifdef _WIN32
+    return (uint64_t)time(NULL);
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return (uint64_t)ts.tv_sec;
+#endif
+}
+
+static bool __picoMpegTSIsVersionNewer(picoMpegTSTable candidate, picoMpegTSTable current)
+{
+    if (candidate == NULL)
+        return false;
+    if (current == NULL)
+        return true;
+
+    uint64_t candidateTs = candidate->completedTimestamp;
+    uint64_t currentTs   = current->completedTimestamp;
+
+    if (candidateTs > currentTs && (candidateTs - currentTs) > PICO_MPEGTS_TABLE_VERSION_AGE_THRESHOLD_SECONDS) {
+        return true;
+    }
+    if (currentTs > candidateTs && (currentTs - candidateTs) > PICO_MPEGTS_TABLE_VERSION_AGE_THRESHOLD_SECONDS) {
+        return false;
+    }
+
+    return candidate->versionNumber > current->versionNumber;
 }
 
 static void __picoMpegTSTableDestroy(picoMpegTSTable table)
@@ -2367,34 +2403,34 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
         return PICO_MPEGTS_RESULT_SUCCESS;
     }
 
-    // the table has already been parsed, ignore it
-    if (mpegts->tables[tableId] != NULL && mpegts->tables[tableId]->versionNumber == head->versionNumber) {
+    uint8_t versionIndex = head->versionNumber % PICO_MPEGTS_MAX_VERSIONS;
+
+    if (mpegts->parsedTables[tableId][versionIndex] != NULL &&
+        mpegts->parsedTables[tableId][versionIndex]->versionNumber == head->versionNumber) {
         return PICO_MPEGTS_RESULT_SUCCESS;
     }
 
-    if (mpegts->partialTables[tableId] == NULL) {
-        mpegts->partialTables[tableId] = __picoMpegTSTableCreate(tableId, head->versionNumber);
+    if (mpegts->partialTables[tableId][versionIndex] == NULL) {
+        mpegts->partialTables[tableId][versionIndex] = __picoMpegTSTableCreate(tableId, head->versionNumber);
     }
 
-    if (mpegts->partialTables[tableId]->versionNumber > head->versionNumber) {
-        return PICO_MPEGTS_RESULT_SUCCESS;
-    }
-    if (mpegts->partialTables[tableId]->versionNumber < head->versionNumber) {
-        __picoMpegTSTableDestroy(mpegts->partialTables[tableId]);
-        mpegts->partialTables[tableId] = __picoMpegTSTableCreate(tableId, head->versionNumber);
+    picoMpegTSTable table = mpegts->partialTables[tableId][versionIndex];
+
+    if (table->versionNumber != head->versionNumber) {
+        __picoMpegTSTableDestroy(table);
+        mpegts->partialTables[tableId][versionIndex] = __picoMpegTSTableCreate(tableId, head->versionNumber);
+        table                                        = mpegts->partialTables[tableId][versionIndex];
     }
 
-    picoMpegTSTable table = mpegts->partialTables[tableId];
-
-    // if we are in the same version and the section 1is already parsed, ignore it
     if (table->hasSection[head->sectionNumber]) {
         return PICO_MPEGTS_RESULT_SUCCESS;
     }
 
     table->hasSection[head->sectionNumber] = true;
+    table->head                            = *head;
 
-    PICO_MPEGTS_LOG("picoMpegTS: parsing section %d.%d [%s] / [%s]\n",
-                    tableId, filterContext->pid,
+    PICO_MPEGTS_LOG("picoMpegTS: parsing section %d.%d v%d [%s] / [%s]\n",
+                    tableId, head->sectionNumber, head->versionNumber,
                     picoMpegTSTableIDToString(tableId),
                     picoMpegTSPIDToString(filterContext->pid));
 
@@ -2452,22 +2488,41 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
         default:
             break;
     }
-    // check if it has all the sections, then just move this to the table
+
     bool allSectionsPresent = true;
-    for (size_t i = 0; i < table->head.sectionLength; i++) {
+    for (size_t i = 0; i <= table->head.lastSectionNumber; i++) {
         if (!table->hasSection[i]) {
             allSectionsPresent = false;
             break;
         }
     }
+
     if (allSectionsPresent) {
-        picoMpegTSTable oldTable = mpegts->tables[tableId];
-        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSOnTableReady(mpegts, oldTable, table));
-        if (oldTable != NULL) {
-            __picoMpegTSTableDestroy(oldTable);
+        table->completedTimestamp = __picoMpegTSGetCurrentTimestamp();
+
+        if (mpegts->parsedTables[tableId][versionIndex] != NULL) {
+            __picoMpegTSTableDestroy(mpegts->parsedTables[tableId][versionIndex]);
         }
-        mpegts->tables[tableId]        = table;
-        mpegts->partialTables[tableId] = NULL;
+        mpegts->parsedTables[tableId][versionIndex]  = table;
+        mpegts->partialTables[tableId][versionIndex] = NULL;
+
+        PICO_MPEGTS_LOG("picoMpegTS: table %d v%d completed at %llu\n",
+                        tableId, head->versionNumber, table->completedTimestamp);
+
+        picoMpegTSTable latestTable = NULL;
+        for (size_t v = 0; v < PICO_MPEGTS_MAX_VERSIONS; v++) {
+            if (mpegts->parsedTables[tableId][v] != NULL) {
+                if (__picoMpegTSIsVersionNewer(mpegts->parsedTables[tableId][v], latestTable)) {
+                    latestTable = mpegts->parsedTables[tableId][v];
+                }
+            }
+        }
+
+        if (latestTable != NULL && latestTable != mpegts->tables[tableId]) {
+            picoMpegTSTable oldTable = mpegts->tables[tableId];
+            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSOnTableReady(mpegts, oldTable, latestTable));
+            mpegts->tables[tableId] = latestTable;
+        }
     }
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -3015,21 +3070,21 @@ void picoMpegTSDestroy(picoMpegTS mpegts)
     if (mpegts->storeParsedPackets && mpegts->parsedPackets) {
         PICO_FREE(mpegts->parsedPackets);
     }
-    // free all the filter contexts
+
     for (size_t i = 0; i < PICO_MPEGTS_MAX_PID_COUNT; i++) {
         if (mpegts->pidFilters[i]) {
             __picoMpegTSDestroyFilterContext(mpegts, mpegts->pidFilters[i]);
         }
     }
 
-    // go through all tables and partial tables and
-    // free them if needed
     for (size_t i = 0; i < PICO_MPEGTS_MAX_TABLE_COUNT; i++) {
-        if (mpegts->tables[i]) {
-            __picoMpegTSTableDestroy(mpegts->tables[i]);
-        }
-        if (mpegts->partialTables[i]) {
-            __picoMpegTSTableDestroy(mpegts->partialTables[i]);
+        for (size_t v = 0; v < PICO_MPEGTS_MAX_VERSIONS; v++) {
+            if (mpegts->partialTables[i][v]) {
+                __picoMpegTSTableDestroy(mpegts->partialTables[i][v]);
+            }
+            if (mpegts->parsedTables[i][v]) {
+                __picoMpegTSTableDestroy(mpegts->parsedTables[i][v]);
+            }
         }
     }
 
