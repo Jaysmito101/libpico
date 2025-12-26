@@ -256,6 +256,33 @@ typedef enum {
 } picoMpegTSStreamType;
 
 typedef enum {
+    PICO_MPEGTS_PES_STREAM_ID_PROGRAM_STREAM_MAP       = 0xBC, // program_stream_map
+    PICO_MPEGTS_PES_STREAM_ID_PRIVATE_STREAM_1         = 0xBD, // private_stream_1
+    PICO_MPEGTS_PES_STREAM_ID_PADDING_STREAM           = 0xBE, // padding_stream
+    PICO_MPEGTS_PES_STREAM_ID_PRIVATE_STREAM_2         = 0xBF, // private_stream_2
+    PICO_MPEGTS_PES_STREAM_ID_AUDIO_STREAM_START       = 0xC0, // ISO/IEC 13818-3 or ISO/IEC 11172-3 or ISO/IEC 13818-7 or ISO/IEC 14496-3 audio stream number 0
+    PICO_MPEGTS_PES_STREAM_ID_AUDIO_STREAM_END         = 0xDF, // audio stream number 31
+    PICO_MPEGTS_PES_STREAM_ID_VIDEO_STREAM_START       = 0xE0, // ITU-T H.262 | ISO/IEC 13818-2, ISO/IEC 11172-2, ISO/IEC 14496-2, ITU-T H.264 | ISO/IEC 14496-10, ITU-T H.265 | ISO/IEC 23008-2, ITU-T H.266 | ISO/IEC 23090-3, ISO/IEC 23094-1 video stream number 0
+    PICO_MPEGTS_PES_STREAM_ID_VIDEO_STREAM_END         = 0xEF, // video stream number 15
+    PICO_MPEGTS_PES_STREAM_ID_ECM_STREAM               = 0xF0, // ECM_stream
+    PICO_MPEGTS_PES_STREAM_ID_EMM_STREAM               = 0xF1, // EMM_stream
+    PICO_MPEGTS_PES_STREAM_ID_DSMCC_STREAM             = 0xF2, // ITU-T H.222.0 | ISO/IEC 13818-1 Annex A or ISO/IEC 13818-6_DSMCC_stream
+    PICO_MPEGTS_PES_STREAM_ID_ISO_IEC_13522_STREAM     = 0xF3, // ISO/IEC_13522_stream
+    PICO_MPEGTS_PES_STREAM_ID_ITU_T_H222_1_TYPE_A      = 0xF4, // ITU-T Rec. H.222.1 type A
+    PICO_MPEGTS_PES_STREAM_ID_ITU_T_H222_1_TYPE_B      = 0xF5, // ITU-T Rec. H.222.1 type B
+    PICO_MPEGTS_PES_STREAM_ID_ITU_T_H222_1_TYPE_C      = 0xF6, // ITU-T Rec. H.222.1 type C
+    PICO_MPEGTS_PES_STREAM_ID_ITU_T_H222_1_TYPE_D      = 0xF7, // ITU-T Rec. H.222.1 type D
+    PICO_MPEGTS_PES_STREAM_ID_ITU_T_H222_1_TYPE_E      = 0xF8, // ITU-T Rec. H.222.1 type E
+    PICO_MPEGTS_PES_STREAM_ID_ANCILLARY_STREAM         = 0xF9, // ancillary_stream
+    PICO_MPEGTS_PES_STREAM_ID_SL_PACKETIZED_STREAM     = 0xFA, // ISO/IEC 14496-1_SL-packetized_stream
+    PICO_MPEGTS_PES_STREAM_ID_M4MUX_STREAM             = 0xFB, // ISO/IEC 14496-1_M4Mux_stream
+    PICO_MPEGTS_PES_STREAM_ID_METADATA_STREAM          = 0xFC, // metadata_stream
+    PICO_MPEGTS_PES_STREAM_ID_EXTENDED_STREAM_ID       = 0xFD, // extended_stream_id
+    PICO_MPEGTS_PES_STREAM_ID_RESERVED_DATA_STREAM     = 0xFE, // reserved data stream
+    PICO_MPEGTS_PES_STREAM_ID_PROGRAM_STREAM_DIRECTORY = 0xFF, // program_stream_directory
+} picoMpegTSPESStreamID;
+
+typedef enum {
     PICO_MPEGTS_DESCRIPTOR_TAG_RESERVED_0                      = 0,
     PICO_MPEGTS_DESCRIPTOR_TAG_FORBIDDEN                       = 1,
     PICO_MPEGTS_DESCRIPTOR_TAG_VIDEO_STREAM                    = 2,
@@ -1499,6 +1526,12 @@ typedef struct {
 typedef picoMpegTSTable_t *picoMpegTSTable;
 
 typedef struct {
+    picoMpegTSPSISectionHead_t head;
+
+} picoMpegTSPESPacket_t;
+typedef picoMpegTSPESPacket_t *picoMpegTSPESPacket;
+
+typedef struct {
     bool printParsedPackets;
     bool printCurrentTables;
     bool printParsedTables;
@@ -1539,6 +1572,7 @@ const char *picoMpegTSServiceTypeToString(picoMpegTSServiceType type);
 const char *picoMpegTSAudioTypeToString(picoMpegTSAudioType type);
 const char *picoMpegTSContentNibbleLevel1ToString(uint8_t nibble);
 const char *picoMpegTSContentNibbleToString(picoMpegTSContentNibble nibble);
+const char *picoMpegTSPESStreamIDToString(uint8_t streamId);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_MPEGTS_IMPLEMENTATION)
 #define PICO_MPEGTS_IMPLEMENTATION
@@ -2691,6 +2725,23 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
             mpegts->tables[tableId] = latestTable;
         }
     }
+    return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
+static picoMpegTSResult __picoMpegTSAddPESPacket(picoMpegTS mpegts, picoMpegTSFilterContext filterContext)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(filterContext != NULL);
+
+    if (filterContext->filterType != PICO_MPEGTS_FILTER_TYPE_PES) {
+        return PICO_MPEGTS_RESULT_INVALID_DATA;
+    }
+
+    picoMpegTSPESHead head = &filterContext->head.pes;
+
+    // stream id must be a video or
+    (void)head;
+
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
@@ -4124,6 +4175,64 @@ const char *picoMpegTSContentNibbleToString(picoMpegTSContentNibble nibble)
 
         default:
             return "reserved or unknown content";
+    }
+}
+
+const char *picoMpegTSPESStreamIDToString(uint8_t streamId)
+{
+    switch (streamId) {
+        case PICO_MPEGTS_PES_STREAM_ID_PROGRAM_STREAM_MAP:
+            return "program_stream_map";
+        case PICO_MPEGTS_PES_STREAM_ID_PRIVATE_STREAM_1:
+            return "private_stream_1";
+        case PICO_MPEGTS_PES_STREAM_ID_PADDING_STREAM:
+            return "padding_stream";
+        case PICO_MPEGTS_PES_STREAM_ID_PRIVATE_STREAM_2:
+            return "private_stream_2";
+        case PICO_MPEGTS_PES_STREAM_ID_ECM_STREAM:
+            return "ECM_stream";
+        case PICO_MPEGTS_PES_STREAM_ID_EMM_STREAM:
+            return "EMM_stream";
+        case PICO_MPEGTS_PES_STREAM_ID_DSMCC_STREAM:
+            return "DSMCC_stream";
+        case PICO_MPEGTS_PES_STREAM_ID_ISO_IEC_13522_STREAM:
+            return "ISO/IEC_13522_stream";
+        case PICO_MPEGTS_PES_STREAM_ID_ITU_T_H222_1_TYPE_A:
+            return "ITU-T H.222.1 type A";
+        case PICO_MPEGTS_PES_STREAM_ID_ITU_T_H222_1_TYPE_B:
+            return "ITU-T H.222.1 type B";
+        case PICO_MPEGTS_PES_STREAM_ID_ITU_T_H222_1_TYPE_C:
+            return "ITU-T H.222.1 type C";
+        case PICO_MPEGTS_PES_STREAM_ID_ITU_T_H222_1_TYPE_D:
+            return "ITU-T H.222.1 type D";
+        case PICO_MPEGTS_PES_STREAM_ID_ITU_T_H222_1_TYPE_E:
+            return "ITU-T H.222.1 type E";
+        case PICO_MPEGTS_PES_STREAM_ID_ANCILLARY_STREAM:
+            return "ancillary_stream";
+        case PICO_MPEGTS_PES_STREAM_ID_SL_PACKETIZED_STREAM:
+            return "ISO/IEC 14496-1_SL-packetized_stream";
+        case PICO_MPEGTS_PES_STREAM_ID_M4MUX_STREAM:
+            return "ISO/IEC 14496-1_M4Mux_stream";
+        case PICO_MPEGTS_PES_STREAM_ID_METADATA_STREAM:
+            return "metadata_stream";
+        case PICO_MPEGTS_PES_STREAM_ID_EXTENDED_STREAM_ID:
+            return "extended_stream_id";
+        case PICO_MPEGTS_PES_STREAM_ID_RESERVED_DATA_STREAM:
+            return "reserved data stream";
+        case PICO_MPEGTS_PES_STREAM_ID_PROGRAM_STREAM_DIRECTORY:
+            return "program_stream_directory";
+        default:
+            // Check for audio stream range (0xC0 - 0xDF)
+            if (streamId >= PICO_MPEGTS_PES_STREAM_ID_AUDIO_STREAM_START &&
+                streamId <= PICO_MPEGTS_PES_STREAM_ID_AUDIO_STREAM_END) {
+                return "audio_stream";
+            }
+            // Check for video stream range (0xE0 - 0xEF)
+            if (streamId >= PICO_MPEGTS_PES_STREAM_ID_VIDEO_STREAM_START &&
+                streamId <= PICO_MPEGTS_PES_STREAM_ID_VIDEO_STREAM_END) {
+                return "video_stream";
+            }
+            return "unknown_stream_id";
     }
 }
 
