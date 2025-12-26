@@ -1436,6 +1436,14 @@ typedef struct {
 } picoMpegTSTable_t;
 typedef picoMpegTSTable_t *picoMpegTSTable;
 
+typedef struct {
+    bool printParsedPackets;
+    bool printCurrentTables;
+    bool printParsedTables;
+    bool printPartialTables;
+} picoMpegTSDebugPrintInfo_t;
+typedef picoMpegTSDebugPrintInfo_t *picoMpegTSDebugPrintInfo;
+
 picoMpegTS picoMpegTSCreate(bool storeParsedPackets);
 void picoMpegTSDestroy(picoMpegTS mpegts);
 picoMpegTSResult picoMpegTSGetParsedPackets(picoMpegTS mpegts, picoMpegTSPacket *packetsOut, size_t *packetCountOut);
@@ -1448,6 +1456,8 @@ picoMpegTSPacketType picoMpegTSDetectPacketTypeFromFile(const char *filename);
 
 picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket packetOut);
 picoMpegTSTable picoMpegTSGetTable(picoMpegTS mpegts, picoMpegTSTableID tableID);
+
+void picoMpegTSDebugPrint(picoMpegTS mpegts, picoMpegTSDebugPrintInfo info);
 
 void picoMpegTSPacketDebugPrint(picoMpegTSPacket packet);
 void picoMpegTSPacketAdaptationFieldDebugPrint(picoMpegTSPacketAdaptationField adaptationField);
@@ -2506,9 +2516,6 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
         mpegts->parsedTables[tableId][versionIndex]  = table;
         mpegts->partialTables[tableId][versionIndex] = NULL;
 
-        PICO_MPEGTS_LOG("picoMpegTS: table %d v%d completed at %llu\n",
-                        tableId, head->versionNumber, table->completedTimestamp);
-
         picoMpegTSTable latestTable = NULL;
         for (size_t v = 0; v < PICO_MPEGTS_MAX_VERSIONS; v++) {
             if (mpegts->parsedTables[tableId][v] != NULL) {
@@ -3105,6 +3112,56 @@ picoMpegTSResult picoMpegTSGetParsedPackets(picoMpegTS mpegts, picoMpegTSPacket 
     *packetCountOut = mpegts->parsedPacketCount;
 
     return PICO_MPEGTS_RESULT_SUCCESS;
+}
+
+void picoMpegTSDebugPrint(picoMpegTS mpegts, picoMpegTSDebugPrintInfo info)
+{
+    PICO_ASSERT(mpegts != NULL);
+
+    PICO_MPEGTS_LOG("-----------------------------------------------------\n");
+    if (info->printParsedPackets && mpegts->storeParsedPackets) {
+        PICO_MPEGTS_LOG("Parsed Packets: %zu\n", mpegts->parsedPacketCount);
+        for (size_t i = 0; i < mpegts->parsedPacketCount; i++) {
+            picoMpegTSPacketDebugPrint(&mpegts->parsedPackets[i]);
+        }
+        PICO_MPEGTS_LOG("-----------------------------------------------------\n");
+    }
+
+    if (info->printCurrentTables) {
+        PICO_MPEGTS_LOG("Current Tables:\n");
+        for (size_t i = 0; i < PICO_MPEGTS_MAX_TABLE_COUNT; i++) {
+            if (mpegts->tables[i]) {
+                picoMpegTSTableDebugPrint(mpegts->tables[i]);
+            }
+        }
+        PICO_MPEGTS_LOG("-----------------------------------------------------\n");
+    }
+
+    if (info->printParsedTables) {
+        printf("Parsed Tables:\n");
+        for (size_t i = 0; i < PICO_MPEGTS_MAX_TABLE_COUNT; i++) {
+            for (size_t v = 0; v < PICO_MPEGTS_MAX_VERSIONS; v++) {
+                if (mpegts->parsedTables[i][v]) {
+                    printf("Parsed Table ID %zu (0x%02zX) Version %zu:\n", i, i, v);
+                    picoMpegTSTableDebugPrint(mpegts->parsedTables[i][v]);
+                }
+            }
+        }
+        PICO_MPEGTS_LOG("-----------------------------------------------------\n");
+    }
+
+    if (info->printPartialTables) {
+        printf("Partial Tables:\n");
+        for (size_t i = 0; i < PICO_MPEGTS_MAX_TABLE_COUNT; i++) {
+            for (size_t v = 0; v < PICO_MPEGTS_MAX_VERSIONS; v++) {
+                if (mpegts->partialTables[i][v]) {
+                    printf("Partial Table ID %zu (0x%02zX) Version %zu:\n", i, i, v);
+                    picoMpegTSTableDebugPrint(mpegts->partialTables[i][v]);
+                }
+            }
+        }
+        PICO_MPEGTS_LOG("-----------------------------------------------------\n");
+    }
 }
 
 // NOTE: Irrespective of type of packet we just use the first 188 bytes for parsing
