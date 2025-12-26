@@ -1582,6 +1582,7 @@ static void __picoMpegTSDescriptorSetClear(picoMpegTSDescriptorSet set)
 
 static void __picoMpegTSFilterContextFlushPayloadAccumulator(picoMpegTSFilterContext filterContext, size_t byteCount);
 static picoMpegTSResult __picoMpegTSReplaceOrRegisterPSIFilter(picoMpegTS mpegts, uint16_t pid);
+static picoMpegTSResult __picoMpegTSReplaceOrRegisterPESFilter(picoMpegTS mpegts, uint16_t pid);
 static void __picoMpegTSDestroyFilterContext(picoMpegTS mpegts, picoMpegTSFilterContext context);
 
 static bool __picoMpegTSDescriptorPayloadParseISO639Language(picoMpegTSDescriptor descriptor)
@@ -3047,11 +3048,11 @@ static picoMpegTSResult __picoMpegTSFilterFlushAllContexts(picoMpegTS mpegts)
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSRegisterPSIFilter(picoMpegTS mpegts, picoMpegTSPacketPID pid)
+static picoMpegTSResult __picoMpegTSRegisterFilter(picoMpegTS mpegts, picoMpegTSPacketPID pid, picoMpegTSFilterType filterType)
 {
     PICO_ASSERT(mpegts != NULL);
 
-    picoMpegTSFilterContext filterContext = __picoMpegTSCreateFilterContext(mpegts, PICO_MPEGTS_FILTER_TYPE_SECTION, pid);
+    picoMpegTSFilterContext filterContext = __picoMpegTSCreateFilterContext(mpegts, filterType, pid);
 
     if (!filterContext) {
         PICO_MPEGTS_LOG("picoMpegTS: Failed to create (%s) filter context for PID 0x%04X\n",
@@ -3075,23 +3076,36 @@ static picoMpegTSResult __picoMpegTSReplaceOrRegisterPSIFilter(picoMpegTS mpegts
         __picoMpegTSDestroyFilterContext(mpegts, oldFilter);
         mpegts->pidFilters[pid] = NULL;
     }
-    return __picoMpegTSRegisterPSIFilter(mpegts, pid);
+    return __picoMpegTSRegisterFilter(mpegts, pid, PICO_MPEGTS_FILTER_TYPE_SECTION);
+}
+
+static picoMpegTSResult __picoMpegTSReplaceOrRegisterPESFilter(picoMpegTS mpegts, uint16_t pid)
+{
+    PICO_ASSERT(mpegts != NULL);
+
+    if (mpegts->pidFilters[pid] != NULL) {
+        picoMpegTSFilterContext oldFilter = mpegts->pidFilters[pid];
+        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterContextFlush(mpegts, oldFilter, 0));
+        __picoMpegTSDestroyFilterContext(mpegts, oldFilter);
+        mpegts->pidFilters[pid] = NULL;
+    }
+    return __picoMpegTSRegisterFilter(mpegts, pid, PICO_MPEGTS_FILTER_TYPE_PES);
 }
 
 static picoMpegTSResult __picoMpegTSRegisterPSIFilters(picoMpegTS mpegts)
 {
     PICO_ASSERT(mpegts != NULL);
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_PAT));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_CAT));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_TSDT));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_NIT));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_SDT_BAT));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_EIT));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_RST));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_TDT_TOT));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_PAT));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_CAT));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_TSDT));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_NIT));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_SDT_BAT));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_EIT));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_RST));
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_TDT_TOT));
     // The following two arent needed now, TODO: implement these
-    // PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_DIT));
-    // PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_SIT));
+    // PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_DIT));
+    // PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_SIT));
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -3320,12 +3334,8 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
     // otherwise we just ignore the packet
 
     if (__picoMpegTSIsPIDCustom(packet.pid) && !packet.payloadUnitStartIndicator) {
-        // mpegts->pidFilters[packet.pid] = __picoMpegTSCreatePESFilterContext(mpegts, packet.pid);
-        // if (!mpegts->pidFilters[packet.pid]) {
-        //     return PICO_MPEGTS_RESULT_MALLOC_ERROR;
-        // }
-        // return __picoMpegTSFilterContextApply(mpegts->pidFilters[packet.pid], mpegts, &packet);
-        // TODO: implement pes filter creation for custom pids
+        // TODO: not sure fi we need to handle this manually? as proper pes filters 
+        // should get registered by respective table updates (pmst/sdt/eit)
         return PICO_MPEGTS_RESULT_SUCCESS;
     }
 
