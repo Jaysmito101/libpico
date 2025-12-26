@@ -2596,10 +2596,10 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
     table->hasSection[head->sectionNumber] = true;
     table->head                            = *head;
 
-    PICO_MPEGTS_LOG("picoMpegTS: parsing section %d.%d v%d [%s] / [%s]\n",
-                    tableId, head->sectionNumber, head->versionNumber,
-                    picoMpegTSTableIDToString(tableId),
-                    picoMpegTSPIDToString(filterContext->pid));
+    // PICO_MPEGTS_LOG("picoMpegTS: parsing section %d.%d v%d [%s] / [%s]\n",
+    //                 tableId, head->sectionNumber, head->versionNumber,
+    //                 picoMpegTSTableIDToString(tableId),
+    //                 picoMpegTSPIDToString(filterContext->pid));
 
     switch (tableId) {
         case PICO_MPEGTS_TABLE_ID_PAS:
