@@ -1888,6 +1888,9 @@ picoMpegTSPacketType picoMpegTSDetectPacketTypeFromFile(const char *filename);
 
 picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket packetOut);
 picoMpegTSTable picoMpegTSGetTable(picoMpegTS mpegts, picoMpegTSTableID tableID);
+picoMpegTSTable picoMpegTSGetParsedTable(picoMpegTS mpegts, picoMpegTSTableID tableID, uint8_t versionNumber);
+picoMpegTSTable picoMpegTSGetPartialTable(picoMpegTS mpegts, picoMpegTSTableID tableID, uint8_t versionNumber);
+picoMpegTSPESPacket* picoMpegTSGetPESPackets(picoMpegTS mpegts, size_t *packetCountOut);
 
 void picoMpegTSDebugPrint(picoMpegTS mpegts, picoMpegTSDebugPrintInfo info);
 
@@ -1896,6 +1899,9 @@ void picoMpegTSPacketAdaptationFieldDebugPrint(picoMpegTSPacketAdaptationField a
 void picoMpegTSPacketAdaptationFieldExtensionDebugPrint(picoMpegTSAdaptionFieldExtension adaptationFieldExtension);
 void picoMpegTsPsiSectionHeadDebugPrint(picoMpegTSPSISectionHead sectionHead);
 void picoMpegTSTableDebugPrint(picoMpegTSTable table);
+
+bool picoMpegTSIsStreamIDAudio(picoMpegTSPESStreamID streamId);
+bool picoMpegTSIsStreamIDVideo(picoMpegTSPESStreamID streamId);
 
 const char *picoMpegTSPacketTypeToString(picoMpegTSPacketType type);
 const char *picoMpegTSResultToString(picoMpegTSResult result);
@@ -1959,6 +1965,10 @@ struct picoMpegTS_t {
     picoMpegTSTable tables[PICO_MPEGTS_MAX_TABLE_COUNT];
     picoMpegTSTable partialTables[PICO_MPEGTS_MAX_TABLE_COUNT][PICO_MPEGTS_MAX_VERSIONS];
     picoMpegTSTable parsedTables[PICO_MPEGTS_MAX_TABLE_COUNT][PICO_MPEGTS_MAX_VERSIONS];
+
+    picoMpegTSPESPacket *pesPackets;
+    size_t pesPacketCount;
+    size_t pesPacketCapacity;
 };
 
 static picoMpegTSResult __picoMpegTSDescriptorSetAdd(picoMpegTSDescriptorSet set, const picoMpegTSDescriptor descriptor)
@@ -3627,6 +3637,29 @@ picoMpegTSTable picoMpegTSGetTable(picoMpegTS mpegts, picoMpegTSTableID tableID)
     return mpegts->tables[tableID];
 }
 
+picoMpegTSTable picoMpegTSGetParsedTable(picoMpegTS mpegts, picoMpegTSTableID tableID, uint8_t versionNumber)
+{
+    PICO_ASSERT(mpegts != NULL);
+    size_t versionIndex = versionNumber % PICO_MPEGTS_MAX_VERSIONS;
+    return mpegts->parsedTables[tableID][versionIndex];
+}
+
+picoMpegTSTable picoMpegTSGetPartialTable(picoMpegTS mpegts, picoMpegTSTableID tableID, uint8_t versionNumber)
+{
+    PICO_ASSERT(mpegts != NULL);
+    size_t versionIndex = versionNumber % PICO_MPEGTS_MAX_VERSIONS;
+    return mpegts->partialTables[tableID][versionIndex];
+}
+
+picoMpegTSPESPacket* picoMpegTSGetPESPackets(picoMpegTS mpegts, size_t *packetCountOut)
+{
+    PICO_ASSERT(mpegts != NULL);
+    PICO_ASSERT(packetCountOut != NULL);
+
+    *packetCountOut = mpegts->pesPacketCount;
+    return mpegts->pesPackets;
+}
+
 picoMpegTS picoMpegTSCreate(bool storeParsedPackets)
 {
     picoMpegTS mpegts = (picoMpegTS)PICO_MALLOC(sizeof(picoMpegTS_t));
@@ -3937,6 +3970,18 @@ picoMpegTSPacketType picoMpegTSDetectPacketTypeFromFile(const char *filename)
     }
 
     return picoMpegTSDetectPacketType(buffer, bytesRead);
+}
+
+bool picoMpegTSIsStreamIDAudio(picoMpegTSPESStreamID streamId)
+{
+    return (streamId >= PICO_MPEGTS_PES_STREAM_ID_AUDIO_STREAM_START &&
+            streamId <= PICO_MPEGTS_PES_STREAM_ID_AUDIO_STREAM_END);
+}
+
+bool picoMpegTSIsStreamIDVideo(picoMpegTSPESStreamID streamId)
+{
+    return (streamId >= PICO_MPEGTS_PES_STREAM_ID_VIDEO_STREAM_START &&
+            streamId <= PICO_MPEGTS_PES_STREAM_ID_VIDEO_STREAM_END);
 }
 
 const char *picoMpegTSPacketTypeToString(picoMpegTSPacketType type)
