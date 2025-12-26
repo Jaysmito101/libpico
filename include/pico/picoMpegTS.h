@@ -3342,8 +3342,8 @@ static void __picoMpegTSPMSDebugPrint(const picoMpegTSProgramMapSectionPayload_t
     __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&pms->programInfoDescriptorSet, 4);
     PICO_MPEGTS_LOG("    Stream Count: %zu\n", pms->streamCount);
     for (size_t i = 0; i < pms->streamCount; i++) {
-        PICO_MPEGTS_LOG("    [%zu] Stream Type: 0x%02X, Elementary PID: 0x%04X, ES Descriptors: %zu\n",
-                        i, pms->streams[i].streamType, pms->streams[i].elementaryPid,
+        PICO_MPEGTS_LOG("    [%zu] Stream Type: %s [0x%02X], Elementary PID: 0x%04X, ES Descriptors: %zu\n",
+                        i, picoMpegTSStreamTypeToString(pms->streams[i].streamType), pms->streams[i].streamType, pms->streams[i].elementaryPid,
                         pms->streams[i].esInfoDescriptorSet.count);
         __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&pms->streams[i].esInfoDescriptorSet, 6);
     }
