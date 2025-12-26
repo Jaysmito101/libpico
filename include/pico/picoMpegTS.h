@@ -690,10 +690,12 @@ typedef picoMpegTSPSISectionHead_t *picoMpegTSPSISectionHead;
 // Time structures for DVB tables
 typedef struct {
     // Modified Julian Date (16 bits) + UTC time (24 bits BCD: HH:MM:SS)
-    uint16_t mjd;   // Modified Julian Date
-    uint8_t hour;   // BCD encoded hours (0x00-0x23)
-    uint8_t minute; // BCD encoded minutes (0x00-0x59)
-    uint8_t second; // BCD encoded seconds (0x00-0x59)
+    int year;
+    int month;
+    int day;
+    int hour;
+    int minute;
+    int second;
 } picoMpegTSUTCTime_t;
 typedef picoMpegTSUTCTime_t *picoMpegTSUTCTime;
 
@@ -1201,6 +1203,31 @@ static void __picoMpegTSDescriptorSetDestroy(picoMpegTSDescriptorSet set)
     set->capacity    = 0;
 }
 
+static void __picoMpegTSMJDToGregorian(uint16_t mjd, int *year, int *month, int *day)
+{
+    PICO_ASSERT(year != NULL);
+    PICO_ASSERT(month != NULL);
+    PICO_ASSERT(day != NULL);
+
+    int y_prime, m_prime, k;
+
+    y_prime = (int)((mjd - 15078.2) / 365.25);
+    m_prime = (int)((mjd - 14956.1 - (int)(y_prime * 365.25)) / 30.6001);
+    *day    = mjd - 14956 - (int)(y_prime * 365.25) - (int)(m_prime * 30.6001);
+    if (m_prime == 14 || m_prime == 15) {
+        k = 1;
+    } else {
+        k = 0;
+    }
+    *year  = y_prime + k + 1900;
+    *month = m_prime - 1 - k * 12;
+}
+
+static int __picoMpegTSBCDToInteger(uint8_t bcd)
+{
+    return ((bcd >> 4) & 0xF) * 10 + (bcd & 0xF);
+}
+
 static picoMpegTSTable __picoMpegTSTableCreate(uint8_t tableId, uint8_t versionNumber)
 {
     picoMpegTSTable table = (picoMpegTSTable)PICO_MALLOC(sizeof(picoMpegTSTable_t));
@@ -1467,10 +1494,15 @@ static picoMpegTSResult __picoMpegTSParseEIT(picoMpegTS mpegts, picoMpegTSEventI
         table->events[table->eventCount].eventId = (uint16_t)(filterContext->payloadAccumulator[0] << 8) |
                                                    filterContext->payloadAccumulator[1];
 
-        table->events[table->eventCount].startTime.mjd    = (uint16_t)(filterContext->payloadAccumulator[2] << 8) | filterContext->payloadAccumulator[3];
-        table->events[table->eventCount].startTime.hour   = filterContext->payloadAccumulator[4];
-        table->events[table->eventCount].startTime.minute = filterContext->payloadAccumulator[5];
-        table->events[table->eventCount].startTime.second = filterContext->payloadAccumulator[6];
+        uint16_t mjd = (uint16_t)(filterContext->payloadAccumulator[2] << 8) | filterContext->payloadAccumulator[3];
+        __picoMpegTSMJDToGregorian(mjd,
+                                   &table->events[table->eventCount].startTime.year,
+                                   &table->events[table->eventCount].startTime.month,
+                                   &table->events[table->eventCount].startTime.day);
+
+        table->events[table->eventCount].startTime.hour   = __picoMpegTSBCDToInteger(filterContext->payloadAccumulator[4]);
+        table->events[table->eventCount].startTime.minute = __picoMpegTSBCDToInteger(filterContext->payloadAccumulator[5]);
+        table->events[table->eventCount].startTime.second = __picoMpegTSBCDToInteger(filterContext->payloadAccumulator[6]);
 
         table->events[table->eventCount].duration.hours   = filterContext->payloadAccumulator[7];
         table->events[table->eventCount].duration.minutes = filterContext->payloadAccumulator[8];
@@ -3267,8 +3299,8 @@ static void __picoMpegTSUTCTimeDebugPrint(const picoMpegTSUTCTime_t *time, const
 {
     if (time == NULL)
         return;
-    PICO_MPEGTS_LOG("%*s%s: MJD=%u, %02X:%02X:%02X\n",
-                    indent, "", label, time->mjd, time->hour, time->minute, time->second);
+    PICO_MPEGTS_LOG("%*s%s: Date: %04u-%02u-%02u, Time: %02u:%02u:%02u\n",
+                    indent, "", label, time->year, time->month, time->day, time->hour, time->minute, time->second);
 }
 
 static void __picoMpegTSDurationDebugPrint(const picoMpegTSDuration_t *duration, const char *label, int indent)
