@@ -1127,6 +1127,17 @@ typedef struct {
 typedef picoMpegTSDescriptorShortEvent_t *picoMpegTSDescriptorShortEvent;
 
 typedef struct {
+    uint16_t serviceId;
+    picoMpegTSServiceType serviceType;
+} picoMpegTSDescriptorServiceListEntry_t;
+
+typedef struct {
+    picoMpegTSDescriptorServiceListEntry_t entries[32];
+    size_t entryCount;
+} picoMpegTSDescriptorServiceList_t;
+typedef picoMpegTSDescriptorServiceList_t *picoMpegTSDescriptorServiceList;
+
+typedef struct {
     uint8_t data[PICO_MPEGTS_MAX_DESCRIPTOR_DATA_LENGTH];
     size_t dataLength;
     picoMpegTSDescriptorTag tag;
@@ -1139,6 +1150,8 @@ typedef struct {
         picoMpegTSDescriptorContent_t content;
         picoMpegTSDescriptorComponent_t component;
         picoMpegTSDescriptorShortEvent_t shortEvent;
+        picoMpegTSDescriptorServiceList_t serviceList;
+
     } parsed;
 } picoMpegTSDescriptor_t;
 typedef picoMpegTSDescriptor_t *picoMpegTSDescriptor;
@@ -1761,6 +1774,28 @@ static bool __picoMpegTSDescriptorPayloadParseShortEvent(picoMpegTSDescriptor de
     return true;
 }
 
+static bool __picoMpegTSDescriptorPayloadParseServiceList(picoMpegTSDescriptor descriptor)
+{
+    PICO_ASSERT(descriptor != NULL);
+    PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE_LIST);
+
+    if (descriptor->dataLength % 3 != 0) {
+        return false;
+    }
+
+    descriptor->parsed.serviceList.entryCount = descriptor->dataLength / 3;
+    if (descriptor->parsed.serviceList.entryCount > 32) {
+        descriptor->parsed.serviceList.entryCount = 32;
+    }
+
+    for (size_t i = 0; i < descriptor->parsed.serviceList.entryCount; i++) {
+        descriptor->parsed.serviceList.entries[i].serviceId   = (uint16_t)(descriptor->data[i * 3] << 8) | descriptor->data[i * 3 + 1];
+        descriptor->parsed.serviceList.entries[i].serviceType = (picoMpegTSServiceType)descriptor->data[i * 3 + 2];
+    }
+
+    return true;
+}
+
 static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
@@ -1780,6 +1815,8 @@ static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
             return __picoMpegTSDescriptorPayloadParseComponent(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_SHORT_EVENT:
             return __picoMpegTSDescriptorPayloadParseShortEvent(descriptor);
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE_LIST:
+            return __picoMpegTSDescriptorPayloadParseServiceList(descriptor);
         default:
             return false;
     }
@@ -4807,6 +4844,22 @@ static void __picoMpegTSDescriptorPayloadShortEventDebugPrint(picoMpegTSDescript
     }
 }
 
+static void __picoMpegTSDescriptorPayloadServiceListDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+{
+    (void)indent;
+    if (descriptor == NULL) {
+        return;
+    }
+    PICO_MPEGTS_LOG("%*sService List Descriptor:\n", indent, "");
+    for (size_t i = 0; i < descriptor->parsed.serviceList.entryCount; i++) {
+        PICO_MPEGTS_LOG("%*sEntry [%zu]:\n", indent + 2, "", i);
+        PICO_MPEGTS_LOG("%*sService ID\t: 0x%04X\n", indent + 4, "", descriptor->parsed.serviceList.entries[i].serviceId);
+        PICO_MPEGTS_LOG("%*sService Type\t: %s [0x%02X]\n", indent + 4, "",
+                        picoMpegTSServiceTypeToString(descriptor->parsed.serviceList.entries[i].serviceType),
+                        descriptor->parsed.serviceList.entries[i].serviceType);
+    }
+}
+
 static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     (void)indent;
@@ -4834,6 +4887,9 @@ static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descrip
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_SHORT_EVENT:
             __picoMpegTSDescriptorPayloadShortEventDebugPrint(descriptor, indent);
+            break;
+        case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE_LIST:
+            __picoMpegTSDescriptorPayloadServiceListDebugPrint(descriptor, indent);
             break;
         default:
             PICO_MPEGTS_LOG("%*sDescriptor Payload: \n", indent, "");
