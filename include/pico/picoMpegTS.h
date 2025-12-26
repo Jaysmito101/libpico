@@ -1555,8 +1555,10 @@ typedef void *(*picoMpegTSFilterContextConstructorFunc)(picoMpegTS mpegts, picoM
 
 struct picoMpegTSFilterContext_t {
     bool hasHead;
-    picoMpegTSPSISectionHead_t psiSectionHead;
-    picoMpegTSPESHead_t pesHead;
+    union {
+        picoMpegTSPSISectionHead_t psi;
+        picoMpegTSPESHead_t pes;
+    } head;
     uint16_t pid;
 
     uint8_t *payloadAccumulator;
@@ -2558,7 +2560,7 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
         return PICO_MPEGTS_RESULT_INVALID_DATA;
     }
 
-    picoMpegTSPSISectionHead head = &filterContext->psiSectionHead;
+    picoMpegTSPSISectionHead head = &filterContext->head.psi;
     if (head->tableId != tableId) {
         return PICO_MPEGTS_RESULT_INVALID_DATA;
     }
@@ -2987,7 +2989,7 @@ static picoMpegTSResult __picoMpegTSFilterContextFlush(picoMpegTS mpegts, picoMp
     // time to actually deal with the data
     if (filterContext->payloadAccumulatorSize > filterContext->expectedPayloadSize && filterContext->hasHead) {
         if (filterContext->filterType == PICO_MPEGTS_FILTER_TYPE_SECTION) {
-            uint8_t tableId = filterContext->psiSectionHead.tableId;
+            uint8_t tableId = filterContext->head.psi.tableId;
             PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSTableAddSection(mpegts, tableId, filterContext));
         } else {
             PICO_MPEGTS_LOG("PES filters are not yet implemented");
@@ -2999,7 +3001,7 @@ static picoMpegTSResult __picoMpegTSFilterContextFlush(picoMpegTS mpegts, picoMp
     __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, flushPayloadSize);
     filterContext->hasHead             = false;
     filterContext->expectedPayloadSize = 0;
-    memset(&filterContext->psiSectionHead, 0, sizeof(picoMpegTSPSISectionHead_t));
+    memset(&filterContext->head.psi, 0, sizeof(picoMpegTSPSISectionHead_t));
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -3067,16 +3069,16 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
                 PICO_MPEGTS_RETURN_ON_ERROR(
                     __picoMpegTSParseSectionHead(
                         filterContext->payloadAccumulator,
-                        &filterContext->psiSectionHead));
+                        &filterContext->head.psi));
                 __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 8);
-                filterContext->expectedPayloadSize = filterContext->psiSectionHead.sectionLength - 5;
+                filterContext->expectedPayloadSize = filterContext->head.psi.sectionLength - 5;
             } else {
                 PICO_MPEGTS_RETURN_ON_ERROR(
                     __picoMpegTSParsePESHead(
                         (const char *)filterContext->payloadAccumulator,
-                        &filterContext->pesHead));
+                        &filterContext->head.pes));
                 __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 6);
-                filterContext->expectedPayloadSize = filterContext->pesHead.pesPacketLength;
+                filterContext->expectedPayloadSize = filterContext->head.pes.pesPacketLength;
             }
             filterContext->hasHead = true;
         } else {
