@@ -1107,6 +1107,9 @@ typedef struct {
 
     // The PID of the elementary stream to which this PES packet belongs.
     uint16_t pid;
+
+    // Whether or not the starting 0x00 0x00 0x01 bits have been found.
+    bool pesStartingBitsFound;
 } picoMpegTSPESHead_t;
 typedef picoMpegTSPESHead_t *picoMpegTSPESHead;
 
@@ -1940,6 +1943,7 @@ typedef void *(*picoMpegTSFilterContextConstructorFunc)(picoMpegTS mpegts, picoM
 
 struct picoMpegTSFilterContext_t {
     bool hasHead;
+    size_t startPacketIndex;
     union {
         picoMpegTSPSISectionHead_t psi;
         picoMpegTSPESHead_t pes;
@@ -1974,6 +1978,8 @@ struct picoMpegTS_t {
     picoMpegTSPESPacket *pesPackets;
     size_t pesPacketCount;
     size_t pesPacketCapacity;
+
+    size_t packetCount;
 };
 
 static picoMpegTSResult __picoMpegTSDescriptorSetAdd(picoMpegTSDescriptorSet set, const picoMpegTSDescriptor descriptor)
@@ -2690,7 +2696,7 @@ static picoMpegTSResult __picoMpegTSParseTDT(picoMpegTS mpegts, picoMpegTSTimeDa
 
     // NOTE: right now due to an issue, we arent parsing the UTC time
     // TODO: fix this
-    PICO_MPEGTS_LOG("Time Date Table not implemented");
+    PICO_MPEGTS_LOG("Time Date Table not implemented\n");
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -2702,7 +2708,7 @@ static picoMpegTSResult __picoMpegTSParseTOT(picoMpegTS mpegts, picoMpegTSTimeOf
     PICO_ASSERT(filterContext != NULL);
 
     // NOTE: right now due to an issue, we arent parsing the UTC time
-    PICO_MPEGTS_LOG("Time Offset Table only partially implemented");
+    PICO_MPEGTS_LOG("Time Offset Table only partially implemented\n");
 
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->descriptorSet, filterContext, false));
 
@@ -2716,7 +2722,7 @@ static picoMpegTSResult __picoMpegTSParseRST(picoMpegTS mpegts, picoMpegTSRunnin
     PICO_ASSERT(filterContext != NULL);
 
     // TODO: not implemented right now
-    PICO_MPEGTS_LOG("Running Status Table not implemented");
+    PICO_MPEGTS_LOG("Running Status Table not implemented\n");
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -3158,7 +3164,7 @@ static picoMpegTSResult __picoMpegTSPESPacketParse(picoMpegTSPESPacket packet, p
     packet->pesExtensionFlag       = (byte1 & 0x01) != 0;
 
     uint8_t pesHeaderDataLength = data[offset++];
-    size_t headerDataEnd  = offset + pesHeaderDataLength;
+    size_t headerDataEnd        = offset + pesHeaderDataLength;
 
     // parse PTS (if ptsDtsFlags == '10' or '11')
     if (packet->ptsDtsFlags == 0x02 || packet->ptsDtsFlags == 0x03) {
@@ -3256,9 +3262,9 @@ static picoMpegTSResult __picoMpegTSPESPacketParse(picoMpegTSPESPacket packet, p
 
         if (ext->programPacketSequenceCounterFlag) {
             ext->programPacketSequenceCounter = data[offset++] & 0x7F;
-            uint8_t byte              = data[offset++];
-            ext->mpeg1Mpeg2Identifier = (byte & 0x40) != 0;
-            ext->originalStuffLength  = byte & 0x3F;
+            uint8_t byte                      = data[offset++];
+            ext->mpeg1Mpeg2Identifier         = (byte & 0x40) != 0;
+            ext->originalStuffLength          = byte & 0x3F;
         }
 
         if (ext->pStdBufferFlag) {
@@ -3270,8 +3276,8 @@ static picoMpegTSResult __picoMpegTSPESPacketParse(picoMpegTSPESPacket packet, p
 
         if (ext->pesExtensionFlag2) {
             ext->pesExtensionFieldLength = data[offset++] & 0x7F;
-            uint8_t extField           = data[offset++];
-            ext->streamIdExtensionFlag = (extField & 0x80) != 0;
+            uint8_t extField             = data[offset++];
+            ext->streamIdExtensionFlag   = (extField & 0x80) != 0;
             if (!ext->streamIdExtensionFlag) {
                 ext->streamIdExtension = extField & 0x7F;
             } else {
@@ -3291,7 +3297,7 @@ static picoMpegTSResult __picoMpegTSPESPacketParse(picoMpegTSPESPacket packet, p
     // skip any remaining stuffing bytes in the header data
     offset = headerDataEnd;
 
-    packet->data       = (uint8_t *)PICO_MALLOC(filterContext->payloadAccumulatorSize - offset);
+    packet->data = (uint8_t *)PICO_MALLOC(filterContext->payloadAccumulatorSize - offset);
     if (packet->data == NULL) {
         return PICO_MPEGTS_RESULT_MALLOC_ERROR;
     }
@@ -3311,11 +3317,15 @@ static picoMpegTSResult __picoMpegTSAddPESPacket(picoMpegTS mpegts, picoMpegTSFi
         return PICO_MPEGTS_RESULT_INVALID_DATA;
     }
 
+    if (!filterContext->head.pes.pesStartingBitsFound) {
+        // PICO_MPEGTS_LOG("picoMpegTS: invalid PES packet, missing starting bits, skipping\n");
+        return PICO_MPEGTS_RESULT_SUCCESS;
+    }
+
     picoMpegTSPESPacket_t packet = {0};
     memset(&packet, 0, sizeof(picoMpegTSPESPacket_t));
     memcpy(&packet.head, &filterContext->head.pes, sizeof(picoMpegTSPESHead_t));
     packet.head.pid = filterContext->pid;
-
     PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSPESPacketParse(&packet, filterContext));
 
     if (mpegts->pesPacketCapacity == mpegts->pesPacketCount) {
@@ -3534,8 +3544,10 @@ static picoMpegTSResult __picoMpegTSParsePESHead(const uint8_t *data, picoMpegTS
     PICO_ASSERT(data != NULL);
     PICO_ASSERT(pesHeadOut != NULL);
 
-    pesHeadOut->streamId        = (uint8_t)data[3];
-    pesHeadOut->pesPacketLength = ((uint16_t)(data[4] << 8) | data[5]);
+    memset(pesHeadOut, 0, sizeof(picoMpegTSPESHead_t));
+    pesHeadOut->pesStartingBitsFound = (data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x01);
+    pesHeadOut->streamId             = (uint8_t)data[3];
+    pesHeadOut->pesPacketLength      = ((uint16_t)(data[4] << 8) | data[5]);
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -3725,7 +3737,8 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
                 __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 6);
                 filterContext->expectedPayloadSize = filterContext->head.pes.pesPacketLength;
             }
-            filterContext->hasHead = true;
+            filterContext->startPacketIndex = mpegts->parsedPacketCount;
+            filterContext->hasHead          = true;
         } else {
             // no pointer field, just push all data
             PICO_MPEGTS_RETURN_ON_ERROR(
@@ -4053,6 +4066,8 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(data != NULL);
+
+    mpegts->packetCount++;
 
     picoMpegTSPacket_t packet = {0};
     PICO_MPEGTS_RETURN_ON_ERROR(picoMpegTSParsePacket(data, &packet));
