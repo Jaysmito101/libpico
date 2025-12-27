@@ -41,8 +41,6 @@ SOFTWARE.
 #include <string.h>
 #include <time.h>
 
-#define PICO_IMPLEMENTATION
-
 #define PICO_MPEGTS_RETURN_ON_ERROR(resultVar)   \
     do {                                         \
         picoMpegTSResult res = resultVar;        \
