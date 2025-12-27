@@ -31,8 +31,8 @@ SOFTWARE.
 #include <stdint.h>
 
 #ifndef PICO_MALLOC
-#define PICO_MALLOC  malloc
-#define PICO_FREE    free
+#define PICO_MALLOC malloc
+#define PICO_FREE   free
 #endif
 
 #ifndef PICO_REALLOC
@@ -1665,7 +1665,7 @@ bool __picoM3U8ParseByteRange(const char *valueStart, const char *valueEnd, pico
         return false;
     }
 
-    const char *atSignPtr        = strchr(valueStart, '@');
+    const char *atSignPtr = strchr(valueStart, '@');
     char lengthBuffer[16] = {0};
     if (atSignPtr != NULL && atSignPtr < valueEnd) {
         size_t lengthSize = (size_t)(atSignPtr - valueStart);
@@ -1822,7 +1822,8 @@ bool __picoM3U8ParseVariantStreamAttributes(const char *valueStart, const char *
     return true;
 }
 
-bool __picoM3U8ParseSessionDataAttributes(const char *valueStart, const char *valueEnd, picoM3U8SessionData sessionDataOut) {
+bool __picoM3U8ParseSessionDataAttributes(const char *valueStart, const char *valueEnd, picoM3U8SessionData sessionDataOut)
+{
     if (valueStart == NULL || valueEnd == NULL || sessionDataOut == NULL) {
         return false;
     }
@@ -1844,7 +1845,6 @@ bool __picoM3U8ParseSessionDataAttributes(const char *valueStart, const char *va
 
     return true;
 }
-
 
 // TODO: This function doenst really work well, REPLACE IT WITH A PROPER DATETIME PARSER
 bool __picoM3U8ParseDateTime(const char *valueStart, const char *valueEnd, picoM3U8DateTime dateTimeOut)
