@@ -1919,6 +1919,9 @@ picoMpegTSTable picoMpegTSGetTable(picoMpegTS mpegts, picoMpegTSTableID tableID)
 picoMpegTSTable picoMpegTSGetParsedTable(picoMpegTS mpegts, picoMpegTSTableID tableID, uint8_t versionNumber);
 picoMpegTSTable picoMpegTSGetPartialTable(picoMpegTS mpegts, picoMpegTSTableID tableID, uint8_t versionNumber);
 picoMpegTSPESPacket *picoMpegTSGetPESPackets(picoMpegTS mpegts, size_t *packetCountOut);
+picoMpegTSPMSStream picoMpegTSGetPMSStreamByPID(picoMpegTS mpegts, uint16_t pid);
+picoMpegTSPATProgram picoMpegTSGetPATProgramByPID(picoMpegTS mpegts, uint16_t pid);
+
 
 void picoMpegTSDebugPrint(picoMpegTS mpegts, picoMpegTSDebugPrintInfo info);
 
@@ -3940,6 +3943,48 @@ picoMpegTSPESPacket *picoMpegTSGetPESPackets(picoMpegTS mpegts, size_t *packetCo
         *packetCountOut = mpegts->pesPacketCount;
     }
     return mpegts->pesPackets;
+}
+
+picoMpegTSPMSStream picoMpegTSGetPMSStreamByPID(picoMpegTS mpegts, uint16_t pid)
+{
+    PICO_ASSERT(mpegts != NULL);
+
+    // get the current PMT table
+    picoMpegTSTable pmtTable = mpegts->tables[PICO_MPEGTS_TABLE_ID_PMS];
+    if (!pmtTable) {
+        return NULL;
+    }
+
+    // find the stream for the given PID
+    for (size_t i = 0; i < pmtTable->data.pms.streamCount; i++) {
+        picoMpegTSPMSStream stream = &pmtTable->data.pms.streams[i];
+        if (stream->elementaryPid == pid) {
+            return stream;
+        }
+    }
+
+    return NULL;    
+}
+
+picoMpegTSPATProgram picoMpegTSGetPATProgramByPID(picoMpegTS mpegts, uint16_t pid)
+{
+    PICO_ASSERT(mpegts != NULL);
+
+    // get the current PAT table
+    picoMpegTSTable patTable = mpegts->tables[PICO_MPEGTS_TABLE_ID_PAS];
+    if (!patTable) {
+        return NULL;
+    }
+
+    // find the program for the given PID
+    for (size_t i = 0; i < patTable->data.pas.programCount; i++) {
+        picoMpegTSPATProgram program = &patTable->data.pas.programs[i];
+        if (program->pid == pid) {
+            return program;
+        }
+    }
+
+    return NULL;    
 }
 
 picoMpegTS picoMpegTSCreate(bool storeParsedPackets)
