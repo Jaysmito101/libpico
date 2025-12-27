@@ -15,3 +15,4 @@ headers you wanna use define `PICO_IMPLEMENTATION` before including the headers.
 | picoStream | `include/pico/picoStream.h` | A simple file and memory stream library. | `examples/picoStream` |
 | picoPerf | `include/pico/picoPerf.h` | A simple performance measurement library. | `examples/picoPerf` |
 | picoM3U8 | `include/pico/picoM3u8.h` | A library for parsing M3U8 playlists (HLS). (Full spec implementation) | `examples/picoM3U8` |
+| picoMpegTS | `include/pico/picoMpegTS.h` | A library for parsing/buffering MPEG-TS & DVB streams. | `examples/picoMpegTS` |
