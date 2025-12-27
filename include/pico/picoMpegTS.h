@@ -3698,11 +3698,11 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
                             prePointerSize));
                 }
 
-                PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterContextFlush(mpegts, filterContext, 0));
-
                 // now move the offset to after the pointer field
                 payloadOffset = 1 + pointerField;
             }
+
+            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterContextFlush(mpegts, filterContext, 0));
 
             PICO_MPEGTS_RETURN_ON_ERROR(
                 __picoMpegTSFilterContextPushData(
@@ -3782,6 +3782,10 @@ static picoMpegTSResult __picoMpegTSReplaceOrRegisterPSIFilter(picoMpegTS mpegts
     PICO_ASSERT(mpegts != NULL);
 
     if (mpegts->pidFilters[pid] != NULL) {
+        if (mpegts->pidFilters[pid]->filterType == PICO_MPEGTS_FILTER_TYPE_SECTION) {
+            return PICO_MPEGTS_RESULT_SUCCESS; // already registered as PSI filter
+        }
+
         picoMpegTSFilterContext oldFilter = mpegts->pidFilters[pid];
         PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterContextFlush(mpegts, oldFilter, 0));
         __picoMpegTSDestroyFilterContext(mpegts, oldFilter);
@@ -3795,6 +3799,10 @@ static picoMpegTSResult __picoMpegTSReplaceOrRegisterPESFilter(picoMpegTS mpegts
     PICO_ASSERT(mpegts != NULL);
 
     if (mpegts->pidFilters[pid] != NULL) {
+        if (mpegts->pidFilters[pid]->filterType == PICO_MPEGTS_FILTER_TYPE_PES) {
+            return PICO_MPEGTS_RESULT_SUCCESS; // already registered as PES filter
+        }
+
         picoMpegTSFilterContext oldFilter = mpegts->pidFilters[pid];
         PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterContextFlush(mpegts, oldFilter, 0));
         __picoMpegTSDestroyFilterContext(mpegts, oldFilter);
@@ -4088,13 +4096,17 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
     if (__picoMpegTSIsPIDCustom(packet.pid) && !packet.payloadUnitStartIndicator) {
         // TODO: not sure fi we need to handle this manually? as proper pes filters
         // should get registered by respective table updates (pmst/sdt/eit)
+        mpegts->ignoredPacketCount++;
         return PICO_MPEGTS_RESULT_SUCCESS;
     }
 
-    mpegts->ignoredPacketCount++;
-    // PICO_MPEGTS_LOG("Ignoring packet with custom PID 0x%04X without filter.\n", packet.pid);
+    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPESFilter(mpegts, packet.pid));
 
-    return PICO_MPEGTS_RESULT_SUCCESS;
+    picoMpegTSFilterContext newFilterContext = mpegts->pidFilters[packet.pid];
+    return __picoMpegTSFilterContextApply(newFilterContext, mpegts, &packet);
+
+    // PICO_MPEGTS_LOG("Ignoring packet with custom PID 0x%04X without filter.\n", packet.pid);
+    // return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
 picoMpegTSResult picoMpegTSAddBuffer(picoMpegTS mpegts, const uint8_t *buffer, size_t size)
