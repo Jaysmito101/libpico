@@ -66,6 +66,7 @@ SOFTWARE.
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 typedef struct picoThread_t picoThread_t;
 typedef picoThread_t *picoThread;
