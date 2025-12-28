@@ -1256,7 +1256,6 @@ typedef struct {
         picoMpegTSDescriptorServiceList_t serviceList;
         picoMpegTSDescriptorNetworkName_t networkName;
         picoMpegTSDescriptorParentalRating_t parentalRating;
-
     } parsed;
 } picoMpegTSDescriptor_t;
 typedef picoMpegTSDescriptor_t *picoMpegTSDescriptor;
@@ -1269,87 +1268,122 @@ typedef struct {
 typedef picoMpegTSDescriptorSet_t *picoMpegTSDescriptorSet;
 
 typedef struct {
+    // This is a 16-bit field which serves as a label
+    // for identification of this TS from any other
+    // multiplex within the delivery system.
+    uint16_t transportStreamId;
+
+    // This 16-bit field gives the label identifying
+    // the network_id of the originating delivery system.
+    uint16_t originalNetworkId;
+
+    picoMpegTSDescriptorSet_t descriptorSet;
+} picoMpegTSNITTransportStream_t;
+typedef picoMpegTSNITTransportStream_t *picoMpegTSNITTransportStream;
+
+typedef struct {
     picoMpegTSDescriptorSet_t descriptorSet;
 
-    struct {
-        // This is a 16-bit field which serves as a label
-        // for identification of this TS from any other
-        // multiplex within the delivery system.
-        uint16_t transportStreamId;
-
-        // This 16-bit field gives the label identifying
-        // the network_id of the originating delivery system.
-        uint16_t originalNetworkId;
-
-        picoMpegTSDescriptorSet_t descriptorSet;
-    } transportStreams[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
+    picoMpegTSNITTransportStream_t transportStreams[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
     size_t transportStreamCount;
 } picoMpegTSNetworkInformationTablePayload_t;
 typedef picoMpegTSNetworkInformationTablePayload_t *picoMpegTSNetworkInformationTablePayload;
 
 typedef struct {
+    // This is a 16-bit field which serves as a label
+    // for identification of this TS from any other
+    // multiplex within the delivery system.
+    uint16_t transportStreamId;
+
+    // This 16-bit field gives the label identifying
+    // the network_id of the originating delivery system.
+    uint16_t originalNetworkId;
+
+    picoMpegTSDescriptorSet_t descriptorSet;
+} picoMpegTSBATService_t;
+typedef picoMpegTSBATService_t *picoMpegTSBATService;
+
+typedef struct {
     picoMpegTSDescriptorSet_t descriptorSet;
 
-    struct {
-        // This is a 16-bit field which serves as a label
-        // for identification of this TS from any other
-        // multiplex within the delivery system.
-        uint16_t transportStreamId;
-
-        // This 16-bit field gives the label identifying
-        // the network_id of the originating delivery system.
-        uint16_t originalNetworkId;
-
-        picoMpegTSDescriptorSet_t descriptorSet;
-    } services[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
+    picoMpegTSBATService_t services[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
     size_t serviceCount;
 } picoMpegTSBoquetAssociationTablePayload_t;
 typedef picoMpegTSBoquetAssociationTablePayload_t *picoMpegTSBoquetAssociationTablePayload;
+
+typedef struct {
+    // This is a 16-bit field which serves as a label
+    // for identification of this service within
+    // the transport stream.
+    uint16_t serviceId;
+
+    // This is a 1-bit field which when set to "1"
+    // indicates that EIT schedule information for the service
+    // is present in the current TS, see ETSI TS 101 211 [i.1]
+    // for information on maximum time interval between occurrences
+    // of an EIT schedule sub_table). If the flag is set
+    // to 0 then the EIT schedule information for the
+    // service should not be present in the TS.
+    bool eitScheduleFlag;
+
+    // This is a 1-bit field which when set to "1" indicates
+    // that EIT_present_following information for the
+    // service is present in the current TS, see ETSI TS 101 211 [i.1]
+    // for information on maximum time interval between occurrences
+    // of an EIT present/following sub_table. If the flag is
+    // set to 0 then the EIT present/following information for
+    // the service should not be present in the TS.
+    bool eitPresentFollowingFlag;
+
+    // The running_status is a 3-bit field which indicates
+    // the current running status of the service.
+    picoMpegTSSDTRunningStatus runningStatus;
+
+    // This 1-bit field, when set to "0" indicates that all
+    // the component streams of the service are not scrambled.
+    // When set to "1" it indicates that access to one or more
+    // streams may be controlled by a CA system.
+    bool freeCAMode;
+
+    picoMpegTSDescriptorSet_t descriptorSet;
+} picoMpegTSSDTService_t;
+typedef picoMpegTSSDTService_t *picoMpegTSSDTService;
 
 typedef struct {
     // This 16-bit field gives the label identifying
     // the network_id of the originating delivery system.
     uint16_t originalNetworkId;
 
-    struct {
-        // This is a 16-bit field which serves as a label
-        // for identification of this service within
-        // the transport stream.
-        uint16_t serviceId;
-
-        // This is a 1-bit field which when set to "1"
-        // indicates that EIT schedule information for the service
-        // is present in the current TS, see ETSI TS 101 211 [i.1]
-        // for information on maximum time interval between occurrences
-        // of an EIT schedule sub_table). If the flag is set
-        // to 0 then the EIT schedule information for the
-        // service should not be present in the TS.
-        bool eitScheduleFlag;
-
-        // This is a 1-bit field which when set to "1" indicates
-        // that EIT_present_following information for the
-        // service is present in the current TS, see ETSI TS 101 211 [i.1]
-        // for information on maximum time interval between occurrences
-        // of an EIT present/following sub_table. If the flag is
-        // set to 0 then the EIT present/following information for
-        // the service should not be present in the TS.
-        bool eitPresentFollowingFlag;
-
-        // The running_status is a 3-bit field which indicates
-        // the current running status of the service.
-        picoMpegTSSDTRunningStatus runningStatus;
-
-        // This 1-bit field, when set to "0" indicates that all
-        // the component streams of the service are not scrambled.
-        // When set to "1" it indicates that access to one or more
-        // streams may be controlled by a CA system.
-        bool freeCAMode;
-
-        picoMpegTSDescriptorSet_t descriptorSet;
-    } services[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
+    picoMpegTSSDTService_t services[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
     size_t serviceCount;
 } picoMpegTSServiceDescriptionTablePayload_t;
 typedef picoMpegTSServiceDescriptionTablePayload_t *picoMpegTSServiceDescriptionTablePayload;
+
+typedef struct {
+    // This 16-bit field contains the identification number
+    // of the described event.
+    uint16_t eventId;
+
+    // This 40-bit field contains the start time of the event
+    // in UTC and MJD.
+    picoMpegTSUTCTime_t startTime;
+
+    // A 24-bit field containing the duration of the event
+    // in hours, minutes, seconds format: 6 digits, 4-bit BCD.
+    picoMpegTSDuration_t duration;
+
+    // This 3-bit field indicates the status of the event.
+    picoMpegTSSDTRunningStatus runningStatus;
+
+    // This 1-bit field, when set to "0" indicates that all
+    // the component streams of the event are not scrambled.
+    // When set to "1" it indicates that access to one or more
+    // streams may be controlled by a CA system.
+    bool freeCAMode;
+
+    picoMpegTSDescriptorSet_t descriptorSet;
+} picoMpegTSEITEvent_t;
+typedef picoMpegTSEITEvent_t *picoMpegTSEITEvent;
 
 typedef struct {
     // This 16-bit field serves as a label to identify this TS
@@ -1360,30 +1394,7 @@ typedef struct {
     // of the originating delivery system.
     uint16_t originalNetworkId;
 
-    struct {
-        // This 16-bit field contains the identification number
-        // of the described event.
-        uint16_t eventId;
-
-        // This 40-bit field contains the start time of the event
-        // in UTC and MJD.
-        picoMpegTSUTCTime_t startTime;
-
-        // A 24-bit field containing the duration of the event
-        // in hours, minutes, seconds format: 6 digits, 4-bit BCD.
-        picoMpegTSDuration_t duration;
-
-        // This 3-bit field indicates the status of the event.
-        picoMpegTSSDTRunningStatus runningStatus;
-
-        // This 1-bit field, when set to "0" indicates that all
-        // the component streams of the event are not scrambled.
-        // When set to "1" it indicates that access to one or more
-        // streams may be controlled by a CA system.
-        bool freeCAMode;
-
-        picoMpegTSDescriptorSet_t descriptorSet;
-    } events[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
+    picoMpegTSEITEvent_t events[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
     size_t eventCount;
 } picoMpegTSEventInformationTablePayload_t;
 typedef picoMpegTSEventInformationTablePayload_t *picoMpegTSEventInformationTablePayload;
@@ -1406,27 +1417,30 @@ typedef struct {
 typedef picoMpegTSTimeOffsetTablePayload_t *picoMpegTSTimeOffsetTablePayload;
 
 typedef struct {
-    struct {
-        // This 16-bit field serves as a label for identification
-        // of the TS, about which the RST informs, from any other
-        // multiplex within the delivery system.
-        uint16_t transportStreamId;
+    // This 16-bit field serves as a label for identification
+    // of the TS, about which the RST informs, from any other
+    // multiplex within the delivery system.
+    uint16_t transportStreamId;
 
-        // This 16-bit field gives the label identifying the
-        // network_id of the originating delivery system.
-        uint16_t originalNetworkId;
+    // This 16-bit field gives the label identifying the
+    // network_id of the originating delivery system.
+    uint16_t originalNetworkId;
 
-        // This is a 16-bit field which serves as a label to
-        // identify this service from any other service within the TS.
-        uint16_t serviceId;
+    // This is a 16-bit field which serves as a label to
+    // identify this service from any other service within the TS.
+    uint16_t serviceId;
 
-        // This 16-bit field contains the identification number
-        // of the related event.
-        uint16_t eventId;
+    // This 16-bit field contains the identification number
+    // of the related event.
+    uint16_t eventId;
 
-        // This 3-bit field indicates the status of the event.
-        picoMpegTSSDTRunningStatus runningStatus;
-    } statusEntries[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
+    // This 3-bit field indicates the status of the event.
+    picoMpegTSSDTRunningStatus runningStatus;
+} picoMpegTSRSTStatusEntry_t;
+typedef picoMpegTSRSTStatusEntry_t *picoMpegTSRSTStatusEntry;
+
+typedef struct {
+    picoMpegTSRSTStatusEntry_t statusEntries[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
     size_t statusEntryCount;
 } picoMpegTSRunningStatusTablePayload_t;
 typedef picoMpegTSRunningStatusTablePayload_t *picoMpegTSRunningStatusTablePayload;
@@ -1442,6 +1456,22 @@ typedef struct {
 typedef picoMpegTSDiscriminationInformationTablePayload_t *picoMpegTSDiscriminationInformationTablePayload;
 
 typedef struct {
+    // This is a 16-bit field which serves as a label to
+    // identify this service from any other service within
+    // a TS.
+    uint16_t serviceId;
+
+    // This 3-bit field indicates the running status of the
+    // event in the original stream.
+    picoMpegTSSDTRunningStatus runningStatus;
+
+    // Descriptors on the service and event contained in the
+    // partial TS.
+    picoMpegTSDescriptorSet_t descriptorSet;
+} picoMpegTSITService_t;
+typedef picoMpegTSITService_t *picoMpegTSITService;
+
+typedef struct {
     // This 12-bit field gives the total length in bytes of the
     // transmission info descriptor loop.
     uint16_t transmissionInfoLoopLength;
@@ -1450,35 +1480,25 @@ typedef struct {
     // in the partial TS.
     picoMpegTSDescriptorSet_t transmissionInfoDescriptorSet;
 
-    struct {
-        // This is a 16-bit field which serves as a label to
-        // identify this service from any other service within
-        // a TS.
-        uint16_t serviceId;
-
-        // This 3-bit field indicates the running status of the
-        // event in the original stream.
-        picoMpegTSSDTRunningStatus runningStatus;
-
-        // Descriptors on the service and event contained in the
-        // partial TS.
-        picoMpegTSDescriptorSet_t descriptorSet;
-    } services[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
+    picoMpegTSITService_t services[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
     size_t serviceCount;
 } picoMpegTSServiceInformationTablePayload_t;
 typedef picoMpegTSServiceInformationTablePayload_t *picoMpegTSServiceInformationTablePayload;
 
 typedef struct {
-    struct {
-        // Program_number is a 16-bit field specifying the program to which the
-        // program_map_PID is applicable. When set to 0x0000, then the following
-        // PID reference shall be the network PID.
-        uint16_t programNumber;
+    // Program_number is a 16-bit field specifying the program to which the
+    // program_map_PID is applicable. When set to 0x0000, then the following
+    // PID reference shall be the network PID.
+    uint16_t programNumber;
 
-        // When program_number == 0x0000, this is the network_PID (13 bits)
-        // Otherwise, this is the program_map_PID (13 bits)
-        uint16_t pid;
-    } programs[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
+    // When program_number == 0x0000, this is the network_PID (13 bits)
+    // Otherwise, this is the program_map_PID (13 bits)
+    uint16_t pid;
+} picoMpegTSPATProgram_t;
+typedef picoMpegTSPATProgram_t *picoMpegTSPATProgram;
+
+typedef struct {
+    picoMpegTSPATProgram_t programs[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
     size_t programCount;
 } picoMpegTSProgramAssociationSectionPayload_t;
 typedef picoMpegTSProgramAssociationSectionPayload_t *picoMpegTSProgramAssociationSectionPayload;
@@ -1487,6 +1507,21 @@ typedef struct {
     picoMpegTSDescriptorSet_t descriptorSet;
 } picoMpegTSConditionalAccessSectionPayload_t;
 typedef picoMpegTSConditionalAccessSectionPayload_t *picoMpegTSConditionalAccessSectionPayload;
+
+typedef struct {
+    // This 8-bit field specifies the type of program element carried
+    // within the packets with the PID whose value is specified by
+    // the elementary_PID.
+    picoMpegTSStreamType streamType;
+
+    // This 13-bit field specifies the PID of the transport stream
+    // packets which carry the associated program element.
+    uint16_t elementaryPid;
+
+    // ES-level descriptors for this stream
+    picoMpegTSDescriptorSet_t esInfoDescriptorSet;
+} picoMpegTSPMSStream_t;
+typedef picoMpegTSPMSStream_t *picoMpegTSPMSStream;
 
 typedef struct {
     // This 13-bit field indicates the PID of the transport stream packets
@@ -1498,19 +1533,7 @@ typedef struct {
     // Program-level descriptors
     picoMpegTSDescriptorSet_t programInfoDescriptorSet;
 
-    struct {
-        // This 8-bit field specifies the type of program element carried
-        // within the packets with the PID whose value is specified by
-        // the elementary_PID.
-        picoMpegTSStreamType streamType;
-
-        // This 13-bit field specifies the PID of the transport stream
-        // packets which carry the associated program element.
-        uint16_t elementaryPid;
-
-        // ES-level descriptors for this stream
-        picoMpegTSDescriptorSet_t esInfoDescriptorSet;
-    } streams[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
+    picoMpegTSPMSStream_t streams[PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT];
     size_t streamCount;
 } picoMpegTSProgramMapSectionPayload_t;
 typedef picoMpegTSProgramMapSectionPayload_t *picoMpegTSProgramMapSectionPayload;
@@ -1896,6 +1919,9 @@ picoMpegTSTable picoMpegTSGetTable(picoMpegTS mpegts, picoMpegTSTableID tableID)
 picoMpegTSTable picoMpegTSGetParsedTable(picoMpegTS mpegts, picoMpegTSTableID tableID, uint8_t versionNumber);
 picoMpegTSTable picoMpegTSGetPartialTable(picoMpegTS mpegts, picoMpegTSTableID tableID, uint8_t versionNumber);
 picoMpegTSPESPacket *picoMpegTSGetPESPackets(picoMpegTS mpegts, size_t *packetCountOut);
+picoMpegTSPMSStream picoMpegTSGetPMSStreamByPID(picoMpegTS mpegts, uint16_t pid);
+picoMpegTSPATProgram picoMpegTSGetPATProgramByPID(picoMpegTS mpegts, uint16_t pid);
+
 
 void picoMpegTSDebugPrint(picoMpegTS mpegts, picoMpegTSDebugPrintInfo info);
 
@@ -3917,6 +3943,48 @@ picoMpegTSPESPacket *picoMpegTSGetPESPackets(picoMpegTS mpegts, size_t *packetCo
         *packetCountOut = mpegts->pesPacketCount;
     }
     return mpegts->pesPackets;
+}
+
+picoMpegTSPMSStream picoMpegTSGetPMSStreamByPID(picoMpegTS mpegts, uint16_t pid)
+{
+    PICO_ASSERT(mpegts != NULL);
+
+    // get the current PMT table
+    picoMpegTSTable pmtTable = mpegts->tables[PICO_MPEGTS_TABLE_ID_PMS];
+    if (!pmtTable) {
+        return NULL;
+    }
+
+    // find the stream for the given PID
+    for (size_t i = 0; i < pmtTable->data.pms.streamCount; i++) {
+        picoMpegTSPMSStream stream = &pmtTable->data.pms.streams[i];
+        if (stream->elementaryPid == pid) {
+            return stream;
+        }
+    }
+
+    return NULL;    
+}
+
+picoMpegTSPATProgram picoMpegTSGetPATProgramByPID(picoMpegTS mpegts, uint16_t pid)
+{
+    PICO_ASSERT(mpegts != NULL);
+
+    // get the current PAT table
+    picoMpegTSTable patTable = mpegts->tables[PICO_MPEGTS_TABLE_ID_PAS];
+    if (!patTable) {
+        return NULL;
+    }
+
+    // find the program for the given PID
+    for (size_t i = 0; i < patTable->data.pas.programCount; i++) {
+        picoMpegTSPATProgram program = &patTable->data.pas.programs[i];
+        if (program->pid == pid) {
+            return program;
+        }
+    }
+
+    return NULL;    
 }
 
 picoMpegTS picoMpegTSCreate(bool storeParsedPackets)
