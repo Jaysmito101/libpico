@@ -29,6 +29,7 @@ SOFTWARE.
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #ifndef PICO_MALLOC
 #define PICO_MALLOC malloc
