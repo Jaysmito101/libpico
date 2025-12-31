@@ -1922,6 +1922,8 @@ picoMpegTSPESPacket *picoMpegTSGetPESPackets(picoMpegTS mpegts, size_t *packetCo
 picoMpegTSPMSStream picoMpegTSGetPMSStreamByPID(picoMpegTS mpegts, uint16_t pid);
 picoMpegTSPATProgram picoMpegTSGetPATProgramByPID(picoMpegTS mpegts, uint16_t pid);
 
+// Pops and frees the oldest 'count' PES packets from the internal storage.
+void picoMpegTSFreePopPESPackets(picoMpegTS mpegts, size_t count);
 
 void picoMpegTSDebugPrint(picoMpegTS mpegts, picoMpegTSDebugPrintInfo info);
 
@@ -3964,6 +3966,28 @@ picoMpegTSPMSStream picoMpegTSGetPMSStreamByPID(picoMpegTS mpegts, uint16_t pid)
     }
 
     return NULL;    
+}
+
+void picoMpegTSFreePopPESPackets(picoMpegTS mpegts, size_t count)
+{
+    PICO_ASSERT(mpegts != NULL);
+    if (count == 0 || mpegts->pesPacketCount == 0) {
+        return;
+    }
+    if (count > mpegts->pesPacketCount) {
+        count = mpegts->pesPacketCount;
+    }
+
+    for (size_t i = 0; i < count; i++) {
+        if (mpegts->pesPackets[i]) {
+            __picoMpegTSPesPacketDestroy(mpegts->pesPackets[i]);
+        }
+    }
+
+    // shift the remaining packets to the front
+    size_t remainingCount = mpegts->pesPacketCount - count;
+    memmove(mpegts->pesPackets, &mpegts->pesPackets[count], sizeof(picoMpegTSPESPacket *) * remainingCount);
+    mpegts->pesPacketCount = remainingCount;
 }
 
 picoMpegTSPATProgram picoMpegTSGetPATProgramByPID(picoMpegTS mpegts, uint16_t pid)
