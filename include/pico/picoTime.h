@@ -610,7 +610,7 @@ void picoTimeTimerDestroy(picoTimeTimer_t *clock)
 
 static void __picoTimeTimerCallback(union sigval sv)
 {
-    picoTimeTimer clock = (picoTimeTimer_t)sv.sival_ptr;
+    picoTimeTimer clock = (picoTimeTimer)sv.sival_ptr;
     PICO_ASSERT(clock != NULL);
 
     if (!clock->isRunning) {
