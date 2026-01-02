@@ -9,11 +9,11 @@ headers you wanna use define `PICO_IMPLEMENTATION` before including the headers.
 
 | Library | File | Description | Example |
 |---------|------|-------------|---------|
-| picoCanvas | `include/pico/picoCanvas.h` | A simple cross-platform library to create a window and draw pixels to it. | `examples/picoCanvas` |
-| picoLog | `include/pico/picoLog.h` | A simple logging library. | `examples/picoLog` |
-| picoThreads | `include/pico/picoThreads.h` | A simple cross-platform threading + thread pool library. | `examples/picoThreads` |
-| picoStream | `include/pico/picoStream.h` | A simple file and memory stream library. | `examples/picoStream` |
-| picoPerf | `include/pico/picoPerf.h` | A simple performance measurement library. | `examples/picoPerf` |
-| picoM3U8 | `include/pico/picoM3u8.h` | A library for parsing M3U8 playlists (HLS). (Full spec implementation) | `examples/picoM3U8` |
-| picoMpegTS | `include/pico/picoMpegTS.h` | A library for parsing/buffering MPEG-TS & DVB streams. | `examples/picoMpegTS` |
-| picoTime | `include/pico/picoTime.h` | A cross-platform OS based time and timer utility library. | `examples/picoTime` |
+| picoCanvas | `include/pico/picoCanvas.h` | A simple cross-platform library to create a window and draw pixels to it. | [examples/picoCanvas](examples/picoCanvas/main.c) |
+| picoLog | `include/pico/picoLog.h` | A simple logging library. | [examples/picoLog](examples/picoLog/main.c) |
+| picoThreads | `include/pico/picoThreads.h` | A simple cross-platform threading + thread pool library. | [examples/picoThreads](examples/picoThreads/main.c) |
+| picoStream | `include/pico/picoStream.h` | A simple file and memory stream library. | [examples/picoStream](examples/picoStream/main.c) |
+| picoPerf | `include/pico/picoPerf.h` | A simple performance measurement library. | [examples/picoPerf](examples/picoPerf/main.c) |
+| picoM3U8 | `include/pico/picoM3u8.h` | A library for parsing M3U8 playlists (HLS). (Full spec implementation) | [examples/picoM3U8](examples/picoM3U8/main.c) |
+| picoMpegTS | `include/pico/picoMpegTS.h` | A library for parsing/buffering MPEG-TS & DVB streams. | [examples/picoMpegTS](examples/picoMpegTS/main.c) |
+| picoTime | `include/pico/picoTime.h` | A cross-platform OS based time and timer utility library. | [examples/picoTime](examples/picoTime/main.c) |
