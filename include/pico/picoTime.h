@@ -54,6 +54,27 @@ SOFTWARE.
 #define PICO_ASSERT(cond) assert(cond)
 #endif
 
+typedef enum {
+    PICO_TIME_ISO_CALENDAR_EXTENDED,          // YYYY-MM-DD
+    PICO_TIME_ISO_CALENDAR_BASIC,             // YYYYMMDD
+    PICO_TIME_ISO_ORDINAL_EXTENDED,           // YYYY-DDD
+    PICO_TIME_ISO_ORDINAL_BASIC,              // YYYYDDD
+    PICO_TIME_ISO_WEEK_EXTENDED,              // YYYY-Www-D
+    PICO_TIME_ISO_WEEK_BASIC,                 // YYYYWwwD
+    PICO_TIME_ISO_TIME_EXTENDED,              // hh:mm:ss
+    PICO_TIME_ISO_TIME_BASIC,                 // hhmmss
+    PICO_TIME_ISO_TIME_EXTENDED_FRAC,         // hh:mm:ss.sss (milliseconds)
+    PICO_TIME_ISO_TIME_BASIC_FRAC,            // hhmmss.sss (milliseconds)
+    PICO_TIME_ISO_DATETIME_EXTENDED,          // YYYY-MM-DDThh:mm:ss
+    PICO_TIME_ISO_DATETIME_BASIC,             // YYYYMMDDThhmmss
+    PICO_TIME_ISO_DATETIME_EXTENDED_FRAC,     // YYYY-MM-DDThh:mm:ss.sss
+    PICO_TIME_ISO_DATETIME_BASIC_FRAC,        // YYYYMMDDThhmmss.sss
+    PICO_TIME_ISO_DATETIME_EXTENDED_UTC,      // YYYY-MM-DDThh:mm:ssZ
+    PICO_TIME_ISO_DATETIME_BASIC_UTC,         // YYYYMMDDThhmmssZ
+    PICO_TIME_ISO_DATETIME_EXTENDED_FRAC_UTC, // YYYY-MM-DDThh:mm:ss.sssZ
+    PICO_TIME_ISO_DATETIME_BASIC_FRAC_UTC,    // YYYYMMDDThhmmss.sssZ
+    PICO_TIME_ISO_FORMAT_UNKNOWN
+} picoTimeISOFormat;
 
 typedef struct {
     uint16_t year;
@@ -122,9 +143,16 @@ picoTimeDurationHours_t picoTimeTimerElapsedHours(picoTimeTimer_t *clock);
 
 void picoTimeSleep(picoTimeDurationMicro_t microseconds);
 
+const char *picoTimeISOFormatToString(picoTimeISOFormat format);
+
 // Formats the given picoTime_t into a string.
 // if the buffer is not large enough, the output will be truncated.
 bool picoTimeFormat(const picoTime_t *time, char *buffer, size_t bufferSize);
+bool picoTimeFormatISO(const picoTime_t *time, picoTimeISOFormat format, char *buffer, size_t bufferSize);
+
+// Parses the given ISO formatted string into a picoTime_t, also it automatically detects the format of the string.
+// if the string is not a valid ISO formatted string, the function will return false.
+bool picoTimeParseISO(const char *isoString, picoTime_t *outTime, picoTimeISOFormat *format);
 
 #define PICO_IMPLEMENTATION
 
@@ -214,8 +242,6 @@ static picoTimeDurationNano_t __picoTimeToNano(picoTime_t time)
 
     return nano;
 }
-
-
 
 picoTime_t picoTimeGetCurrent(void)
 {
@@ -551,7 +577,6 @@ picoTimeTimer picoTimeTimerCreate(void)
         return NULL;
     }
 
-
     clock->timerHandle = NULL;
     clock->isRunning   = false;
     clock->startTime   = picoTimeGetCurrent();
@@ -579,8 +604,8 @@ void picoTimeTimerDestroy(picoTimeTimer_t *clock)
 
 #else // Unix/Linux/macOS
 
-#include <signal.h>
 #include <pthread.h>
+#include <signal.h>
 #include <time.h>
 
 static void __picoTimeTimerCallback(union sigval sv)
@@ -732,6 +757,716 @@ bool picoTimeFormat(const picoTime_t *time, char *buffer, size_t bufferSize)
         time->nanosecond / 1000);
 
     return (written > 0 && (size_t)written < bufferSize);
+}
+
+static uint16_t __picoTimeGetDayOfYear(uint16_t year, uint8_t month, uint8_t day)
+{
+    uint16_t dayOfYear = 0;
+    for (uint8_t m = 1; m < month; m++) {
+        dayOfYear += (uint16_t)__picoTimeDaysInMonth(m, year);
+    }
+    dayOfYear += day;
+    return dayOfYear;
+}
+
+static uint8_t __picoTimeGetDayOfWeek(uint16_t year, uint8_t month, uint8_t day)
+{
+    uint16_t y = year;
+    uint8_t m  = month;
+    if (m < 3) {
+        m += 12;
+        y--;
+    }
+
+    uint16_t k = y % 100;
+    uint16_t j = y / 100;
+
+    int h = (day + (13 * (m + 1)) / 5 + k + k / 4 + j / 4 - 2 * j) % 7;
+
+    int dow = ((h + 6) % 7);
+    return (uint8_t)dow;
+}
+
+static void __picoTimeGetISOWeek(uint16_t year, uint8_t month, uint8_t day,
+                                 uint16_t *outISOYear, uint8_t *outWeek, uint8_t *outDayOfWeek)
+{
+    uint8_t dow    = __picoTimeGetDayOfWeek(year, month, day);
+    uint8_t isoDow = (dow == 0) ? 7 : dow;
+
+    uint16_t dayOfYear = __picoTimeGetDayOfYear(year, month, day);
+
+    int thursdayDayOfYear = (int)dayOfYear - (int)isoDow + 4;
+
+    uint16_t isoYear = year;
+
+    if (thursdayDayOfYear < 1) {
+        isoYear                 = year - 1;
+        uint16_t daysInPrevYear = __picoTimeIsLeapYear(isoYear) ? 366 : 365;
+        thursdayDayOfYear += (int)daysInPrevYear;
+    } else {
+        uint16_t daysInYear = __picoTimeIsLeapYear(year) ? 366 : 365;
+        if (thursdayDayOfYear > (int)daysInYear) {
+            isoYear = year + 1;
+            thursdayDayOfYear -= (int)daysInYear;
+        }
+    }
+
+    uint8_t jan4Dow    = __picoTimeGetDayOfWeek(isoYear, 1, 4);
+    uint8_t isoJan4Dow = (jan4Dow == 0) ? 7 : jan4Dow;
+    int week1Start     = 4 - isoJan4Dow + 1; // Day of year when week 1 starts
+
+    int weekNum = (thursdayDayOfYear - week1Start) / 7 + 1;
+
+    *outISOYear   = isoYear;
+    *outWeek      = (uint8_t)weekNum;
+    *outDayOfWeek = isoDow;
+}
+
+static bool __picoTimeFromOrdinal(uint16_t year, uint16_t dayOfYear,
+                                  uint8_t *outMonth, uint8_t *outDay)
+{
+    uint16_t daysInYear = __picoTimeIsLeapYear(year) ? 366 : 365;
+    if (dayOfYear < 1 || dayOfYear > daysInYear) {
+        return false;
+    }
+
+    uint16_t remaining = dayOfYear;
+    for (uint8_t m = 1; m <= 12; m++) {
+        uint32_t daysInMonth = __picoTimeDaysInMonth(m, year);
+        if (remaining <= daysInMonth) {
+            *outMonth = m;
+            *outDay   = (uint8_t)remaining;
+            return true;
+        }
+        remaining -= (uint16_t)daysInMonth;
+    }
+    return false;
+}
+
+static bool __picoTimeFromISOWeek(uint16_t isoYear, uint8_t week, uint8_t dayOfWeek,
+                                  uint16_t *outYear, uint8_t *outMonth, uint8_t *outDay)
+{
+    if (week < 1 || week > 53 || dayOfWeek < 1 || dayOfWeek > 7) {
+        return false;
+    }
+
+    uint8_t jan4Dow    = __picoTimeGetDayOfWeek(isoYear, 1, 4);
+    uint8_t isoJan4Dow = (jan4Dow == 0) ? 7 : jan4Dow;
+
+    int week1MondayDoy = 4 - isoJan4Dow + 1;
+    int targetDoy      = week1MondayDoy + (week - 1) * 7 + (dayOfWeek - 1);
+
+    uint16_t year = isoYear;
+
+    if (targetDoy < 1) {
+        year                    = isoYear - 1;
+        uint16_t daysInPrevYear = __picoTimeIsLeapYear(year) ? 366 : 365;
+        targetDoy += (int)daysInPrevYear;
+    } else {
+        uint16_t daysInYear = __picoTimeIsLeapYear(isoYear) ? 366 : 365;
+        if (targetDoy > (int)daysInYear) {
+            year = isoYear + 1;
+            targetDoy -= (int)daysInYear;
+        }
+    }
+
+    uint8_t month, day;
+    if (!__picoTimeFromOrdinal(year, (uint16_t)targetDoy, &month, &day)) {
+        return false;
+    }
+
+    *outYear  = year;
+    *outMonth = month;
+    *outDay   = day;
+    return true;
+}
+
+static bool __picoTimeParseDigits(const char **str, int numDigits, int *outValue)
+{
+    int value = 0;
+    for (int i = 0; i < numDigits; i++) {
+        char c = (*str)[i];
+        if (c < '0' || c > '9') {
+            return false;
+        }
+        value = value * 10 + (c - '0');
+    }
+    *outValue = value;
+    *str += numDigits;
+    return true;
+}
+
+// NOTE: this is still a work in progress and may not cover all edge cases.
+// Suggestions for improvement are welcome.
+static picoTimeISOFormat __picoTimeDetectISOFormat(const char *isoString)
+{
+    if (isoString == NULL || *isoString == '\0') {
+        return PICO_TIME_ISO_FORMAT_UNKNOWN;
+    }
+
+    size_t len    = strlen(isoString);
+    bool hasT     = (strchr(isoString, 'T') != NULL);
+    bool hasColon = (strchr(isoString, ':') != NULL);
+    bool hasDash  = (strchr(isoString, '-') != NULL);
+    bool hasW     = (strchr(isoString, 'W') != NULL);
+    bool hasDot   = (strchr(isoString, '.') != NULL);
+    bool hasZ     = (isoString[len - 1] == 'Z');
+
+    if (!hasT && hasColon && len <= 12) {
+        if (hasDot) {
+            return hasColon ? PICO_TIME_ISO_TIME_EXTENDED_FRAC : PICO_TIME_ISO_TIME_BASIC_FRAC;
+        }
+        return hasColon ? PICO_TIME_ISO_TIME_EXTENDED : PICO_TIME_ISO_TIME_BASIC;
+    }
+
+    if (!hasT && !hasDash && len >= 6 && len <= 10) {
+        if (hasDot) {
+            return PICO_TIME_ISO_TIME_BASIC_FRAC;
+        }
+        if (len == 6) {
+            return PICO_TIME_ISO_TIME_BASIC;
+        }
+    }
+
+    if (hasW) {
+        if (hasT) {
+            return hasDash ? PICO_TIME_ISO_DATETIME_EXTENDED : PICO_TIME_ISO_DATETIME_BASIC;
+        }
+        return hasDash ? PICO_TIME_ISO_WEEK_EXTENDED : PICO_TIME_ISO_WEEK_BASIC;
+    }
+
+    if (hasT) {
+        bool extendedDate = (isoString[4] == '-');
+        bool extendedTime = hasColon;
+        bool frac         = hasDot;
+
+        if (extendedDate && extendedTime) {
+            if (hasZ) {
+                return frac ? PICO_TIME_ISO_DATETIME_EXTENDED_FRAC_UTC : PICO_TIME_ISO_DATETIME_EXTENDED_UTC;
+            }
+            return frac ? PICO_TIME_ISO_DATETIME_EXTENDED_FRAC : PICO_TIME_ISO_DATETIME_EXTENDED;
+        } else {
+            if (hasZ) {
+                return frac ? PICO_TIME_ISO_DATETIME_BASIC_FRAC_UTC : PICO_TIME_ISO_DATETIME_BASIC_UTC;
+            }
+            return frac ? PICO_TIME_ISO_DATETIME_BASIC_FRAC : PICO_TIME_ISO_DATETIME_BASIC;
+        }
+    }
+
+    if ((hasDash && len == 8) || (!hasDash && len == 7)) {
+        return hasDash ? PICO_TIME_ISO_ORDINAL_EXTENDED : PICO_TIME_ISO_ORDINAL_BASIC;
+    }
+
+    if ((hasDash && len == 10) || (!hasDash && len == 8)) {
+        return hasDash ? PICO_TIME_ISO_CALENDAR_EXTENDED : PICO_TIME_ISO_CALENDAR_BASIC;
+    }
+
+    return PICO_TIME_ISO_FORMAT_UNKNOWN;
+}
+
+bool picoTimeFormatISO(const picoTime_t *time, picoTimeISOFormat format, char *buffer, size_t bufferSize)
+{
+    if (time == NULL || buffer == NULL || bufferSize == 0 || format >= PICO_TIME_ISO_FORMAT_UNKNOWN) {
+        return false;
+    }
+
+    int written = 0;
+    uint16_t isoYear;
+    uint8_t isoWeek, isoDayOfWeek;
+    uint16_t dayOfYear;
+
+    switch (format) {
+        case PICO_TIME_ISO_CALENDAR_EXTENDED:
+            written = snprintf(buffer, bufferSize, "%04u-%02u-%02u",
+                               time->year, time->month, time->day);
+            break;
+
+        case PICO_TIME_ISO_CALENDAR_BASIC:
+            written = snprintf(buffer, bufferSize, "%04u%02u%02u",
+                               time->year, time->month, time->day);
+            break;
+
+        case PICO_TIME_ISO_ORDINAL_EXTENDED:
+            dayOfYear = __picoTimeGetDayOfYear(time->year, time->month, time->day);
+            written   = snprintf(buffer, bufferSize, "%04u-%03u",
+                                 time->year, dayOfYear);
+            break;
+
+        case PICO_TIME_ISO_ORDINAL_BASIC:
+            dayOfYear = __picoTimeGetDayOfYear(time->year, time->month, time->day);
+            written   = snprintf(buffer, bufferSize, "%04u%03u",
+                                 time->year, dayOfYear);
+            break;
+
+        case PICO_TIME_ISO_WEEK_EXTENDED:
+            __picoTimeGetISOWeek(time->year, time->month, time->day, &isoYear, &isoWeek, &isoDayOfWeek);
+            written = snprintf(buffer, bufferSize, "%04u-W%02u-%u",
+                               isoYear, isoWeek, isoDayOfWeek);
+            break;
+
+        case PICO_TIME_ISO_WEEK_BASIC:
+            __picoTimeGetISOWeek(time->year, time->month, time->day, &isoYear, &isoWeek, &isoDayOfWeek);
+            written = snprintf(buffer, bufferSize, "%04uW%02u%u",
+                               isoYear, isoWeek, isoDayOfWeek);
+            break;
+
+        case PICO_TIME_ISO_TIME_EXTENDED:
+            written = snprintf(buffer, bufferSize, "%02u:%02u:%02u",
+                               time->hour, time->minute, time->second);
+            break;
+
+        case PICO_TIME_ISO_TIME_BASIC:
+            written = snprintf(buffer, bufferSize, "%02u%02u%02u",
+                               time->hour, time->minute, time->second);
+            break;
+
+        case PICO_TIME_ISO_TIME_EXTENDED_FRAC:
+            written = snprintf(buffer, bufferSize, "%02u:%02u:%02u.%03u",
+                               time->hour, time->minute, time->second, time->millisecond);
+            break;
+
+        case PICO_TIME_ISO_TIME_BASIC_FRAC:
+            written = snprintf(buffer, bufferSize, "%02u%02u%02u.%03u",
+                               time->hour, time->minute, time->second, time->millisecond);
+            break;
+
+        case PICO_TIME_ISO_DATETIME_EXTENDED:
+            written = snprintf(buffer, bufferSize, "%04u-%02u-%02uT%02u:%02u:%02u",
+                               time->year, time->month, time->day,
+                               time->hour, time->minute, time->second);
+            break;
+
+        case PICO_TIME_ISO_DATETIME_BASIC:
+            written = snprintf(buffer, bufferSize, "%04u%02u%02uT%02u%02u%02u",
+                               time->year, time->month, time->day,
+                               time->hour, time->minute, time->second);
+            break;
+
+        case PICO_TIME_ISO_DATETIME_EXTENDED_FRAC:
+            written = snprintf(buffer, bufferSize, "%04u-%02u-%02uT%02u:%02u:%02u.%03u",
+                               time->year, time->month, time->day,
+                               time->hour, time->minute, time->second, time->millisecond);
+            break;
+
+        case PICO_TIME_ISO_DATETIME_BASIC_FRAC:
+            written = snprintf(buffer, bufferSize, "%04u%02u%02uT%02u%02u%02u.%03u",
+                               time->year, time->month, time->day,
+                               time->hour, time->minute, time->second, time->millisecond);
+            break;
+
+        case PICO_TIME_ISO_DATETIME_EXTENDED_UTC:
+            written = snprintf(buffer, bufferSize, "%04u-%02u-%02uT%02u:%02u:%02uZ",
+                               time->year, time->month, time->day,
+                               time->hour, time->minute, time->second);
+            break;
+
+        case PICO_TIME_ISO_DATETIME_BASIC_UTC:
+            written = snprintf(buffer, bufferSize, "%04u%02u%02uT%02u%02u%02uZ",
+                               time->year, time->month, time->day,
+                               time->hour, time->minute, time->second);
+            break;
+
+        case PICO_TIME_ISO_DATETIME_EXTENDED_FRAC_UTC:
+            written = snprintf(buffer, bufferSize, "%04u-%02u-%02uT%02u:%02u:%02u.%03uZ",
+                               time->year, time->month, time->day,
+                               time->hour, time->minute, time->second, time->millisecond);
+            break;
+
+        case PICO_TIME_ISO_DATETIME_BASIC_FRAC_UTC:
+            written = snprintf(buffer, bufferSize, "%04u%02u%02uT%02u%02u%02u.%03uZ",
+                               time->year, time->month, time->day,
+                               time->hour, time->minute, time->second, time->millisecond);
+            break;
+
+        default:
+            return false;
+    }
+
+    return (written > 0 && (size_t)written < bufferSize);
+}
+
+bool picoTimeParseISO(const char *isoString, picoTime_t *outTime, picoTimeISOFormat *format)
+{
+    if (isoString == NULL || outTime == NULL) {
+        return false;
+    }
+
+    picoTimeISOFormat detectedFormat = PICO_TIME_ISO_FORMAT_UNKNOWN;
+    detectedFormat                   = __picoTimeDetectISOFormat(isoString);
+    if (detectedFormat >= PICO_TIME_ISO_FORMAT_UNKNOWN) {
+        return false;
+    }
+    if (format != NULL) {
+        *format = detectedFormat;
+    }
+
+    memset(outTime, 0, sizeof(picoTime_t));
+    outTime->year  = 1;
+    outTime->month = 1;
+    outTime->day   = 1;
+
+    const char *p = isoString;
+    int val;
+    uint16_t year = 1;
+    uint8_t month = 1, day = 1;
+    uint8_t hour = 0, minute = 0, second = 0;
+    uint16_t millisecond = 0;
+
+    switch (detectedFormat) {
+        case PICO_TIME_ISO_CALENDAR_EXTENDED:
+            if (!__picoTimeParseDigits(&p, 4, &val))
+                return false;
+            year = (uint16_t)val;
+            if (*p++ != '-')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            month = (uint8_t)val;
+            if (*p++ != '-')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            day = (uint8_t)val;
+            break;
+
+        case PICO_TIME_ISO_CALENDAR_BASIC:
+            if (!__picoTimeParseDigits(&p, 4, &val))
+                return false;
+            year = (uint16_t)val;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            month = (uint8_t)val;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            day = (uint8_t)val;
+            break;
+
+        case PICO_TIME_ISO_ORDINAL_EXTENDED: {
+            uint16_t dayOfYear;
+            if (!__picoTimeParseDigits(&p, 4, &val))
+                return false;
+            year = (uint16_t)val;
+            if (*p++ != '-')
+                return false;
+            if (!__picoTimeParseDigits(&p, 3, &val))
+                return false;
+            dayOfYear = (uint16_t)val;
+            if (!__picoTimeFromOrdinal(year, dayOfYear, &month, &day))
+                return false;
+        } break;
+
+        case PICO_TIME_ISO_ORDINAL_BASIC: {
+            uint16_t dayOfYear;
+            if (!__picoTimeParseDigits(&p, 4, &val))
+                return false;
+            year = (uint16_t)val;
+            if (!__picoTimeParseDigits(&p, 3, &val))
+                return false;
+            dayOfYear = (uint16_t)val;
+            if (!__picoTimeFromOrdinal(year, dayOfYear, &month, &day))
+                return false;
+        } break;
+
+        case PICO_TIME_ISO_WEEK_EXTENDED: {
+            uint16_t isoYear;
+            uint8_t week, dayOfWeek;
+            if (!__picoTimeParseDigits(&p, 4, &val))
+                return false;
+            isoYear = (uint16_t)val;
+            if (*p++ != '-')
+                return false;
+            if (*p++ != 'W')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            week = (uint8_t)val;
+            if (*p++ != '-')
+                return false;
+            if (!__picoTimeParseDigits(&p, 1, &val))
+                return false;
+            dayOfWeek = (uint8_t)val;
+            if (!__picoTimeFromISOWeek(isoYear, week, dayOfWeek, &year, &month, &day))
+                return false;
+        } break;
+
+        case PICO_TIME_ISO_WEEK_BASIC: {
+            uint16_t isoYear;
+            uint8_t week, dayOfWeek;
+            if (!__picoTimeParseDigits(&p, 4, &val))
+                return false;
+            isoYear = (uint16_t)val;
+            if (*p++ != 'W')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            week = (uint8_t)val;
+            if (!__picoTimeParseDigits(&p, 1, &val))
+                return false;
+            dayOfWeek = (uint8_t)val;
+            if (!__picoTimeFromISOWeek(isoYear, week, dayOfWeek, &year, &month, &day))
+                return false;
+        } break;
+
+        case PICO_TIME_ISO_TIME_EXTENDED:
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            hour = (uint8_t)val;
+            if (*p++ != ':')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            minute = (uint8_t)val;
+            if (*p++ != ':')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            second = (uint8_t)val;
+            break;
+
+        case PICO_TIME_ISO_TIME_BASIC:
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            hour = (uint8_t)val;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            minute = (uint8_t)val;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            second = (uint8_t)val;
+            break;
+
+        case PICO_TIME_ISO_TIME_EXTENDED_FRAC:
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            hour = (uint8_t)val;
+            if (*p++ != ':')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            minute = (uint8_t)val;
+            if (*p++ != ':')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            second = (uint8_t)val;
+            if (*p++ != '.')
+                return false;
+            if (!__picoTimeParseDigits(&p, 3, &val))
+                return false;
+            millisecond = (uint16_t)val;
+            break;
+
+        case PICO_TIME_ISO_TIME_BASIC_FRAC:
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            hour = (uint8_t)val;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            minute = (uint8_t)val;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            second = (uint8_t)val;
+            if (*p++ != '.')
+                return false;
+            if (!__picoTimeParseDigits(&p, 3, &val))
+                return false;
+            millisecond = (uint16_t)val;
+            break;
+
+        case PICO_TIME_ISO_DATETIME_EXTENDED:
+        case PICO_TIME_ISO_DATETIME_EXTENDED_UTC:
+            if (!__picoTimeParseDigits(&p, 4, &val))
+                return false;
+            year = (uint16_t)val;
+            if (*p++ != '-')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            month = (uint8_t)val;
+            if (*p++ != '-')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            day = (uint8_t)val;
+            if (*p++ != 'T')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            hour = (uint8_t)val;
+            if (*p++ != ':')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            minute = (uint8_t)val;
+            if (*p++ != ':')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            second = (uint8_t)val;
+            // Optional Z
+            break;
+
+        case PICO_TIME_ISO_DATETIME_BASIC:
+        case PICO_TIME_ISO_DATETIME_BASIC_UTC:
+            if (!__picoTimeParseDigits(&p, 4, &val))
+                return false;
+            year = (uint16_t)val;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            month = (uint8_t)val;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            day = (uint8_t)val;
+            if (*p++ != 'T')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            hour = (uint8_t)val;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            minute = (uint8_t)val;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            second = (uint8_t)val;
+            break;
+
+        case PICO_TIME_ISO_DATETIME_EXTENDED_FRAC:
+        case PICO_TIME_ISO_DATETIME_EXTENDED_FRAC_UTC:
+            if (!__picoTimeParseDigits(&p, 4, &val))
+                return false;
+            year = (uint16_t)val;
+            if (*p++ != '-')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            month = (uint8_t)val;
+            if (*p++ != '-')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            day = (uint8_t)val;
+            if (*p++ != 'T')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            hour = (uint8_t)val;
+            if (*p++ != ':')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            minute = (uint8_t)val;
+            if (*p++ != ':')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            second = (uint8_t)val;
+            if (*p++ != '.')
+                return false;
+            if (!__picoTimeParseDigits(&p, 3, &val))
+                return false;
+            millisecond = (uint16_t)val;
+            break;
+
+        case PICO_TIME_ISO_DATETIME_BASIC_FRAC:
+        case PICO_TIME_ISO_DATETIME_BASIC_FRAC_UTC:
+            if (!__picoTimeParseDigits(&p, 4, &val))
+                return false;
+            year = (uint16_t)val;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            month = (uint8_t)val;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            day = (uint8_t)val;
+            if (*p++ != 'T')
+                return false;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            hour = (uint8_t)val;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            minute = (uint8_t)val;
+            if (!__picoTimeParseDigits(&p, 2, &val))
+                return false;
+            second = (uint8_t)val;
+            if (*p++ != '.')
+                return false;
+            if (!__picoTimeParseDigits(&p, 3, &val))
+                return false;
+            millisecond = (uint16_t)val;
+            break;
+
+        default:
+            return false;
+    }
+
+    if (month < 1 || month > 12)
+        return false;
+    if (day < 1 || day > __picoTimeDaysInMonth(month, year))
+        return false;
+    if (hour > 23)
+        return false;
+    if (minute > 59)
+        return false;
+    if (second > 59)
+        return false;
+    if (millisecond > 999)
+        return false;
+
+    outTime->year        = year;
+    outTime->month       = month;
+    outTime->day         = day;
+    outTime->hour        = hour;
+    outTime->minute      = minute;
+    outTime->second      = second;
+    outTime->millisecond = millisecond;
+    outTime->nanosecond  = 0;
+
+    return true;
+}
+
+const char *picoTimeISOFormatToString(picoTimeISOFormat format)
+{
+    switch (format) {
+        case PICO_TIME_ISO_CALENDAR_EXTENDED:
+            return "Calendar Extended (YYYY-MM-DD)";
+        case PICO_TIME_ISO_CALENDAR_BASIC:
+            return "Calendar Basic (YYYYMMDD)";
+        case PICO_TIME_ISO_ORDINAL_EXTENDED:
+            return "Ordinal Extended (YYYY-DDD)";
+        case PICO_TIME_ISO_ORDINAL_BASIC:
+            return "Ordinal Basic (YYYYDDD)";
+        case PICO_TIME_ISO_WEEK_EXTENDED:
+            return "Week Extended (YYYY-Www-D)";
+        case PICO_TIME_ISO_WEEK_BASIC:
+            return "Week Basic (YYYYWwwD)";
+        case PICO_TIME_ISO_TIME_EXTENDED:
+            return "Time Extended (hh:mm:ss)";
+        case PICO_TIME_ISO_TIME_BASIC:
+            return "Time Basic (hhmmss)";
+        case PICO_TIME_ISO_TIME_EXTENDED_FRAC:
+            return "Time Extended with Fraction (hh:mm:ss.sss)";
+        case PICO_TIME_ISO_TIME_BASIC_FRAC:
+            return "Time Basic with Fraction (hhmmss.sss)";
+        case PICO_TIME_ISO_DATETIME_EXTENDED:
+            return "DateTime Extended (YYYY-MM-DDThh:mm:ss)";
+        case PICO_TIME_ISO_DATETIME_BASIC:
+            return "DateTime Basic (YYYYMMDDThhmmss)";
+        case PICO_TIME_ISO_DATETIME_EXTENDED_FRAC:
+            return "DateTime Extended with Fraction (YYYY-MM-DDThh:mm:ss.sss)";
+        case PICO_TIME_ISO_DATETIME_BASIC_FRAC:
+            return "DateTime Basic with Fraction (YYYYMMDDThhmmss.sss)";
+        case PICO_TIME_ISO_DATETIME_EXTENDED_UTC:
+            return "DateTime Extended UTC (YYYY-MM-DDThh:mm:ssZ)";
+        case PICO_TIME_ISO_DATETIME_BASIC_UTC:
+            return "DateTime Basic UTC (YYYYMMDDThhmmssZ)";
+        case PICO_TIME_ISO_DATETIME_EXTENDED_FRAC_UTC:
+            return "DateTime Extended with Fraction UTC (YYYY-MM-DDThh:mm:ss.sssZ)";
+        case PICO_TIME_ISO_DATETIME_BASIC_FRAC_UTC:
+            return "DateTime Basic with Fraction UTC (YYYYMMDDThhmmss.sssZ)";
+        default:
+            return "Unknown Format";
+    }
 }
 
 #endif
