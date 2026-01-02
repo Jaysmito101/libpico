@@ -39,6 +39,7 @@ SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 #include <time.h>
 
 #define PICO_MPEGTS_RETURN_ON_ERROR(resultVar)   \
@@ -2095,7 +2096,7 @@ static bool __picoMpegTSDescriptorPayloadParseService(picoMpegTSDescriptor descr
     descriptor->parsed.service.serviceType               = descriptor->data[0];
     descriptor->parsed.service.serviceProviderNameLength = descriptor->data[1];
 
-    if (descriptor->dataLength < 2 + descriptor->parsed.service.serviceProviderNameLength + 1) {
+    if (descriptor->dataLength < 2 + (uint32_t)descriptor->parsed.service.serviceProviderNameLength + 1) {
         return false;
     }
 
@@ -2108,7 +2109,7 @@ static bool __picoMpegTSDescriptorPayloadParseService(picoMpegTSDescriptor descr
 
     descriptor->parsed.service.serviceNameLength = descriptor->data[2 + descriptor->parsed.service.serviceProviderNameLength];
 
-    if (descriptor->dataLength < 2 + descriptor->parsed.service.serviceProviderNameLength + 1 + descriptor->parsed.service.serviceNameLength) {
+    if (descriptor->dataLength < 2 + (uint32_t)descriptor->parsed.service.serviceProviderNameLength + 1 + (uint32_t)descriptor->parsed.service.serviceNameLength) {
         return false;
     }
 
@@ -2228,7 +2229,7 @@ static bool __picoMpegTSDescriptorPayloadParseShortEvent(picoMpegTSDescriptor de
     uint8_t eventNameLength                       = descriptor->data[3];
     descriptor->parsed.shortEvent.eventNameLength = eventNameLength;
 
-    if (4 + eventNameLength > descriptor->dataLength) {
+    if (4 + (uint32_t)eventNameLength > descriptor->dataLength) {
         return false;
     }
 
@@ -2295,7 +2296,7 @@ static bool __picoMpegTSDescriptorPayloadParseNetworkName(picoMpegTSDescriptor d
     PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_NETWORK_NAME);
 
     descriptor->parsed.networkName.nameLength = (uint8_t)descriptor->dataLength;
-    if (descriptor->parsed.networkName.nameLength > 255) {
+    if (descriptor->dataLength > 255) {
         descriptor->parsed.networkName.nameLength = 255;
     }
 
@@ -2373,7 +2374,7 @@ static picoMpegTSResult __picoMpegTSDescriptorParse(picoMpegTSDescriptor descrip
     uint8_t descriptorLength = data[1];
 
     // check if we have enough data for this descriptors content
-    if (2 + descriptorLength > dataSize) {
+    if (2 + (uint32_t)descriptorLength > dataSize) {
         PICO_MPEGTS_LOG("picoMpegTS: descriptor parse error - descriptor length exceeds bounds [%d/%zu]\n", descriptorLength, dataSize);
         return PICO_MPEGTS_RESULT_INVALID_DATA;
     }
@@ -3726,7 +3727,7 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
                 // first push data before pointer field
                 if (pointerField > 0) {
                     size_t prePointerSize = pointerField;
-                    if (prePointerSize > packet->payloadSize - 1) {
+                    if (prePointerSize > (uint32_t)packet->payloadSize - 1) {
                         prePointerSize = packet->payloadSize - 1;
                     }
                     PICO_MPEGTS_RETURN_ON_ERROR(
@@ -5179,8 +5180,7 @@ const char *picoMpegTSStreamTypeToString(uint8_t streamType)
         case PICO_MPEGTS_STREAM_TYPE_VC1:
             return "VC-1 Video";
         default:
-            if (streamType >= PICO_MPEGTS_STREAM_TYPE_USER_PRIVATE_START &&
-                streamType <= PICO_MPEGTS_STREAM_TYPE_USER_PRIVATE_END) {
+            if (streamType >= PICO_MPEGTS_STREAM_TYPE_USER_PRIVATE_START) {
                 return "User Private";
             }
             return "Unknown Stream Type";
@@ -5420,10 +5420,10 @@ const char *picoMpegTSDescriptorTagToString(uint8_t tag)
         case PICO_MPEGTS_DESCRIPTOR_TAG_DVB_EXTENSION:
             return "DVB Extension Descriptor";
         default:
-            if (tag >= PICO_MPEGTS_DESCRIPTOR_TAG_USER_PRIVATE_START && tag <= PICO_MPEGTS_DESCRIPTOR_TAG_USER_PRIVATE_END) {
+            if (tag >= (uint32_t)PICO_MPEGTS_DESCRIPTOR_TAG_USER_PRIVATE_START) {
                 return "User Private Descriptor";
             }
-            if (tag >= 19 && tag <= 26) {
+            if (tag >= (uint32_t)19 && tag <= (uint32_t)26) {
                 return "Defined in ISO/IEC 13818-6";
             }
             return "Reserved/Unknown Descriptor";
@@ -5731,7 +5731,7 @@ void picoMpegTSPacketAdaptationFieldExtensionDebugPrint(picoMpegTSAdaptionFieldE
     PICO_MPEGTS_LOG("  Seamless Splice Flag: %s\n", afExt->seamlessSpliceFlag ? "true" : "false");
     if (afExt->seamlessSpliceFlag) {
         PICO_MPEGTS_LOG("    Splice Type: %u\n", afExt->spliceType);
-        PICO_MPEGTS_LOG("    DTS Next AU: %llx\n", afExt->dtsNextAU);
+        PICO_MPEGTS_LOG("    DTS Next AU: %" PRIu64 "\n", afExt->dtsNextAU);
     }
     PICO_MPEGTS_LOG("  AF Descriptor Not Present Flag: %s\n", afExt->afDescriptorNotPresentFlag ? "true" : "false");
 }
@@ -5745,12 +5745,12 @@ void picoMpegTSPacketAdaptationFieldDebugPrint(picoMpegTSPacketAdaptationField a
     PICO_MPEGTS_LOG("  Elementary Stream Priority Indicator: %s\n", af->elementaryStreamPriorityIndicator ? "true" : "false");
     PICO_MPEGTS_LOG("  PCR Flag: %s\n", af->pcrFlag ? "true" : "false");
     if (af->pcrFlag) {
-        PICO_MPEGTS_LOG("    PCR Base: %llu\n", af->pcr.base);
+        PICO_MPEGTS_LOG("    PCR Base: %" PRIu64 "\n", af->pcr.base);
         PICO_MPEGTS_LOG("    PCR Extension: %u\n", af->pcr.extension);
     }
     PICO_MPEGTS_LOG("  OPCR Flag: %s\n", af->opcrFlag ? "true" : "false");
     if (af->opcrFlag) {
-        PICO_MPEGTS_LOG("    OPCR Base: %llu\n", af->opcr.base);
+        PICO_MPEGTS_LOG("    OPCR Base: %" PRIu64 "\n", af->opcr.base);
         PICO_MPEGTS_LOG("    OPCR Extension: %u\n", af->opcr.extension);
     }
     PICO_MPEGTS_LOG("  Splicing Point Flag: %s\n", af->splicingPointFlag ? "true" : "false");
