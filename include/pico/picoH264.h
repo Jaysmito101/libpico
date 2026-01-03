@@ -114,6 +114,59 @@ typedef enum {
     PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_31          = 31,
 } picoH264NALUnitType;
 
+
+typedef enum {
+    PICO_H264_ASPECT_RATIO_IDC_UNSPECIFIED    = 0,
+    PICO_H264_ASPECT_RATIO_IDC_SAR_1_1        = 1,
+    PICO_H264_ASPECT_RATIO_IDC_SAR_12_11      = 2,
+    PICO_H264_ASPECT_RATIO_IDC_SAR_10_11      = 3,
+    PICO_H264_ASPECT_RATIO_IDC_SAR_16_11      = 4,
+    PICO_H264_ASPECT_RATIO_IDC_SAR_40_33      = 5,
+    PICO_H264_ASPECT_RATIO_IDC_SAR_24_11      = 6,
+    PICO_H264_ASPECT_RATIO_IDC_SAR_20_11      = 7,
+    PICO_H264_ASPECT_RATIO_IDC_SAR_32_11      = 8,
+    PICO_H264_ASPECT_RATIO_IDC_SAR_80_33      = 9,
+    PICO_H264_ASPECT_RATIO_IDC_SAR_18_11      = 10,
+    PICO_H264_ASPECT_RATIO_IDC_SAR_15_11      = 11,
+    PICO_H264_ASPECT_RATIO_IDC_SAR_64_33      = 12,
+    PICO_H264_ASPECT_RATIO_IDC_SAR_160_99     = 13,
+    PICO_H264_ASPECT_RATIO_IDC_SAR_4_3        = 14,
+    PICO_H264_ASPECT_RATIO_IDC_SAR_3_2        = 15,
+    PICO_H264_ASPECT_RATIO_IDC_SAR_2_1        = 16,
+    PICO_H264_ASPECT_RATIO_IDC_RESERVED_START = 17,
+    PICO_H264_ASPECT_RATIO_IDC_RESERVED_END   = 254,
+    PICO_H264_ASPECT_RATIO_IDC_EXTENDED_SAR   = 255,
+} picoH264AspectRatioIDC;
+
+typedef enum {
+    PICO_H264_VIDEO_FORMAT_COMPONENT   = 0,
+    PICO_H264_VIDEO_FORMAT_PAL         = 1,
+    PICO_H264_VIDEO_FORMAT_NTSC        = 2,
+    PICO_H264_VIDEO_FORMAT_SECAM       = 3,
+    PICO_H264_VIDEO_FORMAT_MAC         = 4,
+    PICO_H264_VIDEO_FORMAT_UNSPECIFIED = 5,
+    PICO_H264_VIDEO_FORMAT_RESERVED_6  = 6,
+    PICO_H264_VIDEO_FORMAT_RESERVED_7  = 7,
+} picoH264VideoFormat;
+
+typedef enum {
+    PICO_H264_PROFILE_IDC_CAVLC_444_INTRA               = 44,
+    PICO_H264_PROFILE_IDC_BASELINE                      = 66, //  (Also Constrained Baseline with constraint_set1_flag = 1)
+    PICO_H264_PROFILE_IDC_MAIN                          = 77,
+    PICO_H264_PROFILE_IDC_EXTENDED                      = 88,
+    PICO_H264_PROFILE_IDC_HIGH                          = 100, //  (Also Progressive/Constrained High with constraint flags)
+    PICO_H264_PROFILE_IDC_HIGH_10                       = 110, // [cite: 41] (Also High 10 Intra with constraint_set3_flag = 1)
+    PICO_H264_PROFILE_IDC_HIGH_422                      = 122, // [cite: 42] (Also High 4:2:2 Intra with constraint_set3_flag = 1)
+    PICO_H264_PROFILE_IDC_HIGH_444_PREDICTIVE           = 244, // [cite: 42] (Also High 4:4:4 Intra with constraint_set3_flag = 1)
+    PICO_H264_PROFILE_IDC_SCALABLE_BASELINE             = 83,  // [cite: 54] (Also Scalable Constrained Baseline with constraint_set5_flag = 1)
+    PICO_H264_PROFILE_IDC_SCALABLE_HIGH                 = 86,  // [cite: 57] (Also Scalable Constrained High with constraint_set5_flag = 1)
+    PICO_H264_PROFILE_IDC_MULTIVIEW_HIGH                = 118, // [cite: 67]
+    PICO_H264_PROFILE_IDC_STEREO_HIGH                   = 128, // [cite: 67]
+    PICO_H264_PROFILE_IDC_MFC_HIGH                      = 134, // [cite: 17] (Multi-resolution Frame Compatible)
+    PICO_H264_PROFILE_IDC_MULTIVIEW_DEPTH_HIGH          = 138, // [cite: 71]
+    PICO_H264_PROFILE_IDC_MFC_DEPTH_HIGH                = 135, // [cite: 72] (MFC Depth High)
+    PICO_H264_PROFILE_IDC_ENHANCED_MULTIVIEW_DEPTH_HIGH = 139  // [cite: 17]
+} picoH264ProfileIDC;
 typedef struct {
     // idr_flag equal to 1 specifies that the current coded picture is an IDR picture when the value of dependency_id for the
     // NAL unit is equal to the maximum value of dependency_id in the coded picture. idr_flag equal to 0 specifies that the
