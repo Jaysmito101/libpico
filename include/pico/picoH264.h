@@ -36,7 +36,7 @@ SOFTWARE.
 
 #ifndef PICO_H264_H
 #define PICO_H264_H
-#include "pico/picoH264.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -114,7 +114,6 @@ typedef enum {
     PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_31          = 31,
 } picoH264NALUnitType;
 
-
 typedef enum {
     PICO_H264_ASPECT_RATIO_IDC_UNSPECIFIED    = 0,
     PICO_H264_ASPECT_RATIO_IDC_SAR_1_1        = 1,
@@ -167,6 +166,7 @@ typedef enum {
     PICO_H264_PROFILE_IDC_MFC_DEPTH_HIGH                = 135, // [cite: 72] (MFC Depth High)
     PICO_H264_PROFILE_IDC_ENHANCED_MULTIVIEW_DEPTH_HIGH = 139  // [cite: 17]
 } picoH264ProfileIDC;
+
 typedef struct {
     // idr_flag equal to 1 specifies that the current coded picture is an IDR picture when the value of dependency_id for the
     // NAL unit is equal to the maximum value of dependency_id in the coded picture. idr_flag equal to 0 specifies that the
@@ -188,13 +188,13 @@ typedef struct {
     // the layer representation
     bool noInterLayerPredFlag;
 
-    // dependency_id specifies a dependency identifier for the NAL unit. dependency_id shall be equal to 0 in prefix NAL units.  
+    // dependency_id specifies a dependency identifier for the NAL unit. dependency_id shall be equal to 0 in prefix NAL units.
     uint8_t dependencyId;
 
     // quality_id specifies a quality identifier for the NAL unit. quality_id shall be equal to 0 in prefix NAL units. The
     // assignment of values to quality_id is constrained by the sub-bitstream extraction process as specified in clause F.8.8.1.
     // The variable DQId is derived by
-    // DQId = ( dependency_id << 4 ) + quality_id 
+    // DQId = ( dependency_id << 4 ) + quality_id
     // When nal_unit_type is equal to 20, the bitstream shall not contain data that result in DQId equal to 0
     uint8_t qualityId;
 
@@ -312,7 +312,6 @@ typedef struct {
     // nal_ref_idc shall not be equal to 0 for NAL units with nal_unit_type equal to 5.
     // nal_ref_idc shall be equal to 0 for all NAL units having nal_unit_type equal to 6, 9, 10, 11, or 12.
     bool isReferencePicture;
-
 
     // specifies the type of RBSP data structure contained in the NAL unit
     picoH264NALUnitType nalUnitType;
@@ -1201,7 +1200,7 @@ bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut
     // so now we can try to find the next start code to determine the size of this NAL unit
     size_t nalStartPos = bitstream->tell(bitstream->userData);
     bitstream->read(bitstream->userData, NULL, 3); // skip the start code (at least 3 bytes)
-    
+
     // try to find the next NAL unit
     (void)__picoH264FindNextNALUnit(bitstream);
 
@@ -1249,22 +1248,22 @@ static bool __picoH264ParseNALUnitHeaderSVCExtension(const uint8_t *nalUnitBuffe
     uint8_t svcExtensionByte1 = *(ptr++);
     uint8_t svcExtensionByte2 = *(ptr++);
     uint8_t svcExtensionByte3 = *(ptr++);
-    uint32_t bits = ((uint32_t)(svcExtensionByte1 & 0x7F) << 16) | ((uint32_t)svcExtensionByte2 << 8) | (uint32_t)svcExtensionByte3;
+    uint32_t bits             = ((uint32_t)(svcExtensionByte1 & 0x7F) << 16) | ((uint32_t)svcExtensionByte2 << 8) | (uint32_t)svcExtensionByte3;
 
-    nalUnitHeaderSVCExtensionOut->idrFlag                = ((bits >> 22) & 0x1) != 0;
-    nalUnitHeaderSVCExtensionOut->priorityId             = (uint8_t)((bits >> 16) & 0x3F);
-    nalUnitHeaderSVCExtensionOut->noInterLayerPredFlag   = ((bits >> 15) & 0x1) != 0;
-    nalUnitHeaderSVCExtensionOut->dependencyId           = (uint8_t)((bits >> 12) & 0x7);
-    nalUnitHeaderSVCExtensionOut->qualityId              = (uint8_t)((bits >> 8) & 0xF);
-    nalUnitHeaderSVCExtensionOut->temporalId             = (uint8_t)((bits >> 5) & 0x7);
-    nalUnitHeaderSVCExtensionOut->useRefBasePicFlag      = ((bits >> 4) & 0x1) != 0;
-    nalUnitHeaderSVCExtensionOut->discardableFlag        = ((bits >> 3) & 0x1) != 0;
-    nalUnitHeaderSVCExtensionOut->outputFlag             = ((bits >> 2) & 0x1) != 0;
+    nalUnitHeaderSVCExtensionOut->idrFlag              = ((bits >> 22) & 0x1) != 0;
+    nalUnitHeaderSVCExtensionOut->priorityId           = (uint8_t)((bits >> 16) & 0x3F);
+    nalUnitHeaderSVCExtensionOut->noInterLayerPredFlag = ((bits >> 15) & 0x1) != 0;
+    nalUnitHeaderSVCExtensionOut->dependencyId         = (uint8_t)((bits >> 12) & 0x7);
+    nalUnitHeaderSVCExtensionOut->qualityId            = (uint8_t)((bits >> 8) & 0xF);
+    nalUnitHeaderSVCExtensionOut->temporalId           = (uint8_t)((bits >> 5) & 0x7);
+    nalUnitHeaderSVCExtensionOut->useRefBasePicFlag    = ((bits >> 4) & 0x1) != 0;
+    nalUnitHeaderSVCExtensionOut->discardableFlag      = ((bits >> 3) & 0x1) != 0;
+    nalUnitHeaderSVCExtensionOut->outputFlag           = ((bits >> 2) & 0x1) != 0;
 
     return true;
 }
 
-static bool __picoH264ParseNALUnitHeader3DAVCExtension(const uint8_t* nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeader3DAVCExtension nalUnitHeader3DAVCExtensionOut)
+static bool __picoH264ParseNALUnitHeader3DAVCExtension(const uint8_t *nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeader3DAVCExtension nalUnitHeader3DAVCExtensionOut)
 {
     PICO_ASSERT(nalUnitBuffer != NULL);
     PICO_ASSERT(nalUnitSize > 0);
@@ -1286,16 +1285,16 @@ static bool __picoH264ParseNALUnitHeader3DAVCExtension(const uint8_t* nalUnitBuf
     uint8_t flags   = (uint8_t)(bits & 0x7F);
 
     nalUnitHeader3DAVCExtensionOut->viewId        = viewIdx;
-    nalUnitHeader3DAVCExtensionOut->depthFlag     = (flags & 0x40) != 0; 
+    nalUnitHeader3DAVCExtensionOut->depthFlag     = (flags & 0x40) != 0;
     nalUnitHeader3DAVCExtensionOut->nonIDRFlag    = (flags & 0x20) != 0;
-    nalUnitHeader3DAVCExtensionOut->temporalId    = (uint8_t)((flags >> 2) & 0x07); 
-    nalUnitHeader3DAVCExtensionOut->anchorPicFlag = (flags & 0x02) != 0; 
-    nalUnitHeader3DAVCExtensionOut->interViewFlag = (flags & 0x01) != 0; 
+    nalUnitHeader3DAVCExtensionOut->temporalId    = (uint8_t)((flags >> 2) & 0x07);
+    nalUnitHeader3DAVCExtensionOut->anchorPicFlag = (flags & 0x02) != 0;
+    nalUnitHeader3DAVCExtensionOut->interViewFlag = (flags & 0x01) != 0;
 
     return true;
 }
 
-static bool __picoH264ParseNALUnitHeaderMVCCExtension(const uint8_t* nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeaderMVCExtension nalUnitHeaderMVCExtensionOut)
+static bool __picoH264ParseNALUnitHeaderMVCCExtension(const uint8_t *nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeaderMVCExtension nalUnitHeaderMVCExtensionOut)
 {
     PICO_ASSERT(nalUnitBuffer != NULL);
     PICO_ASSERT(nalUnitSize > 0);
@@ -1314,12 +1313,12 @@ static bool __picoH264ParseNALUnitHeaderMVCCExtension(const uint8_t* nalUnitBuff
 
     uint32_t bits = ((uint32_t)mvcExtensionByte1 << 16) | ((uint32_t)mvcExtensionByte2 << 8) | (uint32_t)mvcExtensionByte3;
 
-    nalUnitHeaderMVCExtensionOut->nonIdrFlag     = ((bits >> 23) & 0x1) != 0;
-    nalUnitHeaderMVCExtensionOut->priorityId     = (uint8_t)((bits >> 17) & 0x3F);
-    nalUnitHeaderMVCExtensionOut->viewId         = (uint16_t)((bits >> 7) & 0x3FF);
-    nalUnitHeaderMVCExtensionOut->temporalId     = (uint8_t)((bits >> 4) & 0x7);
-    nalUnitHeaderMVCExtensionOut->anchorPicFlag  = ((bits >> 3) & 0x1) != 0;
-    nalUnitHeaderMVCExtensionOut->interViewFlag  = ((bits >> 2) & 0x1) != 0;
+    nalUnitHeaderMVCExtensionOut->nonIdrFlag    = ((bits >> 23) & 0x1) != 0;
+    nalUnitHeaderMVCExtensionOut->priorityId    = (uint8_t)((bits >> 17) & 0x3F);
+    nalUnitHeaderMVCExtensionOut->viewId        = (uint16_t)((bits >> 7) & 0x3FF);
+    nalUnitHeaderMVCExtensionOut->temporalId    = (uint8_t)((bits >> 4) & 0x7);
+    nalUnitHeaderMVCExtensionOut->anchorPicFlag = ((bits >> 3) & 0x1) != 0;
+    nalUnitHeaderMVCExtensionOut->interViewFlag = ((bits >> 2) & 0x1) != 0;
 
     return true;
 }
@@ -1404,13 +1403,13 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
                 PICO_H264_LOG("picoH264ParseNALUnitHeader: Failed to parse SVC extension\n");
                 return false;
             }
-            nalUnitHeaderOut->numBytesInNALHeader += 3; 
+            nalUnitHeaderOut->numBytesInNALHeader += 3;
         } else if (nalUnitHeaderOut->avc3DExtensionFlag) {
             if (!__picoH264ParseNALUnitHeader3DAVCExtension(nalUnitBuffer, nalUnitSize - nalUnitHeaderOut->numBytesInNALHeader, &nalUnitHeaderOut->avc3DExtension)) {
                 PICO_H264_LOG("picoH264ParseNALUnitHeader: Failed to parse 3D AVC extension\n");
                 return false;
             }
-            nalUnitHeaderOut->numBytesInNALHeader += 2; 
+            nalUnitHeaderOut->numBytesInNALHeader += 2;
         } else {
             if (!__picoH264ParseNALUnitHeaderMVCCExtension(nalUnitBuffer, nalUnitSize - nalUnitHeaderOut->numBytesInNALHeader, &nalUnitHeaderOut->mvcExtension)) {
                 PICO_H264_LOG("picoH264ParseNALUnitHeader: Failed to parse MVC extension\n");
@@ -1420,7 +1419,7 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
             nalUnitHeaderOut->numBytesInNALHeader += 3;
         }
     }
-    size_t startCodeSize = nalUnitHeaderOut->zeroCount + 1; // zero bytes + 01 byte
+    size_t startCodeSize                = nalUnitHeaderOut->zeroCount + 1; // zero bytes + 01 byte
     nalUnitHeaderOut->numBytesInPayload = nalUnitSize - nalUnitHeaderOut->numBytesInNALHeader - startCodeSize;
 
     if (nalPayloadOut && nalPayloadSizeOut) {
@@ -1435,7 +1434,7 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
                 nalPayloadOut[payloadIndex++] = *(nalUnitBuffer++);
 
                 // skip the emulation prevention byte
-                nalUnitBuffer++; 
+                nalUnitBuffer++;
                 continue;
             }
             nalPayloadOut[payloadIndex++] = *(nalUnitBuffer++);
@@ -1448,7 +1447,7 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
     return true;
 }
 
-const char *picoH264GetNALUnitTypeToString(picoH264NALUnitType nalUnitType)
+const char *picoH264NALUnitTypeToString(picoH264NALUnitType nalUnitType)
 {
     switch (nalUnitType) {
         case PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED:
@@ -1571,7 +1570,7 @@ void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader)
 
     PICO_H264_LOG("NAL Unit Header:\n");
     PICO_H264_LOG("  isReferencePicture: %s\n", nalUnitHeader->isReferencePicture ? "true" : "false");
-    PICO_H264_LOG("  nalUnitType: %s (%u)\n", picoH264GetNALUnitTypeToString(nalUnitHeader->nalUnitType), (unsigned)nalUnitHeader->nalUnitType);
+    PICO_H264_LOG("  nalUnitType: %s (%u)\n", picoH264NALUnitTypeToString(nalUnitHeader->nalUnitType), (unsigned)nalUnitHeader->nalUnitType);
     PICO_H264_LOG("  numBytesInNALHeader: %u\n", (unsigned)nalUnitHeader->numBytesInNALHeader);
     PICO_H264_LOG("  numBytesInNALUnit: %zu\n", nalUnitHeader->numBytesInNALUnit);
     PICO_H264_LOG("  numBytesInPayload: %zu\n", nalUnitHeader->numBytesInPayload);
