@@ -115,21 +115,75 @@ typedef enum {
 } picoH264NALUnitType;
 
 typedef struct {
+    // idr_flag equal to 1 specifies that the current coded picture is an IDR picture when the value of dependency_id for the
+    // NAL unit is equal to the maximum value of dependency_id in the coded picture. idr_flag equal to 0 specifies that the
+    // current coded picture is not an IDR picture when the value of dependency_id for the NAL unit is equal to the maximum
+    // value of dependency_id in the coded picture. The value of idr_flag shall be the same for all NAL units of a dependency
+    // representation.
     bool idrFlag;
+
+    // priority_id specifies a priority identifier for the NAL unit
     uint8_t priorityId;
+
+    // no_inter_layer_pred_flag specifies whether inter-layer prediction may be used for decoding the coded slice. When
+    // no_inter_layer_pred_flag is equal to 1, inter-layer prediction is not used for decoding the coded slice. When
+    // no_inter_layer_pred_flag is equal to 0, inter-layer prediction may be used for decoding the coded slice as signalled in the
+    // macroblock layer.
+    // For prefix NAL units, no_inter_layer_pred_flag shall be equal to 1. When nal_unit_type is equal to 20 and quality_id is
+    // greater than 0, no_inter_layer_pred_flag shall be equal to 0.
+    // The variable MinNoInterLayerPredFlag is set equal to the minimum value of no_inter_layer_pred_flag for the slices of
+    // the layer representation
     bool noInterLayerPredFlag;
+
+    // dependency_id specifies a dependency identifier for the NAL unit. dependency_id shall be equal to 0 in prefix NAL units.  
     uint8_t dependencyId;
+
+    // quality_id specifies a quality identifier for the NAL unit. quality_id shall be equal to 0 in prefix NAL units. The
+    // assignment of values to quality_id is constrained by the sub-bitstream extraction process as specified in clause F.8.8.1.
+    // The variable DQId is derived by
+    // DQId = ( dependency_id << 4 ) + quality_id 
+    // When nal_unit_type is equal to 20, the bitstream shall not contain data that result in DQId equal to 0
     uint8_t qualityId;
+
+    // temporal_id specifies a temporal identifier for the NAL unit.
+    // The value of temporal_id shall be the same for all prefix NAL units and coded slice in scalable extension NAL units of
+    // an access unit. When an access unit contains any NAL unit with nal_unit_type equal to 5 or idr_flag equal to 1,
+    // temporal_id shall be equal to 0
     uint8_t temporalId;
+
+    // use_ref_base_pic_flag equal to 1 specifies that reference base pictures (when present) and decoded pictures (when
+    // reference base pictures are not present) are used as reference pictures for inter prediction.
+    // use_ref_base_pic_flag equal to 0 specifies that reference base pictures are not used as reference pictures for inter
+    // prediction (i.e., only decoded pictures are used for inter prediction).
+    // The values of use_ref_base_pic_flag shall be the same for all NAL units of a dependency representation
     bool useRefBasePicFlag;
+
+    // discardable_flag equal to 1 specifies that the current NAL unit is not used for decoding dependency representations that
+    // are part of the current coded picture or any subsequent coded picture in decoding order and have a greater value of
+    // dependency_id than the current NAL unit. discardable_flag equal to 0 specifies that the current NAL unit may be used
+    // for decoding dependency representations that are part of the current coded picture or any subsequent coded picture in
+    // decoding order and have a greater value of dependency_id than the current NAL unit
     bool discardableFlag;
+
+    // output_flag affects the decoded picture output and removal processes as specified in Annex C. The value of output_flag
+    // shall be the same for all NAL units of a dependency representation. For any particular value of dependency_id, the value
+    // of output_flag shall be the same for both fields of a complementary field pair.
     bool outputFlag;
 } picoH264NALUnitHeaderSVCExtension_t;
 typedef picoH264NALUnitHeaderSVCExtension_t *picoH264NALUnitHeaderSVCExtension;
 
 typedef struct {
+    // view_idx specifies the view oder index for the NAL unit.
+    // view_id is inferred to be equal to view_id[ view_idx ], where view_id[ ] is present in the active sequence parameter set.
+    // The variable VOIdx, representing the view order index of the view identified by view_id[ i ], is set equal to view_idx
     uint8_t viewId;
+
+    // depth_flag equal to 1 indicates that the current NAL unit belongs to a depth view component, depth_flag equal to 0
+    // indicates that the current NAL unit belongs to a texture view component
     bool depthFlag;
+
+
+    // These are same as in MVC extension
     bool nonIDRFlag;
     uint8_t temporalId;
     bool anchorPicFlag;
@@ -138,28 +192,114 @@ typedef struct {
 typedef picoH264NALUnitHeader3DAVCExtension_t *picoH264NALUnitHeader3DAVCExtension;
 
 typedef struct {
+    // non_idr_flag equal to 0 specifies that the current access unit is an IDR access unit.
+    // The value of non_idr_flag shall be the same for all VCL NAL units of an access unit. When non_idr_flag is equal to 0
+    // for a prefix NAL unit, the associated NAL unit shall have nal_unit_type equal to 5. When non_idr_flag is equal to 1 for
+    // a prefix NAL unit, the associated NAL unit shall have nal_unit_type equal to 1.
+    // When nal_unit_type is equal to 1 and the NAL unit is not immediately preceded by a NAL unit with nal_unit_type equal
+    // to 14, non_idr_flag shall be inferred to be equal to 1. When nal_unit_type is equal to 5 and the NAL unit is not
+    // immediately preceded by a NAL unit with nal_unit_type equal to 14, non_idr_flag shall be inferred to be equal to 0.
+    // When nal_ref_idc is equal to 0, the value of non_idr_flag shall be equal to 1.
     bool nonIdrFlag;
+
+    // priority_id specifies a priority identifier for the NAL unit. A lower value of priority_id specifies a higher priority. The
+    // assignment of values to priority_id is constrained by the sub-bitstream extraction process as specified in clause G.8.5.3.
+    // When nal_unit_type is equal to 1 or 5 and the NAL unit is not immediately preceded by a NAL unit with nal_unit_type
+    // equal to 14, priority_id shall be inferred to be equal to 0.
     uint8_t priorityId;
+
+    // view_id specifies a view identifier for the NAL unit. NAL units with the same value of view_id belong to the same view.
+    // When nal_unit_type is equal to 1 or 5 and the NAL unit is not immediately preceded by a NAL unit with nal_unit_type
+    // equal to 14, the value of view_id shall be inferred to be equal to 0. When the bitstream does contain NAL units with
+    // nal_unit_type equal to 1 or 5 that are not immediately preceded by a NAL unit with nal_unit_type equal to 14, it shall not
+    // contain data that result in a value of view_id for a view component of any non-base view that is equal to 0.
+    // The variable VOIdx, representing the view order index of the view identified by view_id, is set equal to the value of i for
+    // which the syntax element view_id[ i ] included in the referred subset sequence parameter set is equal to view_id
     uint16_t viewId;
+
+    // temporal_id specifies a temporal identifier for the NAL unit.
+    // When nal_unit_type is equal to 1 or 5 and the NAL unit is not immediately preceded by a NAL unit with nal_unit_type
+    // equal to 14, temporal_id shall be inferred to be equal to the value of temporal_id for the non-base views in the same
+    // access unit.
+    // The value of temporal_id shall be the same for all prefix and coded slice MVC extension NAL units of an access unit.
+    // When an access unit contains any NAL unit with nal_unit_type equal to 5 or non_idr_flag equal to 0, temporal_id shall
+    // be equal to 0.
     uint8_t temporalId;
+
+    // anchor_pic_flag equal to 1 specifies that the current access unit is an anchor access unit.
+    // When nal_unit_type is equal to 1 or 5 and the NAL unit is not immediately preceded by a NAL unit with nal_unit_type
+    // equal to 14, anchor_pic_flag shall be inferred to be equal to the value of anchor_pic_flag for the non-base views in the
+    // same access unit.
+    // When non_idr_flag is equal to 0, anchor_pic_flag shall be equal to 1.
+    // When nal_ref_idc is equal to 0, the value of anchor_pic_flag shall be equal to 0.
+    // The value of anchor_pic_flag shall be the same for all VCL NAL units of an access unit.
     bool anchorPicFlag;
+
+    // inter_view_flag equal to 0 specifies that the current view component is not used for inter-view prediction by any other
+    // view component in the current access unit. inter_view_flag equal to 1 specifies that the current view component may be
+    // used for inter-view prediction by other view components in the current access unit.
+    // When nal_unit_type is equal to 1 or 5 and the NAL unit is not immediately preceded by a NAL unit with nal_unit_type
+    // equal to 14, inter_view_flag shall be inferred to be equal to 1.
+    // The value of inter_view_flag shall be the same for all VCL NAL units of a view component.
     bool interViewFlag;
 } picoH264NALUnitHeaderMVCExtension_t;
 typedef picoH264NALUnitHeaderMVCExtension_t *picoH264NALUnitHeaderMVCExtension;
 
 typedef struct {
+    // nal_ref_idc not equal to 0 specifies that the content of the NAL unit contains a sequence parameter set, a sequence
+    // parameter set extension, a subset sequence parameter set, a picture parameter set, a slice of a reference picture, a slice
+    // data partition of a reference picture, or a prefix NAL unit preceding a slice of a reference picture.
+    // For coded video sequences conforming to one or more of the profiles specified in Annex A that are decoded using the
+    // decoding process specified in clauses 2 to 9, nal_ref_idc equal to 0 for a NAL unit containing a slice or slice data partition
+    // indicates that the slice or slice data partition is part of a non-reference picture.
+    // nal_ref_idc shall not be equal to 0 for sequence parameter set or sequence parameter set extension or subset sequence
+    // parameter set or picture parameter set NAL units. When nal_ref_idc is equal to 0 for one NAL unit with nal_unit_type in
+    // the range of 1 to 4, inclusive, of a particular picture, it shall be equal to 0 for all NAL units with nal_unit_type in the range
+    // of 1 to 4, inclusive, of the picture.
+    // nal_ref_idc shall not be equal to 0 for NAL units with nal_unit_type equal to 5.
+    // nal_ref_idc shall be equal to 0 for all NAL units having nal_unit_type equal to 6, 9, 10, 11, or 12.
     bool isReferencePicture;
+
+
+    // specifies the type of RBSP data structure contained in the NAL unit
     picoH264NALUnitType nalUnitType;
 
+    // When svc_extension_flag is not present, the value of svc_extension_flag is inferred to be equal to 0.
+    // The value of svc_extension_flag shall be equal to 1 for coded video sequences conforming to one or more profiles
+    // specified in Annex F. Decoders conforming to one or more profiles specified in Annex F shall ignore (remove from the
+    // bitstream and discard) NAL units for which nal_unit_type is equal to 14 or 20 and for which svc_extension_flag is equal
+    // to 0.
+    // The value of svc_extension_flag shall be equal to 0 for coded video sequences conforming to one or more profiles
+    // specified in Annex G. Decoders conforming to one or more profiles specified in Annex G shall ignore (remove from the
+    // bitstream and discard) NAL units for which nal_unit_type is equal to 14 or 20 and for which svc_extension_flag is equal
+    // to 1.
+    // The value of svc_extension_flag shall be equal to 0 for coded video sequences conforming to one or more profiles
+    // specified in Annex H. Decoders conforming to one or more profiles specified in Annex H shall ignore (remove from the
+    // bitstream and discard) NAL units for which nal_unit_type is equal to 14, 20, or 21 and for which svc_extension_flag is
+    // equal to 1.
+    // The value of svc_extension_flag shall be equal to 0 for coded video sequences conforming to one or more profiles
+    // specified in Annex I. Decoders conforming to one or more profiles specified in Annex I shall ignore (remove from the
+    // bitstream and discard) NAL units for which nal_unit_type is equal to 14 or 20 and for which svc_extension_flag is equal
+    // to 1.
     bool svcExtensionFlag;
     picoH264NALUnitHeaderSVCExtension_t svcExtension;
 
+    // When avc_3d_extension_flag is not present, the value of avc_3d_extension_flag is inferred to be equal to 0.
+    // The value of DepthFlag is specified as follows:
+    // DepthFlag = ( nal_unit_type ! = 21 ) ? 0 : ( avc_3d_extension_flag ? depth_flag : 1 ) (7-2)
+    // The value of avc_3d_extension_flag shall be equal to 0 for coded video sequences conforming to one or more profiles
+    // specified in Annex H. Decoders conforming to one or more profiles specified in Annex H shall ignore (remove from the
+    // bitstream and discard) NAL units for which nal_unit_type is equal to 21 and for which avc_3d_extension_flag is equal
+    // to 1
     bool avc3DExtensionFlag;
     picoH264NALUnitHeader3DAVCExtension_t avc3DExtension;
 
     bool mvcExtensionFlag;
     picoH264NALUnitHeaderMVCExtension_t mvcExtension;
 
+    // either 2 or 3 depending on whether the start code prefix is 3 or 4 bytes
+    // for (00 00 01) or (00 00 00 01)
+    // to get start code prefix size, use (zeroCount + 1)
     uint32_t zeroCount;
 
     uint32_t numBytesInNALHeader;
@@ -167,6 +307,11 @@ typedef struct {
     size_t numBytesInPayload;
 } picoH264NALUnitHeader_t;
 typedef picoH264NALUnitHeader_t *picoH264NALUnitHeader;
+
+// typedef struct {
+
+// } picoH264SequenceParameterSet_t;
+// typedef picoH264SequenceParameterSet_t *picoH264SequenceParameterSet;
 
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size);
 void picoH264BitstreamDestroy(picoH264Bitstream bitstream);
