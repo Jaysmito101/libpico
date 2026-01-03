@@ -170,7 +170,7 @@ void picoH264BitstreamDestroy(picoH264Bitstream bitstream);
 
 bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut);
 bool picoH264ReadNALUnit(picoH264Bitstream bitstream, uint8_t *nalUnitBuffer, size_t nalUnitBufferSize, size_t nalUnitSizeOut);
-bool picoH264ParseNALUnitHeader(const uint8_t *nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeader nalUnitHeaderOut);
+bool picoH264ParseNALUnitHeader(const uint8_t *nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeader nalUnitHeaderOut, uint8_t* nalPayloadOut, size_t nalPayloadBufferSize, size_t* nalPayloadSizeOut);
 
 void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader);
 const char* picoH264GetNALUnitTypeToString(picoH264NALUnitType nalUnitType);
@@ -190,7 +190,7 @@ typedef struct {
 } __picoH264BitstreamBufferContext_t;
 typedef __picoH264BitstreamBufferContext_t *__picoH264BitstreamBufferContext;
 
-static size_t __picoH264BufferRead(void *userData, uint8_t *buffer, size_t size)
+static size_t __picoH264BitstreamBufferRead(void *userData, uint8_t *buffer, size_t size)
 {
     __picoH264BitstreamBufferContext context = (__picoH264BitstreamBufferContext)userData;
     PICO_ASSERT(context != NULL);
@@ -207,7 +207,7 @@ static size_t __picoH264BufferRead(void *userData, uint8_t *buffer, size_t size)
     return bytesToRead;
 }
 
-static bool __picoH264BufferSeek(void *userData, int64_t offset, int origin)
+static bool __picoH264BitstreamBufferSeek(void *userData, int64_t offset, int origin)
 {
     __picoH264BitstreamBufferContext context = (__picoH264BitstreamBufferContext)userData;
     PICO_ASSERT(context != NULL);
@@ -242,7 +242,7 @@ static bool __picoH264BufferSeek(void *userData, int64_t offset, int origin)
     return true;
 }
 
-static size_t __picoH264BufferTell(void *userData)
+static size_t __picoH264BitstreamBufferTell(void *userData)
 {
     __picoH264BitstreamBufferContext context = (__picoH264BitstreamBufferContext)userData;
     PICO_ASSERT(context != NULL);
@@ -312,9 +312,9 @@ picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size
     context->position = 0;
 
     bitstream->userData = context;
-    bitstream->read     = __picoH264BufferRead;
-    bitstream->seek     = __picoH264BufferSeek;
-    bitstream->tell     = __picoH264BufferTell;
+    bitstream->read     = __picoH264BitstreamBufferRead;
+    bitstream->seek     = __picoH264BitstreamBufferSeek;
+    bitstream->tell     = __picoH264BitstreamBufferTell;
 
     return bitstream;
 }
