@@ -566,6 +566,29 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
             nalUnitHeaderOut->numBytesInNALHeader += 3;
         }
     }
+    size_t startCodeSize = nalUnitHeaderOut->zeroCount + 1; // zero bytes + 01 byte
+    nalUnitHeaderOut->numBytesInPayload = nalUnitSize - nalUnitHeaderOut->numBytesInNALHeader - startCodeSize;
+
+    if (nalPayloadOut && nalPayloadSizeOut) {
+        size_t payloadIndex = 0;
+        while (nalUnitBuffer < nalUnitBufferEnd && payloadIndex < nalUnitHeaderOut->numBytesInPayload) {
+            // handle emulation prevention three byte (0x03)
+            if (nalUnitBuffer + 2 < nalUnitBufferEnd &&
+                nalUnitBuffer[0] == 0x00 &&
+                nalUnitBuffer[1] == 0x00 &&
+                nalUnitBuffer[2] == 0x03) {
+                nalPayloadOut[payloadIndex++] = *(nalUnitBuffer++);
+                nalPayloadOut[payloadIndex++] = *(nalUnitBuffer++);
+
+                // skip the emulation prevention byte
+                nalUnitBuffer++; 
+                continue;
+            }
+            nalPayloadOut[payloadIndex++] = *(nalUnitBuffer++);
+        }
+
+        *nalPayloadSizeOut = payloadIndex;
+    }
 
     return true;
 }
