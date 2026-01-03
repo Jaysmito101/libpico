@@ -910,6 +910,58 @@ typedef struct {
 } picoH264SequenceParameterSet_t;
 typedef picoH264SequenceParameterSet_t *picoH264SequenceParameterSet;
 
+typedef struct {
+    // seq_parameter_set_id identifies the sequence parameter set associated with the sequence parameter set extension. The
+    // value of seq_parameter_set_id shall be in the range of 0 to 31, inclusive
+    uint8_t seqParameterSetId;
+
+    // aux_format_idc equal to 0 indicates that there are no auxiliary coded pictures in the coded video sequence.
+    // aux_format_idc equal to 1 indicates that exactly one auxiliary coded picture is present in each access unit of the coded
+    // video sequence, and that for alpha blending purposes the decoded samples of the associated primary coded picture in each
+    // access unit should be multiplied by the interpretation sample values of the auxiliary coded picture in the access unit in
+    // the display process after output from the decoding process. aux_format_idc equal to 2 indicates that exactly one auxiliary
+    // coded picture exists in each access unit of the coded video sequence, and that for alpha blending purposes the decoded
+    // samples of the associated primary coded picture in each access unit should not be multiplied by the interpretation sample
+    // values of the auxiliary coded picture in the access unit in the display process after output from the decoding process.
+    // aux_format_idc equal to 3 indicates that exactly one auxiliary coded picture exists in each access unit of the coded video
+    // sequence, and that the usage of the auxiliary coded pictures is unspecified. The value of aux_format_idc shall be in the
+    // range of 0 to 3, inclusive. Values greater than 3 for aux_format_idc are reserved to indicate the presence of exactly one
+    // auxiliary coded picture in each access unit of the coded video sequence for purposes to be specified in the future by ITU-T
+    // | ISO/IEC. When aux_format_idc is not present, it shall be inferred to be equal to 0.
+    uint8_t auxFormatIdc;
+
+    // bit_depth_aux_minus8 specifies the bit depth of the samples of the sample array of the auxiliary coded picture.
+    // bit_depth_aux_minus8 shall be in the range of 0 to 4, inclusive.
+    uint8_t bitDepthAuxMinus8;
+
+    // alpha_incr_flag equal to 0 indicates that the interpretation sample value for each decoded auxiliary coded picture sample
+    // value is equal to the decoded auxiliary coded picture sample value for purposes of alpha blending. alpha_incr_flag equal
+    // to 1 indicates that, for purposes of alpha blending, after decoding the auxiliary coded picture samples, any auxiliary coded
+    // picture sample value that is greater than Min(alpha_opaque_value, alpha_transparent_value) should be increased by one
+    // to obtain the interpretation sample value for the auxiliary coded picture sample, and any auxiliary coded picture sample
+    // value that is less than or equal to Min(alpha_opaque_value, alpha_transparent_value) should be used without alteration
+    // as the interpretation sample value for the decoded auxiliary coded picture sample value
+    bool alphaIncrFlag;
+
+    // alpha_opaque_value specifies the interpretation sample value of an auxiliary coded picture sample for which the
+    // associated luma and chroma samples of the same access unit are considered opaque for purposes of alpha blending. The
+    // number of bits used for the representation of the alpha_opaque_value syntax element is bit_depth_aux_minus8 + 9 bits.
+    uint8_t alphaOpaqueValue;
+
+    // alpha_transparent_value specifies the interpretation sample value of an auxiliary coded picture sample for which the
+    // associated luma and chroma samples of the same access unit are considered transparent for purposes of alpha blending.
+    // The number of bits used for the representation of the alpha_transparent_value syntax element is
+    // bit_depth_aux_minus8 + 9 bits
+    uint8_t alphaTransparentValue;
+
+    // additional_extension_flag equal to 0 indicates that no additional data follows within the sequence parameter set
+    // extension syntax structure prior to the RBSP trailing bits. The value of additional_extension_flag shall be equal to 0. The
+    // value of 1 for additional_extension_flag is reserved for future use by ITU-T | ISO/IEC. Decoders shall ignore all data that
+    // follows the value of 1 for additional_extension_flag in a sequence parameter set extension NAL unit
+    bool additionalExtensionFlag;
+} picoH264SequenceParameterSetExtension_t;
+typedef picoH264SequenceParameterSetExtension_t *picoH264SequenceParameterSetExtension;
+
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size);
 void picoH264BitstreamDestroy(picoH264Bitstream bitstream);
 
@@ -919,6 +971,7 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
 
 void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader);
 void picoH264SequenceParameterSetDebugPrint(picoH264SequenceParameterSet sps);
+void picoH264SequenceParameterSetExtensionDebugPrint(picoH264SequenceParameterSetExtension spsExt);
 
 const char *picoH264NALRefIdcToString(picoH264NALRefIDC nalRefIdc);
 const char *picoH264NALUnitTypeToString(picoH264NALUnitType nalUnitType);
@@ -1705,6 +1758,22 @@ void picoH264SequenceParameterSetDebugPrint(picoH264SequenceParameterSet sps)
     if (sps->vuiParametersPresentFlag) {
         __picoH264VideoUsabilityInformationDebugPrint(&sps->vui);
     }
+}
+
+void picoH264SequenceParameterSetExtensionDebugPrint(picoH264SequenceParameterSetExtension spsExt)
+{
+    PICO_ASSERT(spsExt != NULL);
+
+    PICO_H264_LOG("Sequence Parameter Set Extension:\n");
+    PICO_H264_LOG("  seqParameterSetId: %u\n", (unsigned)spsExt->seqParameterSetId);
+    PICO_H264_LOG("  auxFormatIdc: %u\n", (unsigned)spsExt->auxFormatIdc);
+    if (spsExt->auxFormatIdc != 0) {
+        PICO_H264_LOG("  bitDepthAuxMinus8: %u\n", (unsigned)spsExt->bitDepthAuxMinus8);
+        PICO_H264_LOG("  alphaIncrFlag: %s\n", spsExt->alphaIncrFlag ? "true" : "false");
+        PICO_H264_LOG("  alphaOpaqueValue: %u\n", (unsigned)spsExt->alphaOpaqueValue);
+        PICO_H264_LOG("  alphaTransparentValue: %u\n", (unsigned)spsExt->alphaTransparentValue);
+    }
+    PICO_H264_LOG("  additionalExtensionFlag: %s\n", spsExt->additionalExtensionFlag ? "true" : "false");
 }
 
 void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader)
