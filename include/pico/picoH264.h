@@ -160,8 +160,11 @@ typedef struct {
     bool mvcExtensionFlag;
     picoH264NALUnitHeaderMVCExtension_t mvcExtension;
 
+    uint32_t zeroCount;
+
     uint32_t numBytesInNALHeader;
     size_t numBytesInNALUnit;
+    size_t numBytesInPayload;
 } picoH264NALUnitHeader_t;
 typedef picoH264NALUnitHeader_t *picoH264NALUnitHeader;
 
@@ -170,10 +173,10 @@ void picoH264BitstreamDestroy(picoH264Bitstream bitstream);
 
 bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut);
 bool picoH264ReadNALUnit(picoH264Bitstream bitstream, uint8_t *nalUnitBuffer, size_t nalUnitBufferSize, size_t nalUnitSizeOut);
-bool picoH264ParseNALUnitHeader(const uint8_t *nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeader nalUnitHeaderOut, uint8_t* nalPayloadOut, size_t nalPayloadBufferSize, size_t* nalPayloadSizeOut);
+bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeader nalUnitHeaderOut, uint8_t *nalPayloadOut, size_t *nalPayloadSizeOut);
 
 void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader);
-const char* picoH264GetNALUnitTypeToString(picoH264NALUnitType nalUnitType);
+const char *picoH264GetNALUnitTypeToString(picoH264NALUnitType nalUnitType);
 
 #define PICO_IMPLEMENTATION // for testing purposes only
 
@@ -278,9 +281,12 @@ static bool __picoH264FindNextNALUnit(picoH264Bitstream bitstream)
         }
 
         if (byte == 0x01 && zeroCount >= 2) {
+            if (zeroCount > 3) {
+                zeroCount = 3; // clamp to max 3 zero bytes
+            }
             // go back to position just before the start code (if its a 4 byte start code we went back 3 bytes,
             // as then we get a uniform 2 zero bytes before the 01 byte)
-            bitstream->seek(bitstream->userData, -((int64_t)(3)), SEEK_CUR);
+            bitstream->seek(bitstream->userData, -((int64_t)zeroCount + 1), SEEK_CUR);
             return true; // Found start code (00 00 01) or (00 00 00 01)
         }
 
@@ -340,16 +346,8 @@ bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut
     // if we did find a NAL unit, we are now positioned just before the start code
     // so now we can try to find the next start code to determine the size of this NAL unit
     size_t nalStartPos = bitstream->tell(bitstream->userData);
-    // skip the start code
-    uint8_t startCode[3];
-    bitstream->read(bitstream->userData, startCode, 3);
-    if (!(startCode[0] == 0x00 && startCode[1] == 0x00 && startCode[2] == 0x01)) {
-        // NOTE: ideally this case should not happen as we already verified the
-        // start code in __picoH264FindNextNALUnit
-        PICO_H264_LOG("picoH264FindNextNALUnit: Invalid start code\n");
-        return false; // invalid start code
-    }
-
+    bitstream->read(bitstream->userData, NULL, 3); // skip the start code (at least 3 bytes)
+    
     // try to find the next NAL unit
     (void)__picoH264FindNextNALUnit(bitstream);
 
@@ -379,7 +377,97 @@ bool picoH264ReadNALUnit(picoH264Bitstream bitstream, uint8_t *nalUnitBuffer, si
     return true;
 }
 
-const char* picoH264GetNALUnitTypeToString(picoH264NALUnitType nalUnitType)
+bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeader nalUnitHeaderOut, uint8_t *nalPayloadOut, size_t *nalPayloadSizeOut)
+{
+    PICO_ASSERT(nalUnitBuffer != NULL);
+    PICO_ASSERT(nalUnitSize > 0);
+    PICO_ASSERT(nalUnitHeaderOut != NULL);
+
+    (void)nalPayloadOut;
+    (void)nalPayloadSizeOut;
+
+    nalUnitHeaderOut->numBytesInNALUnit   = nalUnitSize;
+    nalUnitHeaderOut->numBytesInNALHeader = 0;
+
+    const uint8_t *nalUnitBufferEnd = nalUnitBuffer + nalUnitSize;
+
+    nalUnitHeaderOut->zeroCount = 0;
+    while (nalUnitBuffer < nalUnitBufferEnd) {
+        if (*nalUnitBuffer == 0x00) {
+            nalUnitHeaderOut->zeroCount++;
+            nalUnitBuffer++;
+        } else if (*nalUnitBuffer == 0x01 && nalUnitHeaderOut->zeroCount >= 2) {
+            if (nalUnitHeaderOut->zeroCount > 3) {
+                // this means we are dealing with an invalid start code
+                // this should have been dealt with in the NAL unit finder already
+                // so encountering this case here means the input is malformed
+                PICO_H264_LOG("picoH264ParseNALUnitHeader: Invalid start code in NAL unit, more than 3 zero bytes\n");
+                return false;
+            }
+            // Found start code (00 00 01) or (00 00 00 01)
+            nalUnitBuffer++; // move past the 01 byte
+            break;
+        } else {
+            // Invalid start code
+            PICO_H264_LOG("picoH264ParseNALUnitHeader: Invalid start code in NAL unit with less than 2 zero bytes\n");
+            return false;
+        }
+    }
+
+    if (nalUnitBuffer >= nalUnitBufferEnd) {
+        PICO_H264_LOG("picoH264ParseNALUnitHeader: NAL unit too small to contain header\n");
+        return false;
+    }
+
+    uint8_t firstNALByte = *(nalUnitBuffer++);
+    // check for the first forbidden zero bit
+    if ((firstNALByte & 0x80) != 0) {
+        PICO_H264_LOG("picoH264ParseNALUnitHeader: Forbidden zero bit is not zero\n");
+        return false;
+    }
+    // the next two bits indicate if this is a reference picture
+    nalUnitHeaderOut->isReferencePicture = (firstNALByte & 0x60) != 0;
+    // the last 5 bits indicate the NAL unit type
+    nalUnitHeaderOut->nalUnitType = (picoH264NALUnitType)(firstNALByte & 0x1F);
+    nalUnitHeaderOut->numBytesInNALHeader += 1;
+
+    if (nalUnitBuffer >= nalUnitBufferEnd) {
+        PICO_H264_LOG("picoH264ParseNALUnitHeader: NAL unit too small to contain header\n");
+        return false;
+    }
+
+    // initialie the flags to false
+    nalUnitHeaderOut->svcExtensionFlag   = false;
+    nalUnitHeaderOut->avc3DExtensionFlag = false;
+    nalUnitHeaderOut->mvcExtensionFlag   = false;
+
+    // now check the codition according to the spec Rec. ITU-T H.264 (V15) (08/2024), Page 45, section 7.3.1
+    // nal unit type 14, 20, 21 indicate the presence of extensions
+    if (nalUnitHeaderOut->nalUnitType == PICO_H264_NAL_UNIT_TYPE_PREFIX_NAL_UNIT || nalUnitHeaderOut->nalUnitType == PICO_H264_NAL_UNIT_TYPE_SLICE_EXTENSION || nalUnitHeaderOut->nalUnitType == PICO_H264_NAL_UNIT_TYPE_DEPTH_SLICE_EXTENSION) {
+        uint8_t extensionByte = *nalUnitBuffer;
+        if (nalUnitHeaderOut->nalUnitType != PICO_H264_NAL_UNIT_TYPE_DEPTH_SLICE_EXTENSION) {
+            // svc_extension_flag is present for NAL unit types 14 and 20 (the bit is 1 for SVC)
+            nalUnitHeaderOut->svcExtensionFlag = (extensionByte & 0x80) != 0;
+        } else {
+            nalUnitHeaderOut->avc3DExtensionFlag = (extensionByte & 0x80) != 0;
+        }
+
+        if (nalUnitHeaderOut->svcExtensionFlag) {
+
+            nalUnitHeaderOut->numBytesInNALHeader += 3; 
+        } else if (nalUnitHeaderOut->avc3DExtensionFlag) {
+            
+            nalUnitHeaderOut->numBytesInNALHeader += 2; 
+        } else {
+            nalUnitHeaderOut->mvcExtensionFlag = true;
+            nalUnitHeaderOut->numBytesInNALHeader += 3;
+        }
+    }
+
+    return true;
+}
+
+const char *picoH264GetNALUnitTypeToString(picoH264NALUnitType nalUnitType)
 {
     switch (nalUnitType) {
         case PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED:
@@ -505,6 +593,11 @@ void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader)
     PICO_H264_LOG("  nalUnitType: %s (%u)\n", picoH264GetNALUnitTypeToString(nalUnitHeader->nalUnitType), (unsigned)nalUnitHeader->nalUnitType);
     PICO_H264_LOG("  numBytesInNALHeader: %u\n", (unsigned)nalUnitHeader->numBytesInNALHeader);
     PICO_H264_LOG("  numBytesInNALUnit: %zu\n", nalUnitHeader->numBytesInNALUnit);
+    PICO_H264_LOG("  numBytesInPayload: %zu\n", nalUnitHeader->numBytesInPayload);
+
+    PICO_H264_LOG("  svcExtensionFlag: %s\n", nalUnitHeader->svcExtensionFlag ? "true" : "false");
+    PICO_H264_LOG("  avc3DExtensionFlag: %s\n", nalUnitHeader->avc3DExtensionFlag ? "true" : "false");
+    PICO_H264_LOG("  mvcExtensionFlag: %s\n", nalUnitHeader->mvcExtensionFlag ? "true" : "false");
 
     if (nalUnitHeader->svcExtensionFlag) {
         __picoH264PrintSVCExtension(&nalUnitHeader->svcExtension);
