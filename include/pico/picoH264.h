@@ -979,7 +979,8 @@ const char *picoH264AspectRatioIDCToString(uint8_t idc);
 const char *picoH264ProfileIdcToString(uint8_t profileIdc);
 const char *picoH264VideoFormatToString(picoH264VideoFormat videoFormat);
 
-#define PICO_IMPLEMENTATION // for testing purposes only
+// for testing purposes only
+#define PICO_IMPLEMENTATION 
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_H264_IMPLEMENTATION)
 #define PICO_H264_IMPLEMENTATION
