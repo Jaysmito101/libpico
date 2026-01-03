@@ -361,10 +361,550 @@ typedef struct {
 } picoH264NALUnitHeader_t;
 typedef picoH264NALUnitHeader_t *picoH264NALUnitHeader;
 
-// typedef struct {
+typedef struct {
+    // cpb_cnt_minus1 plus 1 specifies the number of alternative CPB specifications in the bitstream. The value of
+    // cpb_cnt_minus1 shall be in the range of 0 to 31, inclusive. When low_delay_hrd_flag is equal to 1, cpb_cnt_minus1 shall
+    // be equal to 0. When cpb_cnt_minus1 is not present, it shall be inferred to be equal to 0
+    uint32_t cpbCntMinus1;
 
-// } picoH264SequenceParameterSet_t;
-// typedef picoH264SequenceParameterSet_t *picoH264SequenceParameterSet;
+    
+    // bit_rate_scale (together with bit_rate_value_minus1[ SchedSelIdx ]) specifies the maximum input bit rate of the
+    // SchedSelIdx-th CPB
+    uint8_t bitRateScale;
+
+    // cpb_size_scale (together with cpb_size_value_minus1[ SchedSelIdx ]) specifies the CPB size of the SchedSelIdx-th
+    // CPB.
+    uint8_t cpbSizeScale;
+
+    // bit_rate_value_minus1[ SchedSelIdx ] (together with bit_rate_scale) specifies the maximum input bit rate for the
+    // SchedSelIdx-th CPB. bit_rate_value_minus1[ SchedSelIdx ] shall be in the range of 0 to 232 − 2, inclusive. For any
+    // SchedSelIdx > 0, bit_rate_value_minus1[ SchedSelIdx ] shall be greater than bit_rate_value_minus1[ SchedSelIdx − 1 ].
+    // The bit rate in bits per second is given by:
+    //     BitRate[ SchedSelIdx ] = ( bit_rate_value_minus1[ SchedSelIdx ] + 1 ) * 2^(6 + bit_rate_scale)
+    uint32_t bitRateValueMinus1[256];
+
+    // cpb_size_value_minus1[ SchedSelIdx ] is used together with cpb_size_scale to specify the SchedSelIdx-th CPB size.
+    // cpb_size_value_minus1[ SchedSelIdx ] shall be in the range of 0 to 232 − 2, inclusive. For any SchedSelIdx greater than
+    // 0, cpb_size_value_minus1[ SchedSelIdx ] shall be less than or equal to cpb_size_value_minus1[ SchedSelIdx −1 ].
+    // The CPB size in bits is given by
+    //     CpbSize[ SchedSelIdx ] = ( cpb_size_value_minus1[ SchedSelIdx ] + 1 ) * 2^(4 + cpb_size_scale)
+    uint32_t cpbSizeValueMinus1[256];
+
+    // cbr_flag[ SchedSelIdx ] equal to 0 specifies that to decode this bitstream by the HRD using the SchedSelIdx-th CPB
+    // specification, the hypothetical stream delivery scheduler (HSS) operates in an intermittent bit rate mode.
+    // cbr_flag[ SchedSelIdx ] equal to 1 specifies that the HSS operates in a constant bit rate (CBR) mode. When the
+    // cbr_flag[ SchedSelIdx ] syntax element is not present, the value of cbr_flag shall be inferred to be equal to 0
+    bool cbrFlag[256];
+
+    // initial_cpb_removal_delay_length_minus1 specifies the length in bits of the initial_cpb_removal_delay[ SchedSelIdx ]
+    // and initial_cpb_removal_delay_offset[ SchedSelIdx ] syntax elements of the buffering period SEI message. The length
+    // of initial_cpb_removal_delay[ SchedSelIdx ] and of initial_cpb_removal_delay_offset[ SchedSelIdx ] is
+    // initial_cpb_removal_delay_length_minus1 + 1. When the initial_cpb_removal_delay_length_minus1 syntax element is
+    // present in more than one hrd_parameters( ) syntax structure within the VUI parameters syntax structure, the value of the
+    // initial_cpb_removal_delay_length_minus1 parameters shall be equal in both hrd_parameters( ) syntax structures. When
+    // the initial_cpb_removal_delay_length_minus1 syntax element is not present, it shall be inferred to be equal to 23.
+    uint8_t initialCpbRemovalDelayLengthMinus1;
+
+    // cpb_removal_delay_length_minus1 specifies the length in bits of the cpb_removal_delay syntax element. The length
+    // of the cpb_removal_delay syntax element of the picture timing SEI message is cpb_removal_delay_length_minus1 + 1.
+    // When the cpb_removal_delay_length_minus1 syntax element is present in more than one hrd_parameters( ) syntax
+    // structure within the VUI parameters syntax structure, the value of the cpb_removal_delay_length_minus1 parameters
+    // shall be equal in both hrd_parameters( ) syntax structures. When the cpb_removal_delay_length_minus1 syntax element
+    // is not present, it shall be inferred to be equal to 23
+    uint8_t cpbRemovalDelayLengthMinus1;
+
+    // dpb_output_delay_length_minus1 specifies the length in bits of the dpb_output_delay syntax element. The length of
+    // the dpb_output_delay syntax element of the picture timing SEI message is dpb_output_delay_length_minus1 + 1. When
+    // the dpb_output_delay_length_minus1 syntax element is present in more than one hrd_parameters( ) syntax structure
+    // within the VUI parameters syntax structure, the value of the dpb_output_delay_length_minus1 parameters shall be equal
+    // in both hrd_parameters( ) syntax structures. When the dpb_output_delay_length_minus1 syntax element is not present, it
+    // shall be inferred to be equal to 23.
+    uint8_t dpbOutputDelayLengthMinus1;
+
+    // time_offset_length greater than 0 specifies the length in bits of the time_offset syntax element. time_offset_length equal
+    // to 0 specifies that the time_offset syntax element is not present. When the time_offset_length syntax element is present
+    // in more than one hrd_parameters( ) syntax structure within the VUI parameters syntax structure, the value of the
+    // time_offset_length parameters shall be equal in both hrd_parameters( ) syntax structures. When the time_offset_length
+    // syntax element is not present, it shall be inferred to be equal to 24
+    uint8_t timeOffsetLength;
+} picoH264HypotheticalReferenceDecoder_t;
+typedef picoH264HypotheticalReferenceDecoder_t *picoH264HypotheticalReferenceDecoder;
+
+typedef struct {
+    // aspect_ratio_info_present_flag equal to 1 specifies that aspect_ratio_idc is present. aspect_ratio_info_present_flag
+    // equal to 0 specifies that aspect_ratio_idc is not present
+    bool aspectRatioInfoPresentFlag;
+
+    // aspect_ratio_idc specifies the value of the sample aspect ratio of the luma samples. Table E-1 shows the meaning of the
+    // code. When aspect_ratio_idc indicates Extended_SAR, the sample aspect ratio is represented by sar_width : sar_height.
+    // When the aspect_ratio_idc syntax element is not present, aspect_ratio_idc value shall be inferred to be equal to 0.
+    uint8_t aspectRatioIdc;
+
+    // sar_width and sar_height shall be relatively prime or equal to 0. When aspect_ratio_idc is equal to 0 or sar_width is equal
+    // to 0 or sar_height is equal to 0, the sample aspect ratio shall be considered unspecified by this Recommendation | International Standard
+
+    // sar_width indicates the horizontal size of the sample aspect ratio (in arbitrary units).
+    uint16_t sarWidth;
+    // sar_height indicates the vertical size of the sample aspect ratio (in the same arbitrary units as sar_width).
+    uint16_t sarHeight;
+
+    // overscan_info_present_flag equal to 1 specifies that the overscan_appropriate_flag is present. When
+    // overscan_info_present_flag is equal to 0 or is not present, the preferred display method for the video signal is unspecified
+    bool overscanInfoPresentFlag;
+
+    // overscan_appropriate_flag equal to 1 indicates that the cropped decoded pictures output are suitable for display using
+    // overscan. overscan_appropriate_flag equal to 0 indicates that the cropped decoded pictures output contain visually
+    // important information in the entire region out to the edges of the cropping rectangle of the picture, such that the cropped
+    // decoded pictures output should not be displayed using overscan. Instead, they should be displayed using either an exact
+    // match between the display area and the cropping rectangle, or using underscan. As used in this paragraph, the term
+    // "overscan" refers to display processes in which some parts near the borders of the cropped decoded pictures are not visible
+    // in the display area. The term "underscan" describes display processes in which the entire cropped decoded pictures are
+    // visible in the display area, but they do not cover the entire display area. For display processes that neither use overscan
+    // nor underscan, the display area exactly matches the area of the cropped decoded pictures
+    bool overscanAppropriateFlag;
+
+    // video_signal_type_present_flag equal to 1 specifies that video_format, video_full_range_flag and
+    // colour_description_present_flag are present. video_signal_type_present_flag equal to 0, specify that video_format,
+    // video_full_range_flag and colour_description_present_flag are not present
+    bool videoSignalTypePresentFlag;
+
+    // video_format indicates the representation of the pictures as specified in Table E-2, before being coded in accordance
+    // with this Recommendation | International Standard. When the video_format syntax element is not present, video_format
+    // value shall be inferred to be equal to 5
+    picoH264VideoFormat videoFormat;
+
+    // video_full_range_flag indicates the black level and range of the luma and chroma signals as derived from E′Y, E′PB, and
+    // E′PR or E′R, E′G, and E′B real-valued component signals.
+    // When the video_full_range_flag syntax element is not present, the value of video_full_range_flag shall be inferred to be
+    // equal to 0.
+    bool videoFullRangeFlag;
+
+    // colour_description_present_flag equal to 1 specifies that colour_primaries, transfer_characteristics and
+    // matrix_coefficients are present. colour_description_present_flag equal to 0 specifies that colour_primaries,
+    // transfer_characteristics and matrix_coefficients are not present.
+    bool colourDescriptionPresentFlag;
+
+    // colour_primaries indicates the chromaticity coordinates of the source primaries as specified in Table E-3 in terms of the
+    // CIE 1931 definition of x and y as specified by ISO 11664-1
+    // When the colour_primaries syntax element is not present, the value of colour_primaries shall be inferred to be equal to 2
+    // (the chromaticity is unspecified or is determined by the application).
+    uint8_t colourPrimaries;
+
+    // transfer_characteristics, as specified in Table E-4, either indicates the reference opto-electronic transfer characteristic
+    // function of the source picture as a function of a source input linear optical intensity input Lc with a nominal real-valued
+    // range of 0 to 1 or indicates the inverse of the reference electro-optical transfer characteristic function as a function of an
+    // output linear optical intensity Lo with a nominal real-valued range of 0 to 1. For interpretation of entries in Table E-4 that
+    // are expressed in terms of multiple curve segments parameterized by the variable L, see ISO 11664-2.
+    // When the transfer_characteristics syntax element is not present, the value of transfer_characteristics shall be inferred to
+    // be equal to 2 (the transfer characteristics are unspecified or are determined by the application). Values of
+    // transfer_characteristics that are identified as reserved in Table E-4 are reserved for future use by ITU-T | ISO/IEC and
+    // shall not be present in bitstreams conforming to this version of this Specification. Decoders shall interpret reserved values
+    // of transfer_characteristics as equivalent to the value 2.
+    uint8_t transferCharacteristics;
+
+    // matrix_coefficients describes the matrix coefficients used in deriving luma and chroma signals from the green, blue, and
+    // red, or Y, Z, and X primaries, as specified in Table E-5
+    uint8_t matrixCoefficients;
+
+    // chroma_loc_info_present_flag equal to 1 specifies that chroma_sample_loc_type_top_field and
+    // chroma_sample_loc_type_bottom_field are present. chroma_loc_info_present_flag equal to 0 specifies that
+    // chroma_sample_loc_type_top_field and chroma_sample_loc_type_bottom_field are not present.
+    // When chroma_format_idc is not equal to 1, chroma_loc_info_present_flag should be equal to 0
+    bool chromaLocInfoPresentFlag;
+
+    // chroma_sample_loc_type_top_field and chroma_sample_loc_type_bottom_field specify the location of chroma
+    // samples as follows:
+    //     – If chroma_format_idc is equal to 1 (4:2:0 chroma format), chroma_sample_loc_type_top_field and
+    //     chroma_sample_loc_type_bottom_field specify the location of chroma samples for the top field and the bottom field,
+    //     respectively, as shown in Figure E-1.
+    //     – Otherwise (chroma_format_idc is not equal to 1), the values of the syntax elements
+    //     chroma_sample_loc_type_top_field and chroma_sample_loc_type_bottom_field shall be ignored. When
+    //     chroma_format_idc is equal to 2 (4:2:2 chroma format) or 3 (4:4:4 chroma format), the location of chroma samples
+    //     is specified in clause 6.2. When chroma_format_idc is equal to 0, there is no chroma sample array.
+    // The value of chroma_sample_loc_type_top_field and chroma_sample_loc_type_bottom_field shall be in the range of 0
+    // to 5, inclusive. When the chroma_sample_loc_type_top_field and chroma_sample_loc_type_bottom_field are not
+    // present, the values of chroma_sample_loc_type_top_field and chroma_sample_loc_type_bottom_field shall be inferred
+    // to be equal to 0.
+    uint32_t chromaSampleLocTypeTopField;
+    uint32_t chromaSampleLocTypeBottomField;
+
+    // timing_info_present_flag equal to 1 specifies that num_units_in_tick, time_scale and fixed_frame_rate_flag are present
+    // in the bitstream. timing_info_present_flag equal to 0 specifies that num_units_in_tick, time_scale and
+    // fixed_frame_rate_flag are not present in the bitstream.
+    bool timingInfoPresentFlag;
+
+    // num_units_in_tick is the number of time units of a clock operating at the frequency time_scale Hz that corresponds to
+    // one increment (called a clock tick) of a clock tick counter. num_units_in_tick shall be greater than 0. A clock tick is the
+    // minimum interval of time that can be represented in the coded data. For example, when the frame rate of a video signal
+    // is 30 000 / 1001 Hz, time_scale may be equal to 60 000 and num_units_in_tick may be equal to 1001. See Equation C-
+    // 1 for the relationship between time units, clock ticks, and seconds.
+    uint32_t numUnitsInTick;
+
+    // time_scale is the number of time units that pass in one second. For example, a time coordinate system that measures time
+    // using a 27 MHz clock has a time_scale of 27 000 000. time_scale shall be greater than 0.
+    uint32_t timeScale;
+
+    // fixed_frame_rate_flag equal to 1 indicates that the temporal distance between the HRD output times of any two
+    // consecutive pictures in output order is constrained as follows. fixed_frame_rate_flag equal to 0 indicates that no such
+    // constraints apply to the temporal distance between the HRD output times of any two consecutive pictures in output order.
+    // When fixed_frame_rate_flag is not present, it shall be inferred to be equal to 0.
+    bool fixedFrameRateFlag;
+    
+    // nal_hrd_parameters_present_flag equal to 1 specifies that NAL HRD parameters (pertaining to the Type II bitstream
+    // conformance point) are present. nal_hrd_parameters_present_flag equal to 0 specifies that NAL HRD parameters are not
+    // present.
+    bool nalHrdParametersPresentFlag;
+    picoH264HypotheticalReferenceDecoder_t nalHrdParameters;
+
+    // vcl_hrd_parameters_present_flag equal to 1 specifies that VCL HRD parameters (pertaining to the Type I bitstream
+    // conformance point) are present. vcl_hrd_parameters_present_flag equal to 0 specifies that VCL HRD parameters are not
+    // present.
+    bool vclHrdParametersPresentFlag;
+    picoH264HypotheticalReferenceDecoder_t vclHrdParameters;
+
+    // low_delay_hrd_flag specifies the HRD operational mode as specified in Annex C. When fixed_frame_rate_flag is equal
+    // to 1, low_delay_hrd_flag shall be equal to 0. When low_delay_hrd_flag is not present, its value shall be inferred to be
+    // equal to 1 − fixed_frame_rate_flag
+    bool lowDelayHrdFlag;
+
+    // pic_struct_present_flag equal to 1 specifies that picture timing SEI messages (clause D.2.3) are present that include the
+    // pic_struct syntax element. pic_struct_present_flag equal to 0 specifies that the pic_struct syntax element is not present in
+    // picture timing SEI messages. When pic_struct_present_flag is not present, its value shall be inferred to be equal to 0
+    bool picStructPresentFlag;
+
+    // bitstream_restriction_flag equal to 1, specifies that the following coded video sequence bitstream restriction parameters
+    // are present. bitstream_restriction_flag equal to 0, specifies that the following coded video sequence bitstream restriction
+    // parameters are not present.
+    bool bitstreamRestrictionFlag;
+
+    // motion_vectors_over_pic_boundaries_flag equal to 0 indicates that no sample outside the picture boundaries and no
+    // sample at a fractional sample position for which the sample value is derived using one or more samples outside the picture
+    // boundaries is used for inter prediction of any sample. motion_vectors_over_pic_boundaries_flag equal to 1 indicates that
+    // one or more samples outside picture boundaries may be used in inter prediction. When the
+    // motion_vectors_over_pic_boundaries_flag syntax element is not present, motion_vectors_over_pic_boundaries_flag
+    // value shall be inferred to be equal to 1
+    bool motionVectorsOverPicBoundariesFlag;
+
+    // max_bytes_per_pic_denom indicates a number of bytes not exceeded by the sum of the sizes of the VCL NAL units
+    // associated with any coded picture in the coded video sequence.
+    // The number of bytes that represent a picture in the NAL unit stream is specified for this purpose as the total number of
+    // bytes of VCL NAL unit data (i.e., the total of the NumBytesInNALunit variables for the VCL NAL units) for the picture.
+    // The value of max_bytes_per_pic_denom shall be in the range of 0 to 16, inclusive.
+    uint8_t maxBytesPerPicDenom;
+
+    // max_bits_per_mb_denom indicates an upper bound for the number of coded bits of macroblock_layer( ) data for any
+    // macroblock in any picture of the coded video sequence. The value of max_bits_per_mb_denom shall be in the range of 0
+    // to 16, inclusiv
+    uint8_t maxBitsPerMbDenom;
+
+    // log2_max_mv_length_horizontal and log2_max_mv_length_vertical indicate the value range of a decoded horizontal
+    // and vertical motion vector component, respectively, in ¼ luma sample units, for all pictures in the coded video sequence.
+    // A value of n asserts that no value of a motion vector component shall exceed the range from −2n to 2n − 1, inclusive, in
+    // units of ¼ luma sample displacement. The value of log2_max_mv_length_horizontal shall be in the range of 0 to 15,
+    // inclusive. The value of log2_max_mv_length_vertical shall be in the range of 0 to 15, inclusive. When
+    // log2_max_mv_length_horizontal is not present, the values of log2_max_mv_length_horizontal and
+    // log2_max_mv_length_vertical shall be inferred to be equal to 15
+    uint8_t log2MaxMvLengthHorizontal;
+    uint32_t log2MaxMvLengthVertical;
+    
+    // max_num_reorder_frames indicates an upper bound for the number of frames buffers, in the decoded picture buffer
+    // (DPB), that are required for storing frames, complementary field pairs, and non-paired fields before output. It is a
+    // requirement of bitstream conformance that the maximum number of frames, complementary field pairs, or non-paired
+    // fields that precede any frame, complementary field pair, or non-paired field in the coded video sequence in decoding
+    // order and follow it in output order shall be less than or equal to max_num_reorder_frames. The value of
+    // max_num_reorder_frames shall be in the range of 0 to max_dec_frame_buffering, inclusive. When the
+    // max_num_reorder_frames syntax element is not present, the value of max_num_reorder_frames value shall be inferred
+    // as follows:
+    //     – If profile_idc is equal to 44, 86, 100, 110, 122, or 244 and constraint_set3_flag is equal to 1, the value of
+    //     max_num_reorder_frames shall be inferred to be equal to 0.
+    //     – Otherwise (profile_idc is not equal to 44, 86, 100, 110, 122, or 244 or constraint_set3_flag is equal to 0), the value
+    //     of max_num_reorder_frames shall be inferred to be equal to MaxDpbFrames
+    uint32_t numReorderFrames;
+
+    // max_dec_frame_buffering specifies the required size of the HRD decoded picture buffer (DPB) in units of frame
+    // buffers. It is a requirement of bitstream conformance that the coded video sequence shall not require a decoded picture
+    // buffer with size of more than Max( 1, max_dec_frame_buffering ) frame buffers to enable the output of decoded pictures
+    // at the output times specified by dpb_output_delay of the picture timing SEI messages. The value of
+    // max_dec_frame_buffering shall be greater than or equal to max_num_ref_frames. An upper bound for the value of
+    // max_dec_frame_buffering is specified by the level limits in clauses A.3.1, A.3.2, F.10.2.1, and G.10.2.
+    // When the max_dec_frame_buffering syntax element is not present, the value of max_dec_frame_buffering shall be
+    // inferred as follows:
+    //     – If profile_idc is equal to 44, 86, 100, 110, 122, or 244 and constraint_set3_flag is equal to 1, the value of
+    //     max_dec_frame_buffering shall be inferred to be equal to 0.
+    //     – Otherwise (profile_idc is not equal to 44, 86, 100, 110, 122, or 244 or constraint_set3_flag is equal to 0), the value
+    //     of max_dec_frame_buffering shall be inferred to be equal to MaxDpbFrames.
+    uint32_t maxDecFrameBuffering;
+} picoH264VideoUsabilityInformation_t;
+typedef picoH264VideoUsabilityInformation_t *picoH264VideoUsabilityInformation;
+
+typedef struct {
+    // profile_idc and level_idc indicate the profile and level to which the coded video sequence conforms.
+    uint8_t profileIdc;
+
+    // constraint_set0_flag equal to 1 indicates that the coded video sequence obeys all constraints specified in clause A.2.1.
+    bool constraintSet0Flag;
+
+    // constraint_set1_flag eq;ual to 1 indicates that the coded video sequence obeys all constraints specified in clause A.2.2.
+    bool constraintSet1Flag;
+
+    // constraint_set2_flag equal to 1 indicates that the coded video sequence obeys all constraints specified in clause A.2.3.
+    bool constraintSet2Flag;
+
+    // constraint_set3_flag is specified as follows:
+    // – If profile_idc is equal to 66, 77, or 88 and level_idc is equal to 11, constraint_set3_flag equal to 1 indicates that the
+    // coded video sequence obeys all constraints specified in Annex A for level 1b and constraint_set3_flag equal to 0
+    // indicates that the coded video sequence obeys all constraints specified in Annex A for level 1.1.
+    // – Otherwise, if profile_idc is equal to 100 or 110, constraint_set3_flag equal to 1 indicates that the coded video
+    // sequence obeys all constraints specified in Annex A for the High 10 Intra profile, and constraint_set3_flag equal to
+    // 0 indicates that the coded video sequence may or may not obey these corresponding constraints.
+    // – Otherwise, if profile_idc is equal to 122, constraint_set3_flag equal to 1 indicates that the coded video sequence
+    // obeys all constraints specified in Annex A for the High 4:2:2 Intra profile, and constraint_set3_flag equal to 0
+    // indicates that the coded video sequence may or may not obey these corresponding constraints.
+    // – Otherwise, if profile_idc is equal to 44, constraint_set3_flag shall be equal to 1. When profile_idc is equal to 44, the
+    // value of 0 for constraint_set3_flag is forbidden.
+    // – Otherwise, if profile_idc is equal to 244, constraint_set3_flag equal to 1 indicates that the coded video sequence
+    // obeys all constraints specified in Annex A for the High 4:4:4 Intra profile, and constraint_set3_flag equal to 0
+    // indicates that the coded video sequence may or may not obey these corresponding constraints.
+    // – Otherwise (profile_idc is equal to 66, 77, or 88 and level_idc is not equal to 11, or profile_idc is not equal to 66, 77,
+    // 88, 100, 110, 122, 244, or 44), the value of 1 for constraint_set3_flag is reserved for future use by ITU-T | ISO/IEC.
+    // constraint_set3_flag shall be equal to 0 for coded video sequences with profile_idc equal to 66, 77, or 88 and
+    // level_idc not equal to 11 and for coded video sequences with profile_idc not equal to 66, 77, 88, 100, 110, 122, 244,
+    // or 44 in bitstreams conforming to this Recommendation | International Standard. Decoders shall ignore the value of
+    // constraint_set3_flag when profile_idc is equal to 66, 77, or 88 and level_idc is not equal to 11 or when profile_idc
+    // is not equal to 66, 77, 88, 100, 110, 122, 244, or 44.
+    bool constraintSet3Flag;
+
+    // constraint_set4_flag is specified as follows:
+    // – If profile_idc is equal to 77, 88, 100, or 110, constraint_set4_flag equal to 1 indicates that the value of
+    // frame_mbs_only_flag is equal to 1. constraint_set4_flag equal to 0 indicates that the value of frame_mbs_only_flag
+    // may or may not be equal to 1.
+    // – Otherwise, if profile_idc is equal to 118, 128, or 134, constraint_set4_flag equal to 1 indicates that the coded video
+    // sequence obeys all constraints specified in clause G.10.1.1. constraint_set4_flag equal to 0 indicates that the coded
+    // video sequence may or may not obey the constraints specified in clause G.10.1.1.
+    // – Otherwise (profile_idc is not equal to 77, 88, 100, 110, 118, 128, or 134), the value of 1 for constraint_set4_flag is
+    // reserved for future use by ITU-T | ISO/IEC. constraint_set4_flag shall be equal to 0 for coded video sequences with
+    // profile_idc not equal to 77, 88, 100, 110, 118, 128, or 134 in bitstreams conforming to this Recommendation |
+    // International Standard. Decoders shall ignore the value of constraint_set4_flag when profile_idc is not equal to 77,
+    // 88, 100, 110, 118, 128, or 134
+    bool constraintSet4Flag;
+
+    // constraint_set5_flag is specified as follows:
+    // – If profile_idc is equal to 77, 88, or 100, constraint_set5_flag equal to 1 indicates that B slice types are not present in
+    // the coded video sequence. constraint_set5_flag equal to 0 indicates that B slice types may or may not be present in
+    // the coded video sequence.
+    // – Otherwise, if profile_idc is equal to 118, constraint_set5_flag equal to 1 indicates that the coded video sequence
+    // obeys all constraints specified in clause G.10.1.2 and constraint_set5_flag equal to 0 indicates that the coded video
+    // sequence may or may not obey all constraints specified in clause G.10.1.2.
+    // – Otherwise (profile_idc is not equal to 77, 88, 100, or 118), the value of 1 for constraint_set5_flag is reserved for
+    // future use by ITU-T | ISO/IEC. constraint_set5_flag shall be equal to 0 when profile_idc is not equal to 77, 88, 100,
+    // or 118 in bitstreams conforming to this Recommendation | International Standard. Decoders shall ignore the value of
+    // constraint_set5_flag when profile_idc is not equal to 77, 88, 100, or 118
+    bool constraintSet5Flag;
+
+    // profile_idc and level_idc indicate the profile and level to which the coded video sequence conforms.
+    uint8_t levelIdc;
+
+    // seq_parameter_set_id identifies the sequence parameter set that is referred to by the picture parameter set. The value of
+    // seq_parameter_set_id shall be in the range of 0 to 31, inclusive.
+    uint32_t seqParameterSetId;
+
+    // chroma_format_idc specifies the chroma sampling relative to the luma sampling. The value of
+    // chroma_format_idc shall be in the range of 0 to 3, inclusive. When chroma_format_idc is not present, it shall be inferred
+    // to be equal to 1 (4:2:0 chroma format).
+    uint8_t chromaFormatIdc;
+
+    // separate_colour_plane_flag equal to 1 specifies that the three colour components of the 4:4:4 chroma format are coded
+    // separately. separate_colour_plane_flag equal to 0 specifies that the colour components are not coded separately. When
+    // separate_colour_plane_flag is not present, it shall be inferred to be equal to 0. When separate_colour_plane_flag is equal
+    // to 1, the primary coded picture consists of three separate components, each of which consists of coded samples of one
+    // colour plane (Y, Cb or Cr) that each use the monochrome coding syntax. In this case, each colour plane is associated with
+    // a specific colour_plane_id value.
+    // Depending on the value of separate_colour_plane_flag, the value of the variable ChromaArrayType is assigned as
+    // follows:
+    // – If separate_colour_plane_flag is equal to 0, ChromaArrayType is set equal to chroma_format_idc.
+    // – Otherwise (separate_colour_plane_flag is equal to 1), ChromaArrayType is set equal to 0
+    bool separateColourPlaneFlag;
+
+    // bit_depth_luma_minus8 specifies the bit depth of the samples of the luma array and the value of the luma quantization
+    // parameter range offset QpBdOffsetY, as specified by
+    //     BitDepthY = 8 + bit_depth_luma_minus8 (7-3)
+    //     QpBdOffsetY = 6 * bit_depth_luma_minus8 (7-4)
+    // When bit_depth_luma_minus8 is not present, it shall be inferred to be equal to 0. bit_depth_luma_minus8 shall be in the
+    // range of 0 to 6, inclusive.
+    uint64_t bitDepthLumaMinus8;
+
+    // bit_depth_chroma_minus8 specifies the bit depth of the samples of the chroma arrays and the value of the chroma
+    // quantization parameter range offset QpBdOffsetC, as specified by
+    //     BitDepthC = 8 + bit_depth_chroma_minus8 (7-5)
+    //     QpBdOffsetC = 6 * bit_depth_chroma_minus8 (7-6)
+    // When bit_depth_chroma_minus8 is not present, it shall be inferred to be equal to 0. bit_depth_chroma_minus8 shall be
+    // in the range of 0 to 6, inclusive.
+    uint64_t bitDepthChromaMinus8;
+
+    // qpprime_y_zero_transform_bypass_flag equal to 1 specifies that, when QP′Y is equal to 0, a transform bypass
+    // operation for the transform coefficient decoding process and picture construction process prior to deblocking filter process
+    // as specified in clause 8.5 shall be applied. qpprime_y_zero_transform_bypass_flag equal to 0 specifies that the transform
+    // coefficient decoding process and picture construction process prior to deblocking filter process shall not use the transform
+    // bypass operation. When qpprime_y_zero_transform_bypass_flag is not present, it shall be inferred to be equal to 0.
+    bool qpprimeYZeroTransformBypassFlag;
+
+    // seq_scaling_matrix_present_flag equal to 1 specifies that the flags seq_scaling_list_present_flag[ i ] for i = 0..7 or
+    // i = 0..11 are present. seq_scaling_matrix_present_flag equal to 0 specifies that these flags are not present and the
+    // sequence-level scaling list specified by Flat_4x4_16 shall be inferred for i = 0..5 and the sequence-level scaling list
+    // specified by Flat_8x8_16 shall be inferred for i = 6..11. When seq_scaling_matrix_present_flag is not present, it shall be
+    // inferred to be equal to 0.
+    bool seqScalingMatrixPresentFlag;
+
+    // seq_scaling_list_present_flag[ i ] equal to 1 specifies that the syntax structure for scaling list i is present in the sequence
+    // parameter set. seq_scaling_list_present_flag[ i ] equal to 0 specifies that the syntax structure for scaling list i is not present
+    // in the sequence parameter set and the scaling list fall-back rule set A specified in Table 7-2 shall be used to infer the
+    // sequence-level scaling list for index i
+    bool seqScalingListPresentFlag[12];
+
+    int scalingList4x4[6][4 * 4];
+    bool useDefaultScalingMatrix4x4Flag[6];
+    int scalingList8x8[6][8 * 8];
+    bool useDefaultScalingMatrix8x8Flag[6];
+
+    // log2_max_frame_num_minus4 specifies the value of the variable MaxFrameNum that is used in frame_num related
+    // derivations as follows:
+    //     MaxFrameNum = 2^( log2_max_frame_num_minus4 + 4 )
+    // The value of log2_max_frame_num_minus4 shall be in the range of 0 to 12, inclusive.
+    uint16_t log2MaxFrameNumMinus4;
+
+    // pic_order_cnt_type specifies the method to decode picture order count (as specified in clause 8.2.1). The value of
+    // pic_order_cnt_type shall be in the range of 0 to 2, inclusive.
+    // pic_order_cnt_type shall not be equal to 2 in a coded video sequence that contains any of the following:
+    // – an access unit containing a non-reference frame followed immediately by an access unit containing a non-reference
+    // picture,
+    // – two access units each containing a field with the two fields together forming a complementary non-reference field
+    // pair followed immediately by an access unit containing a non-reference picture,
+    // – an access unit containing a non-reference field followed immediately by an access unit containing another non-
+    // reference picture that does not form a complementary non-reference field pair with the first of the two access units.
+    uint8_t picOrderCntType;
+
+    // log2_max_pic_order_cnt_lsb_minus4 specifies the value of the variable MaxPicOrderCntLsb that is used in the
+    // decoding process for picture order count as specified in clause 8.2.1 as follows:
+    //     MaxPicOrderCntLsb = 2^( log2_max_pic_order_cnt_lsb_minus4 + 4 )
+    // The value of log2_max_pic_order_cnt_lsb_minus4 shall be in the range of 0 to 12, inclusive.
+    uint16_t log2MaxPicOrderCntLsbMinus4;
+
+    // delta_pic_order_always_zero_flag equal to 1 specifies that delta_pic_order_cnt[ 0 ] and delta_pic_order_cnt[ 1 ] are
+    // not present in the slice headers of the sequence and shall be inferred to be equal to 0. delta_pic_order_always_zero_flag
+    // equal to 0 specifies that delta_pic_order_cnt[ 0 ] is present in the slice headers of the sequence and
+    // delta_pic_order_cnt[ 1 ] may be present in the slice headers of the sequenc
+    bool deltaPicOrderAlwaysZeroFlag;
+
+    // offset_for_non_ref_pic is used to calculate the picture order count of a non-reference picture as specified in clause 8.2.1.
+    // The value of offset_for_non_ref_pic shall be in the range of −2^31 + 1 to 2^31 − 1, inclusive.
+    int32_t offsetForNonRefPic;
+
+    // offset_for_top_to_bottom_field is used to calculate the picture order count of a bottom field as specified in clause 8.2.1.
+    // The value of offset_for_top_to_bottom_field shall be in the range of −2^31 + 1 to 2^31 − 1, inclusive
+    int32_t offsetForTopToBottomField;
+
+    // num_ref_frames_in_pic_order_cnt_cycle is used in the decoding process for picture order count as specified in
+    // clause 8.2.1. The value of num_ref_frames_in_pic_order_cnt_cycle shall be in the range of 0 to 255, inclusive
+    uint8_t numRefFramesInPicOrderCntCycle;
+
+    // offset_for_ref_frame[ i ] is an element of a list of num_ref_frames_in_pic_order_cnt_cycle values used in the decoding
+    // process for picture order count as specified in clause 8.2.1. The value of offset_for_ref_frame[ i ] shall be in the range of
+    // −2^31 + 1 to 2^31 − 1, inclusive.
+    // When pic_order_cnt_type is equal to 1, the variable ExpectedDeltaPerPicOrderCntCycle is derived by
+    //     ExpectedDeltaPerPicOrderCntCycle = 0
+    //         for( i = 0; i < num_ref_frames_in_pic_order_cnt_cycle; i++ )
+    //             ExpectedDeltaPerPicOrderCntCycle += offset_for_ref_frame[ i ]
+    int32_t offsetForRefFrame[256];
+
+    // max_num_ref_frames specifies the maximum number of short-term and long-term reference frames, complementary
+    // reference field pairs, and non-paired reference fields that may be used by the decoding process for inter prediction of any
+    // picture in the coded video sequence. max_num_ref_frames also determines the size of the sliding window operation as
+    // specified in clause 8.2.5.3. The value of max_num_ref_frames shall be in the range of 0 to MaxDpbFrames inclusive
+    uint32_t maxNumRefFrames;
+
+    // gaps_in_frame_num_value_allowed_flag specifies the allowed values of frame_num as specified in clause 7.4.3 and
+    // the decoding process in case of an inferred gap between values of frame_num
+    bool gapsInFrameNumValueAllowedFlag;
+
+    // pic_width_in_mbs_minus1 plus 1 specifies the width of each decoded picture in units of macroblocks.
+    // The variable for the picture width in units of macroblocks is derived as
+    //     PicWidthInMbs = pic_width_in_mbs_minus1 + 1
+    // The variable for picture width for the luma component is derived as
+    //     PicWidthInSamplesL = PicWidthInMbs * 16
+    // The variable for picture width for the chroma components is derived as
+    //     PicWidthInSamplesC = PicWidthInMbs * MbWidthC
+    uint64_t picWidthInMbsMinus1;
+
+    // pic_height_in_map_units_minus1 plus 1 specifies the height in slice group map units of a decoded frame or field.
+    // The variables PicHeightInMapUnits and PicSizeInMapUnits are derived as
+    //     PicHeightInMapUnits = pic_height_in_map_units_minus1 + 1
+    //     PicSizeInMapUnits = PicWidthInMbs * PicHeightInMapUnits
+    uint64_t picHeightInMapUnitsMinus1;
+
+    // frame_mbs_only_flag equal to 0 specifies that coded pictures of the coded video sequence may either be coded fields or
+    // coded frames. frame_mbs_only_flag equal to 1 specifies that every coded picture of the coded video sequence is a coded
+    // frame containing only frame macroblocks.
+    // The allowed range of values for pic_width_in_mbs_minus1, pic_height_in_map_units_minus1, and
+    // frame_mbs_only_flag is specified by constraints in Annex A.
+    // Depending on frame_mbs_only_flag, semantics are assigned to pic_height_in_map_units_minus1 as follows:
+    //  – If frame_mbs_only_flag is equal to 0, pic_height_in_map_units_minus1 plus 1 is the height of a field in units of
+    // macroblocks.
+    //  – Otherwise (frame_mbs_only_flag is equal to 1), pic_height_in_map_units_minus1 plus 1 is the height of a frame in
+    // units of macroblocks.
+    // The variable FrameHeightInMbs is derived as
+    //     FrameHeightInMbs = ( 2 − frame_mbs_only_flag ) * PicHeightInMapUnits
+    bool frameMbsOnlyFlag;
+
+    // mb_adaptive_frame_field_flag equal to 0 specifies no switching between frame and field macroblocks within a picture.
+    // mb_adaptive_frame_field_flag equal to 1 specifies the possible use of switching between frame and field macroblocks
+    // within frames. When mb_adaptive_frame_field_flag is not present, it shall be inferred to be equal to 0
+    bool mbAdaptiveFrameFieldFlag;
+
+    // direct_8x8_inference_flag specifies the method used in the derivation process for luma motion vectors for B_Skip,
+    // B_Direct_16x16 and B_Direct_8x8 as specified in clause 8.4.1.2. When frame_mbs_only_flag is equal to 0,
+    // direct_8x8_inference_flag shall be equal to 1
+    bool direct8x8InferenceFlag;
+
+    // frame_cropping_flag equal to 1 specifies that the frame cropping offset parameters follow next in the sequence
+    // parameter set. frame_cropping_flag equal to 0 specifies that the frame cropping offset parameters are not present.
+    bool frameCroppingFlag;
+
+    // frame_crop_left_offset, frame_crop_right_offset, frame_crop_top_offset, frame_crop_bottom_offset specify the
+    // samples of the pictures in the coded video sequence that are output from the decoding process, in terms of a rectangular
+    // region specified in frame coordinates for output.
+    // The variables CropUnitX and CropUnitY are derived as follows:
+    //  – If ChromaArrayType is equal to 0, CropUnitX and CropUnitY are derived as:
+    //      CropUnitX = 1 (7-19)
+    //      CropUnitY = 2 − frame_mbs_only_flag (7-20)
+    // – Otherwise (ChromaArrayType is equal to 1, 2, or 3), CropUnitX and CropUnitY are derived as:
+    //      CropUnitX = SubWidthC (7-21)
+    //      CropUnitY = SubHeightC * ( 2 − frame_mbs_only_flag ) (7-22)
+    // The variables CroppedWidth and CroppedHeight are derived as follows:
+    //      CroppedWidth = PicWidthInSamples −
+    //      CropUnitX * ( frame_crop_left_offset + frame_crop_right_offset ) (7-23)
+    //      CroppedHeight = 16 * FrameHeightInMbs −
+    //      CropUnitY * ( frame_crop_top_offset + frame_crop_bottom_offset ) (7-24)
+    // The frame cropping rectangle contains luma samples with horizontal frame coordinates from
+    //      CropUnitX * frame_crop_left_offset to PicWidthInSamplesL − ( CropUnitX * frame_crop_right_offset + 1 ) and vertical
+    // frame coordinates from CropUnitY * frame_crop_top_offset to ( 16 * FrameHeightInMbs ) −  ( CropUnitY * frame_crop_bottom_offset + 1 ), inclusive.
+    //  The value of frame_crop_left_offset shall be in the range of 0 to ( PicWidthInSamplesL / CropUnitX ) − ( frame_crop_right_offset + 1 ), inclusive;
+    // and the value of frame_crop_top_offset shall be in the range of 0 to ( 16 * FrameHeightInMbs / CropUnitY ) − ( frame_crop_bottom_offset + 1 ), inclusive.
+    // When frame_cropping_flag is equal to 0, the values of frame_crop_left_offset, frame_crop_right_offset,
+    // frame_crop_top_offset, and frame_crop_bottom_offset shall be inferred to be equal to 0.
+    // When ChromaArrayType is not equal to 0, the corresponding specified samples of the two chroma arrays are the samples
+    // having frame coordinates ( x / SubWidthC, y / SubHeightC ), where ( x, y ) are the frame coordinates of the specified
+    // luma samples.
+    uint64_t frameCropLeftOffset;
+    uint64_t frameCropRightOffset;
+    uint64_t frameCropTopOffset;
+    uint64_t frameCropBottomOffset;
+
+    // vui_parameters_present_flag equal to 1 specifies that the vui_parameters( ) syntax structure as specified in Annex E is
+    // present. vui_parameters_present_flag equal to 0 specifies that the vui_parameters( ) syntax structure.
+    uint64_t vuiParametersPresentFlag;
+    picoH264VideoUsabilityInformation_t vui;
+} picoH264SequenceParameterSet_t;
+typedef picoH264SequenceParameterSet_t *picoH264SequenceParameterSet;
 
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size);
 void picoH264BitstreamDestroy(picoH264Bitstream bitstream);
