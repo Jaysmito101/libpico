@@ -1956,6 +1956,9 @@ const char *picoMpegTSPESTrickModeFrequencyTruncationToString(picoMpegTSPESTrick
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_MPEGTS_IMPLEMENTATION)
 #define PICO_MPEGTS_IMPLEMENTATION
+#endif
+
+#ifdef PICO_MPEGTS_IMPLEMENTATION
 
 // the filter function
 typedef struct picoMpegTSFilterContext_t picoMpegTSFilterContext_t;
