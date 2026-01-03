@@ -167,6 +167,13 @@ typedef enum {
     PICO_H264_PROFILE_IDC_ENHANCED_MULTIVIEW_DEPTH_HIGH = 139  // [cite: 17]
 } picoH264ProfileIDC;
 
+typedef enum {
+    PICO_H264_NAL_REF_IDC_DISPOSABLE = 0,
+    PICO_H264_NAL_REF_IDC_LOW        = 1,
+    PICO_H264_NAL_REF_IDC_HIGH       = 2,
+    PICO_H264_NAL_REF_IDC_HIGHEST    = 3
+} picoH264NALRefIDC;
+
 typedef struct {
     // idr_flag equal to 1 specifies that the current coded picture is an IDR picture when the value of dependency_id for the
     // NAL unit is equal to the maximum value of dependency_id in the coded picture. idr_flag equal to 0 specifies that the
@@ -234,7 +241,6 @@ typedef struct {
     // depth_flag equal to 1 indicates that the current NAL unit belongs to a depth view component, depth_flag equal to 0
     // indicates that the current NAL unit belongs to a texture view component
     bool depthFlag;
-
 
     // These are same as in MVC extension
     bool nonIDRFlag;
@@ -311,7 +317,7 @@ typedef struct {
     // of 1 to 4, inclusive, of the picture.
     // nal_ref_idc shall not be equal to 0 for NAL units with nal_unit_type equal to 5.
     // nal_ref_idc shall be equal to 0 for all NAL units having nal_unit_type equal to 6, 9, 10, 11, or 12.
-    bool isReferencePicture;
+    picoH264NALRefIDC nalRefIDC;
 
     // specifies the type of RBSP data structure contained in the NAL unit
     picoH264NALUnitType nalUnitType;
@@ -366,7 +372,6 @@ typedef struct {
     // be equal to 0. When cpb_cnt_minus1 is not present, it shall be inferred to be equal to 0
     uint32_t cpbCntMinus1;
 
-    
     // bit_rate_scale (together with bit_rate_value_minus1[ SchedSelIdx ]) specifies the maximum input bit rate of the
     // SchedSelIdx-th CPB
     uint8_t bitRateScale;
@@ -548,7 +553,7 @@ typedef struct {
     // constraints apply to the temporal distance between the HRD output times of any two consecutive pictures in output order.
     // When fixed_frame_rate_flag is not present, it shall be inferred to be equal to 0.
     bool fixedFrameRateFlag;
-    
+
     // nal_hrd_parameters_present_flag equal to 1 specifies that NAL HRD parameters (pertaining to the Type II bitstream
     // conformance point) are present. nal_hrd_parameters_present_flag equal to 0 specifies that NAL HRD parameters are not
     // present.
@@ -605,7 +610,7 @@ typedef struct {
     // log2_max_mv_length_vertical shall be inferred to be equal to 15
     uint8_t log2MaxMvLengthHorizontal;
     uint32_t log2MaxMvLengthVertical;
-    
+
     // max_num_reorder_frames indicates an upper bound for the number of frames buffers, in the decoded picture buffer
     // (DPB), that are required for storing frames, complementary field pairs, and non-paired fields before output. It is a
     // requirement of bitstream conformance that the maximum number of frames, complementary field pairs, or non-paired
@@ -915,6 +920,7 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
 void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader);
 void picoH264SequenceParameterSetDebugPrint(picoH264SequenceParameterSet sps);
 
+const char *picoH264NALRefIdcToString(picoH264NALRefIDC nalRefIdc);
 const char *picoH264NALUnitTypeToString(picoH264NALUnitType nalUnitType);
 const char *picoH264AspectRatioIDCToString(uint8_t idc);
 const char *picoH264ProfileIdcToString(uint8_t profileIdc);
@@ -1373,7 +1379,7 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
         return false;
     }
     // the next two bits indicate if this is a reference picture
-    nalUnitHeaderOut->isReferencePicture = (firstNALByte & 0x60) != 0;
+    nalUnitHeaderOut->nalRefIDC = (picoH264NALRefIDC)((firstNALByte >> 5) & 0x03);
     // the last 5 bits indicate the NAL unit type
     nalUnitHeaderOut->nalUnitType = (picoH264NALUnitType)(firstNALByte & 0x1F);
     nalUnitHeaderOut->numBytesInNALHeader += 1;
@@ -1446,6 +1452,22 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
     }
 
     return true;
+}
+
+const char *picoH264NALRefIdcToString(picoH264NALRefIDC nalRefIdc)
+{
+    switch (nalRefIdc) {
+        case PICO_H264_NAL_REF_IDC_DISPOSABLE:
+            return "Disposable";
+        case PICO_H264_NAL_REF_IDC_LOW:
+            return "Low";
+        case PICO_H264_NAL_REF_IDC_HIGH:
+            return "High";
+        case PICO_H264_NAL_REF_IDC_HIGHEST:
+            return "Highest";
+        default:
+            return "Unknown NAL ref IDC";
+    }
 }
 
 const char *picoH264NALUnitTypeToString(picoH264NALUnitType nalUnitType)
@@ -1690,7 +1712,7 @@ void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader)
     PICO_ASSERT(nalUnitHeader != NULL);
 
     PICO_H264_LOG("NAL Unit Header:\n");
-    PICO_H264_LOG("  isReferencePicture: %s\n", nalUnitHeader->isReferencePicture ? "true" : "false");
+    PICO_H264_LOG("  nalRefIDC: %s (%u)\n", picoH264NALRefIdcToString(nalUnitHeader->nalRefIDC), (unsigned)nalUnitHeader->nalRefIDC);
     PICO_H264_LOG("  nalUnitType: %s (%u)\n", picoH264NALUnitTypeToString(nalUnitHeader->nalUnitType), (unsigned)nalUnitHeader->nalUnitType);
     PICO_H264_LOG("  numBytesInNALHeader: %u\n", (unsigned)nalUnitHeader->numBytesInNALHeader);
     PICO_H264_LOG("  numBytesInNALUnit: %zu\n", nalUnitHeader->numBytesInNALUnit);
