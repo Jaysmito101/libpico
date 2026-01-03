@@ -377,6 +377,99 @@ bool picoH264ReadNALUnit(picoH264Bitstream bitstream, uint8_t *nalUnitBuffer, si
     return true;
 }
 
+static bool __picoH264ParseNALUnitHeaderSVCExtension(const uint8_t *nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeaderSVCExtension nalUnitHeaderSVCExtensionOut)
+{
+    PICO_ASSERT(nalUnitBuffer != NULL);
+    PICO_ASSERT(nalUnitSize > 0);
+    PICO_ASSERT(nalUnitHeaderSVCExtensionOut != NULL);
+
+    if (nalUnitSize < 3) {
+        PICO_H264_LOG("picoH264ParseNALUnitHeaderSVCExtension: NAL unit too small to contain SVC extension\n");
+        return false;
+    }
+
+    const uint8_t *ptr = nalUnitBuffer;
+
+    // the first bit is the flag, which is already parsed in the main function, so ignore it,
+    // the next 23 bits contain the SVC extension data
+    uint8_t svcExtensionByte1 = *(ptr++);
+    uint8_t svcExtensionByte2 = *(ptr++);
+    uint8_t svcExtensionByte3 = *(ptr++);
+    uint32_t bits = ((uint32_t)(svcExtensionByte1 & 0x7F) << 16) | ((uint32_t)svcExtensionByte2 << 8) | (uint32_t)svcExtensionByte3;
+
+    nalUnitHeaderSVCExtensionOut->idrFlag                = ((bits >> 22) & 0x1) != 0;
+    nalUnitHeaderSVCExtensionOut->priorityId             = (uint8_t)((bits >> 16) & 0x3F);
+    nalUnitHeaderSVCExtensionOut->noInterLayerPredFlag   = ((bits >> 15) & 0x1) != 0;
+    nalUnitHeaderSVCExtensionOut->dependencyId           = (uint8_t)((bits >> 12) & 0x7);
+    nalUnitHeaderSVCExtensionOut->qualityId              = (uint8_t)((bits >> 8) & 0xF);
+    nalUnitHeaderSVCExtensionOut->temporalId             = (uint8_t)((bits >> 5) & 0x7);
+    nalUnitHeaderSVCExtensionOut->useRefBasePicFlag      = ((bits >> 4) & 0x1) != 0;
+    nalUnitHeaderSVCExtensionOut->discardableFlag        = ((bits >> 3) & 0x1) != 0;
+    nalUnitHeaderSVCExtensionOut->outputFlag             = ((bits >> 2) & 0x1) != 0;
+
+    return true;
+}
+
+static bool __picoH264ParseNALUnitHeader3DAVCExtension(const uint8_t* nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeader3DAVCExtension nalUnitHeader3DAVCExtensionOut)
+{
+    PICO_ASSERT(nalUnitBuffer != NULL);
+    PICO_ASSERT(nalUnitSize > 0);
+    PICO_ASSERT(nalUnitHeader3DAVCExtensionOut != NULL);
+
+    if (nalUnitSize < 2) {
+        PICO_H264_LOG("picoH264ParseNALUnitHeader3DAVCExtension: NAL unit too small to contain 3D AVC extension\n");
+        return false;
+    }
+
+    const uint8_t *ptr = nalUnitBuffer;
+
+    uint8_t avc3DExtensionByte1 = *(ptr++);
+    uint8_t avc3DExtensionByte2 = *(ptr++);
+
+    uint16_t bits = ((uint16_t)(avc3DExtensionByte1 & 0x7F) << 8) | (uint16_t)avc3DExtensionByte2;
+
+    uint8_t viewIdx = (uint8_t)((bits >> 7) & 0xFF);
+    uint8_t flags   = (uint8_t)(bits & 0x7F);
+
+    nalUnitHeader3DAVCExtensionOut->viewId        = viewIdx;
+    nalUnitHeader3DAVCExtensionOut->depthFlag     = (flags & 0x40) != 0; 
+    nalUnitHeader3DAVCExtensionOut->nonIDRFlag    = (flags & 0x20) != 0;
+    nalUnitHeader3DAVCExtensionOut->temporalId    = (uint8_t)((flags >> 2) & 0x07); 
+    nalUnitHeader3DAVCExtensionOut->anchorPicFlag = (flags & 0x02) != 0; 
+    nalUnitHeader3DAVCExtensionOut->interViewFlag = (flags & 0x01) != 0; 
+
+    return true;
+}
+
+static bool __picoH264ParseNALUnitHeaderMVCCExtension(const uint8_t* nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeaderMVCExtension nalUnitHeaderMVCExtensionOut)
+{
+    PICO_ASSERT(nalUnitBuffer != NULL);
+    PICO_ASSERT(nalUnitSize > 0);
+    PICO_ASSERT(nalUnitHeaderMVCExtensionOut != NULL);
+
+    if (nalUnitSize < 3) {
+        PICO_H264_LOG("picoH264ParseNALUnitHeaderMVCCExtension: NAL unit too small to contain MVC extension\n");
+        return false;
+    }
+
+    const uint8_t *ptr = nalUnitBuffer;
+
+    uint8_t mvcExtensionByte1 = *(ptr++);
+    uint8_t mvcExtensionByte2 = *(ptr++);
+    uint8_t mvcExtensionByte3 = *(ptr++);
+
+    uint32_t bits = ((uint32_t)mvcExtensionByte1 << 16) | ((uint32_t)mvcExtensionByte2 << 8) | (uint32_t)mvcExtensionByte3;
+
+    nalUnitHeaderMVCExtensionOut->nonIdrFlag     = ((bits >> 23) & 0x1) != 0;
+    nalUnitHeaderMVCExtensionOut->priorityId     = (uint8_t)((bits >> 17) & 0x3F);
+    nalUnitHeaderMVCExtensionOut->viewId         = (uint16_t)((bits >> 7) & 0x3FF);
+    nalUnitHeaderMVCExtensionOut->temporalId     = (uint8_t)((bits >> 4) & 0x7);
+    nalUnitHeaderMVCExtensionOut->anchorPicFlag  = ((bits >> 3) & 0x1) != 0;
+    nalUnitHeaderMVCExtensionOut->interViewFlag  = ((bits >> 2) & 0x1) != 0;
+
+    return true;
+}
+
 bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeader nalUnitHeaderOut, uint8_t *nalPayloadOut, size_t *nalPayloadSizeOut)
 {
     PICO_ASSERT(nalUnitBuffer != NULL);
@@ -453,12 +546,22 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
         }
 
         if (nalUnitHeaderOut->svcExtensionFlag) {
-
+            if (!__picoH264ParseNALUnitHeaderSVCExtension(nalUnitBuffer, nalUnitSize - nalUnitHeaderOut->numBytesInNALHeader, &nalUnitHeaderOut->svcExtension)) {
+                PICO_H264_LOG("picoH264ParseNALUnitHeader: Failed to parse SVC extension\n");
+                return false;
+            }
             nalUnitHeaderOut->numBytesInNALHeader += 3; 
         } else if (nalUnitHeaderOut->avc3DExtensionFlag) {
-            
+            if (!__picoH264ParseNALUnitHeader3DAVCExtension(nalUnitBuffer, nalUnitSize - nalUnitHeaderOut->numBytesInNALHeader, &nalUnitHeaderOut->avc3DExtension)) {
+                PICO_H264_LOG("picoH264ParseNALUnitHeader: Failed to parse 3D AVC extension\n");
+                return false;
+            }
             nalUnitHeaderOut->numBytesInNALHeader += 2; 
         } else {
+            if (!__picoH264ParseNALUnitHeaderMVCCExtension(nalUnitBuffer, nalUnitSize - nalUnitHeaderOut->numBytesInNALHeader, &nalUnitHeaderOut->mvcExtension)) {
+                PICO_H264_LOG("picoH264ParseNALUnitHeader: Failed to parse MVC extension\n");
+                return false;
+            }
             nalUnitHeaderOut->mvcExtensionFlag = true;
             nalUnitHeaderOut->numBytesInNALHeader += 3;
         }
