@@ -587,6 +587,7 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
             nalPayloadOut[payloadIndex++] = *(nalUnitBuffer++);
         }
 
+        // NOTE: there might be a bug with this??
         *nalPayloadSizeOut = payloadIndex;
     }
 
