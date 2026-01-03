@@ -913,6 +913,7 @@ bool picoH264ReadNALUnit(picoH264Bitstream bitstream, uint8_t *nalUnitBuffer, si
 bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeader nalUnitHeaderOut, uint8_t *nalPayloadOut, size_t *nalPayloadSizeOut);
 
 void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader);
+void picoH264SequenceParameterSetDebugPrint(picoH264SequenceParameterSet sps);
 
 const char *picoH264NALUnitTypeToString(picoH264NALUnitType nalUnitType);
 const char *picoH264AspectRatioIDCToString(uint8_t idc);
@@ -1562,6 +1563,126 @@ static void __picoH264PrintMVCExtension(const picoH264NALUnitHeaderMVCExtension_
     PICO_H264_LOG("    temporalId: %u\n", (unsigned)ext->temporalId);
     PICO_H264_LOG("    anchorPicFlag: %s\n", ext->anchorPicFlag ? "true" : "false");
     PICO_H264_LOG("    interViewFlag: %s\n", ext->interViewFlag ? "true" : "false");
+}
+
+static void __picoH264VideoUsabilityInformationDebugPrint(const picoH264VideoUsabilityInformation_t *vui)
+{
+    if (!vui)
+        return;
+
+    PICO_H264_LOG("  VUI Parameters:\n");
+    PICO_H264_LOG("    aspectRatioInfoPresentFlag: %s\n", vui->aspectRatioInfoPresentFlag ? "true" : "false");
+    if (vui->aspectRatioInfoPresentFlag) {
+        PICO_H264_LOG("    aspectRatioIdc: %s (%u)\n", picoH264AspectRatioIDCToString(vui->aspectRatioIdc), (unsigned)vui->aspectRatioIdc);
+        if (vui->aspectRatioIdc == PICO_H264_ASPECT_RATIO_IDC_EXTENDED_SAR) {
+            PICO_H264_LOG("    sarWidth: %u\n", (unsigned)vui->sarWidth);
+            PICO_H264_LOG("    sarHeight: %u\n", (unsigned)vui->sarHeight);
+        }
+    }
+    PICO_H264_LOG("    overscanInfoPresentFlag: %s\n", vui->overscanInfoPresentFlag ? "true" : "false");
+    if (vui->overscanInfoPresentFlag) {
+        PICO_H264_LOG("    overscanAppropriateFlag: %s\n", vui->overscanAppropriateFlag ? "true" : "false");
+    }
+    PICO_H264_LOG("    videoSignalTypePresentFlag: %s\n", vui->videoSignalTypePresentFlag ? "true" : "false");
+    if (vui->videoSignalTypePresentFlag) {
+        PICO_H264_LOG("    videoFormat: %s (%u)\n", picoH264VideoFormatToString(vui->videoFormat), (unsigned)vui->videoFormat);
+        PICO_H264_LOG("    videoFullRangeFlag: %s\n", vui->videoFullRangeFlag ? "true" : "false");
+        PICO_H264_LOG("    colourDescriptionPresentFlag: %s\n", vui->colourDescriptionPresentFlag ? "true" : "false");
+        if (vui->colourDescriptionPresentFlag) {
+            PICO_H264_LOG("    colourPrimaries: %u\n", (unsigned)vui->colourPrimaries);
+            PICO_H264_LOG("    transferCharacteristics: %u\n", (unsigned)vui->transferCharacteristics);
+            PICO_H264_LOG("    matrixCoefficients: %u\n", (unsigned)vui->matrixCoefficients);
+        }
+    }
+    PICO_H264_LOG("    chromaLocInfoPresentFlag: %s\n", vui->chromaLocInfoPresentFlag ? "true" : "false");
+    if (vui->chromaLocInfoPresentFlag) {
+        PICO_H264_LOG("    chromaSampleLocTypeTopField: %u\n", (unsigned)vui->chromaSampleLocTypeTopField);
+        PICO_H264_LOG("    chromaSampleLocTypeBottomField: %u\n", (unsigned)vui->chromaSampleLocTypeBottomField);
+    }
+    PICO_H264_LOG("    timingInfoPresentFlag: %s\n", vui->timingInfoPresentFlag ? "true" : "false");
+    if (vui->timingInfoPresentFlag) {
+        PICO_H264_LOG("    numUnitsInTick: %u\n", (unsigned)vui->numUnitsInTick);
+        PICO_H264_LOG("    timeScale: %u\n", (unsigned)vui->timeScale);
+        PICO_H264_LOG("    fixedFrameRateFlag: %s\n", vui->fixedFrameRateFlag ? "true" : "false");
+    }
+    PICO_H264_LOG("    nalHrdParametersPresentFlag: %s\n", vui->nalHrdParametersPresentFlag ? "true" : "false");
+    PICO_H264_LOG("    vclHrdParametersPresentFlag: %s\n", vui->vclHrdParametersPresentFlag ? "true" : "false");
+    if (vui->nalHrdParametersPresentFlag || vui->vclHrdParametersPresentFlag) {
+        PICO_H264_LOG("    lowDelayHrdFlag: %s\n", vui->lowDelayHrdFlag ? "true" : "false");
+    }
+    PICO_H264_LOG("    picStructPresentFlag: %s\n", vui->picStructPresentFlag ? "true" : "false");
+    PICO_H264_LOG("    bitstreamRestrictionFlag: %s\n", vui->bitstreamRestrictionFlag ? "true" : "false");
+    if (vui->bitstreamRestrictionFlag) {
+        PICO_H264_LOG("    motionVectorsOverPicBoundariesFlag: %s\n", vui->motionVectorsOverPicBoundariesFlag ? "true" : "false");
+        PICO_H264_LOG("    maxBytesPerPicDenom: %u\n", (unsigned)vui->maxBytesPerPicDenom);
+        PICO_H264_LOG("    maxBitsPerMbDenom: %u\n", (unsigned)vui->maxBitsPerMbDenom);
+        PICO_H264_LOG("    log2MaxMvLengthHorizontal: %u\n", (unsigned)vui->log2MaxMvLengthHorizontal);
+        PICO_H264_LOG("    log2MaxMvLengthVertical: %u\n", (unsigned)vui->log2MaxMvLengthVertical);
+        PICO_H264_LOG("    numReorderFrames: %u\n", (unsigned)vui->numReorderFrames);
+        PICO_H264_LOG("    maxDecFrameBuffering: %u\n", (unsigned)vui->maxDecFrameBuffering);
+    }
+}
+
+void picoH264SequenceParameterSetDebugPrint(picoH264SequenceParameterSet sps)
+{
+    PICO_ASSERT(sps != NULL);
+
+    PICO_H264_LOG("Sequence Parameter Set:\n");
+    PICO_H264_LOG("  profileIdc: %s (%u)\n", picoH264ProfileIdcToString(sps->profileIdc), (unsigned)sps->profileIdc);
+    PICO_H264_LOG("  constraintSet0Flag: %s\n", sps->constraintSet0Flag ? "true" : "false");
+    PICO_H264_LOG("  constraintSet1Flag: %s\n", sps->constraintSet1Flag ? "true" : "false");
+    PICO_H264_LOG("  constraintSet2Flag: %s\n", sps->constraintSet2Flag ? "true" : "false");
+    PICO_H264_LOG("  constraintSet3Flag: %s\n", sps->constraintSet3Flag ? "true" : "false");
+    PICO_H264_LOG("  constraintSet4Flag: %s\n", sps->constraintSet4Flag ? "true" : "false");
+    PICO_H264_LOG("  constraintSet5Flag: %s\n", sps->constraintSet5Flag ? "true" : "false");
+    PICO_H264_LOG("  levelIdc: %u\n", (unsigned)sps->levelIdc);
+    PICO_H264_LOG("  seqParameterSetId: %u\n", (unsigned)sps->seqParameterSetId);
+
+    if (sps->profileIdc == 100 || sps->profileIdc == 110 || sps->profileIdc == 122 || sps->profileIdc == 244 || sps->profileIdc == 44 || sps->profileIdc == 83 || sps->profileIdc == 86 || sps->profileIdc == 118 || sps->profileIdc == 128 || sps->profileIdc == 138 || sps->profileIdc == 139 || sps->profileIdc == 134 || sps->profileIdc == 135) {
+        PICO_H264_LOG("  chromaFormatIdc: %u\n", (unsigned)sps->chromaFormatIdc);
+        if (sps->chromaFormatIdc == 3) {
+            PICO_H264_LOG("  separateColourPlaneFlag: %s\n", sps->separateColourPlaneFlag ? "true" : "false");
+        }
+        PICO_H264_LOG("  bitDepthLumaMinus8: %llu\n", (unsigned long long)sps->bitDepthLumaMinus8);
+        PICO_H264_LOG("  bitDepthChromaMinus8: %llu\n", (unsigned long long)sps->bitDepthChromaMinus8);
+        PICO_H264_LOG("  qpprimeYZeroTransformBypassFlag: %s\n", sps->qpprimeYZeroTransformBypassFlag ? "true" : "false");
+        PICO_H264_LOG("  seqScalingMatrixPresentFlag: %s\n", sps->seqScalingMatrixPresentFlag ? "true" : "false");
+    }
+
+    PICO_H264_LOG("  log2MaxFrameNumMinus4: %u\n", (unsigned)sps->log2MaxFrameNumMinus4);
+    PICO_H264_LOG("  picOrderCntType: %u\n", (unsigned)sps->picOrderCntType);
+    if (sps->picOrderCntType == 0) {
+        PICO_H264_LOG("  log2MaxPicOrderCntLsbMinus4: %u\n", (unsigned)sps->log2MaxPicOrderCntLsbMinus4);
+    } else if (sps->picOrderCntType == 1) {
+        PICO_H264_LOG("  deltaPicOrderAlwaysZeroFlag: %s\n", sps->deltaPicOrderAlwaysZeroFlag ? "true" : "false");
+        PICO_H264_LOG("  offsetForNonRefPic: %d\n", (int)sps->offsetForNonRefPic);
+        PICO_H264_LOG("  offsetForTopToBottomField: %d\n", (int)sps->offsetForTopToBottomField);
+        PICO_H264_LOG("  numRefFramesInPicOrderCntCycle: %u\n", (unsigned)sps->numRefFramesInPicOrderCntCycle);
+        for (uint32_t i = 0; i < sps->numRefFramesInPicOrderCntCycle; i++) {
+            PICO_H264_LOG("    offsetForRefFrame[%u]: %d\n", (unsigned)i, (int)sps->offsetForRefFrame[i]);
+        }
+    }
+
+    PICO_H264_LOG("  maxNumRefFrames: %u\n", (unsigned)sps->maxNumRefFrames);
+    PICO_H264_LOG("  gapsInFrameNumValueAllowedFlag: %s\n", sps->gapsInFrameNumValueAllowedFlag ? "true" : "false");
+    PICO_H264_LOG("  picWidthInMbsMinus1: %llu\n", (unsigned long long)sps->picWidthInMbsMinus1);
+    PICO_H264_LOG("  picHeightInMapUnitsMinus1: %llu\n", (unsigned long long)sps->picHeightInMapUnitsMinus1);
+    PICO_H264_LOG("  frameMbsOnlyFlag: %s\n", sps->frameMbsOnlyFlag ? "true" : "false");
+    if (!sps->frameMbsOnlyFlag) {
+        PICO_H264_LOG("  mbAdaptiveFrameFieldFlag: %s\n", sps->mbAdaptiveFrameFieldFlag ? "true" : "false");
+    }
+    PICO_H264_LOG("  direct8x8InferenceFlag: %s\n", sps->direct8x8InferenceFlag ? "true" : "false");
+    PICO_H264_LOG("  frameCroppingFlag: %s\n", sps->frameCroppingFlag ? "true" : "false");
+    if (sps->frameCroppingFlag) {
+        PICO_H264_LOG("    frameCropLeftOffset: %llu\n", (unsigned long long)sps->frameCropLeftOffset);
+        PICO_H264_LOG("    frameCropRightOffset: %llu\n", (unsigned long long)sps->frameCropRightOffset);
+        PICO_H264_LOG("    frameCropTopOffset: %llu\n", (unsigned long long)sps->frameCropTopOffset);
+        PICO_H264_LOG("    frameCropBottomOffset: %llu\n", (unsigned long long)sps->frameCropBottomOffset);
+    }
+    PICO_H264_LOG("  vuiParametersPresentFlag: %llu\n", (unsigned long long)sps->vuiParametersPresentFlag);
+    if (sps->vuiParametersPresentFlag) {
+        __picoH264VideoUsabilityInformationDebugPrint(&sps->vui);
+    }
 }
 
 void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader)
