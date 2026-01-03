@@ -79,16 +79,13 @@ typedef struct {
 typedef picoH264Bitsteam_t *picoH264Bitstream;
 
 typedef struct {
-    uint8_t nalUnitType;
-    uint8_t nalRefIdc;
-    size_t payloadOffset;
-    size_t payloadSize;
+    int dummy;
 } picoH264NALUnitHeader_t;
 
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size);
 void picoH264BitstreamDestroy(picoH264Bitstream bitstream);
 
-bool picoH264FindNextNALUnit(picoH264Bitstream bitstream);
+bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut);
 
 #define PICO_IMPLEMENTATION // for testing purposes only
 
@@ -109,15 +106,15 @@ static size_t __picoH264BufferRead(void *userData, uint8_t *buffer, size_t size)
 {
     __picoH264BitstreamBufferContext context = (__picoH264BitstreamBufferContext)userData;
     PICO_ASSERT(context != NULL);
-    PICO_ASSERT(buffer != NULL);
 
     size_t bytesAvailable = context->size - context->position;
     size_t bytesToRead    = (size < bytesAvailable) ? size : bytesAvailable;
 
-    if (bytesToRead > 0) {
+    if (bytesToRead > 0 && buffer) {
         memcpy(buffer, context->buffer + context->position, bytesToRead);
-        context->position += bytesToRead;
     }
+
+    context->position += bytesToRead;
 
     return bytesToRead;
 }
@@ -165,6 +162,44 @@ static size_t __picoH264BufferTell(void *userData)
     return context->position;
 }
 
+static bool __picoH264FindNextNALUnit(picoH264Bitstream bitstream)
+{
+    PICO_ASSERT(bitstream != NULL);
+    PICO_ASSERT(bitstream->read != NULL);
+    PICO_ASSERT(bitstream->seek != NULL);
+    PICO_ASSERT(bitstream->tell != NULL);
+
+    uint8_t byte     = 0;
+    int zeroCount    = 0;
+    size_t readBytes = 0;
+
+    // scan byte wise looking for start code prefix (00 00 01) or (00 00 00 01)
+    // when the terminating 01 is read and we have previously seen at least
+    // two 00 bytes the stream is positioned after the start code so we can return true.
+    while (1) {
+        readBytes = bitstream->read(bitstream->userData, &byte, 1);
+        if (readBytes == 0) {
+            // eof reached
+            return false;
+        }
+
+        if (byte == 0x00) {
+            if (zeroCount < 3)
+                zeroCount++;
+            continue;
+        }
+
+        if (byte == 0x01 && zeroCount >= 2) {
+            // go back to position just before the start code (if its a 4 byte start code we went back 3 bytes,
+            // as then we get a uniform 2 zero bytes before the 01 byte)
+            bitstream->seek(bitstream->userData, -((int64_t)(3)), SEEK_CUR);
+            return true; // Found start code (00 00 01) or (00 00 00 01)
+        }
+
+        zeroCount = 0;
+    }
+}
+
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size)
 {
     PICO_ASSERT(buffer != NULL);
@@ -205,44 +240,40 @@ void picoH264BitstreamDestroy(picoH264Bitstream bitstream)
     PICO_FREE(bitstream);
 }
 
-bool picoH264FindNextNALUnit(picoH264Bitstream bitstream)
+bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut)
 {
     PICO_ASSERT(bitstream != NULL);
-    PICO_ASSERT(bitstream->read != NULL);
-    PICO_ASSERT(bitstream->seek != NULL);
-    PICO_ASSERT(bitstream->tell != NULL);
 
-    uint8_t byte     = 0;
-    int zeroCount    = 0;
-    size_t readBytes = 0;
-
-    // scan byte wise looking for start code prefix (00 00 01) or (00 00 00 01)
-    // when the terminating 01 is read and we have previously seen at least
-    // two 00 bytes the stream is positioned after the start code so we can return true.
-    while (1) {
-        readBytes = bitstream->read(bitstream->userData, &byte, 1);
-        if (readBytes == 0) {
-            // eof reached
-            return false;
-        }
-
-        if (byte == 0x00) {
-            if (zeroCount < 3)
-                zeroCount++;
-            continue;
-        }
-
-        if (byte == 0x01 && zeroCount >= 2) {
-            // go back to position just before the start code (if its a 4 byte start code we went back 3 bytes,
-            // as then we get a uniform 2 zero bytes before the 01 byte)
-            bitstream->seek(bitstream->userData, -((int64_t)(3)), SEEK_CUR);
-            return true; // Found start code (00 00 01) or (00 00 00 01)
-        }
-
-        zeroCount = 0;
+    if (!__picoH264FindNextNALUnit(bitstream)) {
+        // no more NAL units found
+        return false;
     }
 
-    return false;
+    // if we did find a NAL unit, we are now positioned just before the start code
+    // so now we can try to find the next start code to determine the size of this NAL unit
+    size_t nalStartPos = bitstream->tell(bitstream->userData);
+    // skip the start code
+    uint8_t startCode[3];
+    bitstream->read(bitstream->userData, startCode, 3);
+    if (!(startCode[0] == 0x00 && startCode[1] == 0x00 && startCode[2] == 0x01)) {
+        // NOTE: ideally this case should not happen as we already verified the
+        // start code in __picoH264FindNextNALUnit
+        PICO_H264_LOG("picoH264FindNextNALUnit: Invalid start code\n");
+        return false; // invalid start code
+    }
+
+    // try to find the next NAL unit
+    (void)__picoH264FindNextNALUnit(bitstream);
+
+    size_t nalEndPos   = bitstream->tell(bitstream->userData);
+    size_t nalUnitSize = nalEndPos - nalStartPos;
+    if (nalUnitSizeOut) {
+        *nalUnitSizeOut = nalUnitSize;
+    }
+
+    // rewind to the start of this NAL unit for further processing
+    bitstream->seek(bitstream->userData, (int64_t)nalStartPos, SEEK_SET);
+    return true;
 }
 
 #endif // PICO_H264_IMPLEMENTATION
