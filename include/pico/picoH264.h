@@ -78,14 +78,56 @@ typedef struct {
 } picoH264Bitsteam_t;
 typedef picoH264Bitsteam_t *picoH264Bitstream;
 
+typedef enum {
+    PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED             = 0,
+    PICO_H264_NAL_UNIT_TYPE_CODED_SLICE_NON_IDR     = 1,
+    PICO_H264_NAL_UNIT_TYPE_CODED_SLICE_DATA_PART_A = 2,
+    PICO_H264_NAL_UNIT_TYPE_CODED_SLICE_DATA_PART_B = 3,
+    PICO_H264_NAL_UNIT_TYPE_CODED_SLICE_DATA_PART_C = 4,
+    PICO_H264_NAL_UNIT_TYPE_CODED_SLICE_IDR         = 5,
+    PICO_H264_NAL_UNIT_TYPE_SEI                     = 6,
+    PICO_H264_NAL_UNIT_TYPE_SPS                     = 7,
+    PICO_H264_NAL_UNIT_TYPE_PPS                     = 8,
+    PICO_H264_NAL_UNIT_TYPE_AUD                     = 9,
+    PICO_H264_NAL_UNIT_TYPE_END_OF_SEQUENCE         = 10,
+    PICO_H264_NAL_UNIT_TYPE_END_OF_STREAM           = 11,
+    PICO_H264_NAL_UNIT_TYPE_FILLER_DATA             = 12,
+    PICO_H264_NAL_UNIT_TYPE_SPS_EXT                 = 13,
+    PICO_H264_NAL_UNIT_TYPE_PREFIX_NAL_UNIT         = 14,
+    PICO_H264_NAL_UNIT_TYPE_SUBSET_SPS              = 15,
+    PICO_H264_NAL_UNIT_TYPE_DEPTH_PARAMETER_SET     = 16,
+    PICO_H264_NAL_UNIT_TYPE_RESERVED_17             = 17,
+    PICO_H264_NAL_UNIT_TYPE_RESERVED_18             = 18,
+    PICO_H264_NAL_UNIT_TYPE_AUXILIARY_SLICE         = 19,
+    PICO_H264_NAL_UNIT_TYPE_SLICE_EXTENSION         = 20,
+    PICO_H264_NAL_UNIT_TYPE_DEPTH_SLICE_EXTENSION   = 21,
+    PICO_H264_NAL_UNIT_TYPE_RESERVED_22             = 22,
+    PICO_H264_NAL_UNIT_TYPE_RESERVED_23             = 23,
+    PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_24          = 24,
+    PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_25          = 25,
+    PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_26          = 26,
+    PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_27          = 27,
+    PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_28          = 28,
+    PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_29          = 29,
+    PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_30          = 30,
+    PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_31          = 31,
+} picoH264NALUnitType;
+
 typedef struct {
-    int dummy;
+    bool isReferencePicture;
+    picoH264NALUnitType nalUnitType;
+
 } picoH264NALUnitHeader_t;
+typedef picoH264NALUnitHeader_t *picoH264NALUnitHeader;
 
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size);
 void picoH264BitstreamDestroy(picoH264Bitstream bitstream);
 
 bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut);
+bool picoH264ReadNALUnit(picoH264Bitstream bitstream, uint8_t *nalUnitBuffer, size_t nalUnitBufferSize, size_t nalUnitSizeOut);
+bool picoH264ParseNALUnitHeader(const uint8_t *nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeader nalUnitHeaderOut);
+
+const char* picoH264GetNALUnitTypeToString(picoH264NALUnitType nalUnitType);
 
 #define PICO_IMPLEMENTATION // for testing purposes only
 
@@ -274,6 +316,93 @@ bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut
     // rewind to the start of this NAL unit for further processing
     bitstream->seek(bitstream->userData, (int64_t)nalStartPos, SEEK_SET);
     return true;
+}
+
+bool picoH264ReadNALUnit(picoH264Bitstream bitstream, uint8_t *nalUnitBuffer, size_t nalUnitBufferSize, size_t nalUnitSizeOut)
+{
+    PICO_ASSERT(bitstream != NULL);
+    PICO_ASSERT(nalUnitBuffer != NULL);
+    PICO_ASSERT(nalUnitBufferSize >= nalUnitSizeOut);
+
+    size_t bytesRead = bitstream->read(bitstream->userData, nalUnitBuffer, nalUnitSizeOut);
+    if (bytesRead != nalUnitSizeOut) {
+        PICO_H264_LOG("picoH264ReadNALUnit: Failed to read complete NAL unit\n");
+        return false;
+    }
+
+    return true;
+}
+
+const char* picoH264GetNALUnitTypeToString(picoH264NALUnitType nalUnitType)
+{
+    switch (nalUnitType) {
+        case PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED:
+            return "Unspecified";
+        case PICO_H264_NAL_UNIT_TYPE_CODED_SLICE_NON_IDR:
+            return "Coded slice of a non-IDR picture";
+        case PICO_H264_NAL_UNIT_TYPE_CODED_SLICE_DATA_PART_A:
+            return "Coded slice data partition A";
+        case PICO_H264_NAL_UNIT_TYPE_CODED_SLICE_DATA_PART_B:
+            return "Coded slice data partition B";
+        case PICO_H264_NAL_UNIT_TYPE_CODED_SLICE_DATA_PART_C:
+            return "Coded slice data partition C";
+        case PICO_H264_NAL_UNIT_TYPE_CODED_SLICE_IDR:
+            return "Coded slice of an IDR picture";
+        case PICO_H264_NAL_UNIT_TYPE_SEI:
+            return "Supplemental enhancement information (SEI)";
+        case PICO_H264_NAL_UNIT_TYPE_SPS:
+            return "Sequence parameter set (SPS)";
+        case PICO_H264_NAL_UNIT_TYPE_PPS:
+            return "Picture parameter set (PPS)";
+        case PICO_H264_NAL_UNIT_TYPE_AUD:
+            return "Access unit delimiter (AUD)";
+        case PICO_H264_NAL_UNIT_TYPE_END_OF_SEQUENCE:
+            return "End of sequence";
+        case PICO_H264_NAL_UNIT_TYPE_END_OF_STREAM:
+            return "End of stream";
+        case PICO_H264_NAL_UNIT_TYPE_FILLER_DATA:
+            return "Filler data";
+        case PICO_H264_NAL_UNIT_TYPE_SPS_EXT:
+            return "Sequence parameter set extension";
+        case PICO_H264_NAL_UNIT_TYPE_PREFIX_NAL_UNIT:
+            return "Prefix NAL unit";
+        case PICO_H264_NAL_UNIT_TYPE_SUBSET_SPS:
+            return "Subset sequence parameter set";
+        case PICO_H264_NAL_UNIT_TYPE_DEPTH_PARAMETER_SET:
+            return "Depth parameter set";
+        case PICO_H264_NAL_UNIT_TYPE_RESERVED_17:
+            return "Reserved (17)";
+        case PICO_H264_NAL_UNIT_TYPE_RESERVED_18:
+            return "Reserved (18)";
+        case PICO_H264_NAL_UNIT_TYPE_AUXILIARY_SLICE:
+            return "Coded slice of an auxiliary coded picture without partitioning";
+        case PICO_H264_NAL_UNIT_TYPE_SLICE_EXTENSION:
+            return "Coded slice extension";
+        case PICO_H264_NAL_UNIT_TYPE_DEPTH_SLICE_EXTENSION:
+            return "Coded slice extension for a depth view component";
+        case PICO_H264_NAL_UNIT_TYPE_RESERVED_22:
+            return "Reserved (22)";
+        case PICO_H264_NAL_UNIT_TYPE_RESERVED_23:
+            return "Reserved (23)";
+        case PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_24:
+            return "Unspecified (24)";
+        case PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_25:
+            return "Unspecified (25)";
+        case PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_26:
+            return "Unspecified (26)";
+        case PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_27:
+            return "Unspecified (27)";
+        case PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_28:
+            return "Unspecified (28)";
+        case PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_29:
+            return "Unspecified (29)";
+        case PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_30:
+            return "Unspecified (30)";
+        case PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED_31:
+            return "Unspecified (31)";
+        default:
+            return "Unknown NAL unit type";
+    }
 }
 
 #endif // PICO_H264_IMPLEMENTATION
