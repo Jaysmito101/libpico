@@ -914,7 +914,11 @@ bool picoH264ReadNALUnit(picoH264Bitstream bitstream, uint8_t *nalUnitBuffer, si
 bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeader nalUnitHeaderOut, uint8_t *nalPayloadOut, size_t *nalPayloadSizeOut);
 
 void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader);
-const char *picoH264GetNALUnitTypeToString(picoH264NALUnitType nalUnitType);
+
+const char *picoH264NALUnitTypeToString(picoH264NALUnitType nalUnitType);
+const char *picoH264AspectRatioIDCToString(uint8_t idc);
+const char *picoH264ProfileIdcToString(uint8_t profileIdc);
+const char *picoH264VideoFormatToString(picoH264VideoFormat videoFormat);
 
 #define PICO_IMPLEMENTATION // for testing purposes only
 
@@ -1029,6 +1033,118 @@ static bool __picoH264FindNextNALUnit(picoH264Bitstream bitstream)
         }
 
         zeroCount = 0;
+    }
+}
+
+const char *picoH264AspectRatioIDCToString(uint8_t idc)
+{
+    switch (idc) {
+        case PICO_H264_ASPECT_RATIO_IDC_UNSPECIFIED:
+            return "Unspecified";
+        case PICO_H264_ASPECT_RATIO_IDC_SAR_1_1:
+            return "1:1 (square)";
+        case PICO_H264_ASPECT_RATIO_IDC_SAR_12_11:
+            return "12:11";
+        case PICO_H264_ASPECT_RATIO_IDC_SAR_10_11:
+            return "10:11";
+        case PICO_H264_ASPECT_RATIO_IDC_SAR_16_11:
+            return "16:11";
+        case PICO_H264_ASPECT_RATIO_IDC_SAR_40_33:
+            return "40:33";
+        case PICO_H264_ASPECT_RATIO_IDC_SAR_24_11:
+            return "24:11";
+        case PICO_H264_ASPECT_RATIO_IDC_SAR_20_11:
+            return "20:11";
+        case PICO_H264_ASPECT_RATIO_IDC_SAR_32_11:
+            return "32:11";
+        case PICO_H264_ASPECT_RATIO_IDC_SAR_80_33:
+            return "80:33";
+        case PICO_H264_ASPECT_RATIO_IDC_SAR_18_11:
+            return "18:11";
+        case PICO_H264_ASPECT_RATIO_IDC_SAR_15_11:
+            return "15:11";
+        case PICO_H264_ASPECT_RATIO_IDC_SAR_64_33:
+            return "64:33";
+        case PICO_H264_ASPECT_RATIO_IDC_SAR_160_99:
+            return "160:99";
+        case PICO_H264_ASPECT_RATIO_IDC_SAR_4_3:
+            return "4:3";
+        case PICO_H264_ASPECT_RATIO_IDC_SAR_3_2:
+            return "3:2";
+        case PICO_H264_ASPECT_RATIO_IDC_SAR_2_1:
+            return "2:1";
+        case PICO_H264_ASPECT_RATIO_IDC_EXTENDED_SAR:
+            return "Extended_SAR";
+        default:
+            if ((int)idc >= 17 && (int)idc <= 254)
+                return "Reserved";
+            return "Unknown";
+    }
+}
+
+const char *picoH264ProfileIdcToString(uint8_t profileIdc)
+{
+    switch (profileIdc) {
+        case PICO_H264_PROFILE_IDC_BASELINE:
+            return "Baseline Profile";
+        case PICO_H264_PROFILE_IDC_MAIN:
+            return "Main Profile";
+        case PICO_H264_PROFILE_IDC_EXTENDED:
+            return "Extended Profile";
+        case PICO_H264_PROFILE_IDC_HIGH:
+            return "High Profile";
+        case PICO_H264_PROFILE_IDC_HIGH_10:
+            return "High 10 Profile";
+        case PICO_H264_PROFILE_IDC_HIGH_422:
+            return "High 4:2:2 Profile";
+        case PICO_H264_PROFILE_IDC_HIGH_444_PREDICTIVE:
+            return "High 4:4:4 Profile";
+        case PICO_H264_PROFILE_IDC_STEREO_HIGH:
+            return "Stereo High Profile";
+        case PICO_H264_PROFILE_IDC_MULTIVIEW_HIGH:
+            return "Multiview High Profile";
+        case PICO_H264_PROFILE_IDC_MULTIVIEW_DEPTH_HIGH:
+            return "Multiview Depth High Profile";
+        case PICO_H264_PROFILE_IDC_ENHANCED_MULTIVIEW_DEPTH_HIGH:
+            return "Enhanced Multiview Depth High Profile";
+        case PICO_H264_PROFILE_IDC_CAVLC_444_INTRA:
+            return "CAVLC 4:4:4 Intra Profile";
+        case PICO_H264_PROFILE_IDC_SCALABLE_BASELINE:
+            return "Scalable Baseline Profile";
+        case PICO_H264_PROFILE_IDC_SCALABLE_HIGH:
+            return "Scalable High Profile";
+        case PICO_H264_PROFILE_IDC_MFC_HIGH:
+            return "MFC High Profile";
+        case PICO_H264_PROFILE_IDC_MFC_DEPTH_HIGH:
+            return "MFC Depth High Profile";
+        default:
+            if (profileIdc >= 1 && profileIdc <= 65)
+                return "Reserved (Profile specific)";
+            return "Unknown Profile";
+    }
+}
+
+const char *picoH264VideoFormatToString(picoH264VideoFormat videoFormat)
+{
+    switch (videoFormat) {
+        case PICO_H264_VIDEO_FORMAT_COMPONENT:
+            return "Component";
+        case PICO_H264_VIDEO_FORMAT_PAL:
+            return "PAL";
+        case PICO_H264_VIDEO_FORMAT_NTSC:
+            return "NTSC";
+        case PICO_H264_VIDEO_FORMAT_SECAM:
+            return "SECAM";
+        case PICO_H264_VIDEO_FORMAT_MAC:
+            return "MAC";
+        case PICO_H264_VIDEO_FORMAT_UNSPECIFIED:
+            return "Unspecified";
+        case PICO_H264_VIDEO_FORMAT_RESERVED_6:
+            return "Reserved 6";
+        case PICO_H264_VIDEO_FORMAT_RESERVED_7:
+            return "Reserved 7";
+        default:
+            return "Unknown";
     }
 }
 
