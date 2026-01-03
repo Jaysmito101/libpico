@@ -24,6 +24,7 @@ SOFTWARE.
 
 /*
  * This has been purely implemented based of the ITU-T H.264 (V15) (08/2024) specification.
+ * Source: https://handle.itu.int/11.1002/1000/15935
  * - Jaysmito Mukherjee (jaysmito101@gmail.com)
  */
 
