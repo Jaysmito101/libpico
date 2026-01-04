@@ -1625,6 +1625,13 @@ typedef struct {
 } picoH264SEIMessage_t;
 typedef picoH264SEIMessage_t *picoH264SEIMessage;
 
+typedef struct {
+    // primary_pic_type indicates that the slice_type values for all slices of the primary coded picture are members of the set
+    // listed in Table 7-5 for the given value of primary_pic_type.
+    uint8_t primaryPicType;
+} picoH264AccessUnitDelimiter_t;
+typedef picoH264AccessUnitDelimiter_t *picoH264AccessUnitDelimiter;
+
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size);
 void picoH264BitstreamDestroy(picoH264Bitstream bitstream);
 
@@ -1638,6 +1645,7 @@ void picoH264SequenceParameterSetExtensionDebugPrint(picoH264SequenceParameterSe
 void picoH264SubsetSequenceParameterSetDebugPrint(picoH264SubsetSequenceParameterSet spsSubset);
 void picoH264PictureParameterSetDebugPrint(picoH264PictureParameterSet pps);
 void picoH264SEIMessageDebugPrint(picoH264SEIMessage seiMessage);
+void picoH264AccessUnitDelimiterDebugPrint(picoH264AccessUnitDelimiter aud);
 
 const char *picoH264NALRefIdcToString(picoH264NALRefIDC nalRefIdc);
 const char *picoH264NALUnitTypeToString(picoH264NALUnitType nalUnitType);
@@ -2716,6 +2724,14 @@ void picoH264SEIMessageDebugPrint(picoH264SEIMessage seiMessage)
     PICO_H264_LOG("SEI Message:\n");
     PICO_H264_LOG("  seiMessageType: %s (%u)\n", picoH264SEIMessageTypeToString(seiMessage->payloadType), (unsigned)seiMessage->payloadType);
     PICO_H264_LOG("  payloadSize: %u\n", (unsigned)seiMessage->payloadSize);
+}
+
+void picoH264AccessUnitDelimiterDebugPrint(picoH264AccessUnitDelimiter aud)
+{
+    PICO_ASSERT(aud != NULL);
+
+    PICO_H264_LOG("Access Unit Delimiter:\n");
+    PICO_H264_LOG("  primaryPicType: %u\n", aud->primaryPicType);
 }
 
 const char *picoH264SEIMessageTypeToString(picoH264SEIMessageType seiMessageType)
