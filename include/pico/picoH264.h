@@ -962,6 +962,430 @@ typedef struct {
 } picoH264SequenceParameterSetExtension_t;
 typedef picoH264SequenceParameterSetExtension_t *picoH264SequenceParameterSetExtension;
 
+typedef struct {
+    // vui_ext_dependency_id[ i ] and vui_ext_quality_id[ i ] indicate the maximum value of DQId for the i-th subset of coded
+    // video sequences. The maximum value of DQId for the i-th subset of coded video sequences is derived by
+    // vui_ext_dependency_id[ i ] + ( vui_ext_quality_id[ i ] << 4 )
+    uint8_t vuiExtDependencyId;
+    uint8_t vuiExtQualityId;
+
+    // vui_ext_temporal_id[ i ] indicates the maximum value of temporal_id for the i-th subset of coded video sequences.
+    // The SVC VUI parameters extension syntax structure shall not contain two or more information entries with identical
+    // values of vui_ext_dependency_id[ i ], vui_ext_quality_id[ i ], and vui_ext_temporal_id[ i ].
+    // The following syntax elements apply to the coded video sequences that are obtained by the invoking the sub-bitstream
+    // extraction process as specified in clause F.8.8.1 with tIdTarget equal to vui_ext_temporal_id[ i ], dIdTarget equal to
+    // vui_ext_dependency_id[ i ], and qIdTarget equal to vui_ext_quality_id[ i ] as the inputs and the i-th subset of coded video
+    // sequences as the output.
+    uint8_t vuiExtTemporalId;
+
+    // vui_ext_timing_info_present_flag[ i ] equal to 1 specifies that vui_ext_num_units_in_tick[ i ], vui_ext_time_scale[ i ],
+    // and vui_ext_fixed_frame_rate_flag[ i ] for the i-th subset of coded video sequences are present in the SVC VUI
+    // parameters extension. vui_ext_timing_info_present_flag[ i ] equal to 0 specifies that vui_ext_num_units_in_tick[ i ],
+    // vui_ext_time_scale[ i ], and vui_ext_fixed_frame_rate_flag[ i ] for the i-th subset of coded video sequences are not
+    // present in the SVC VUI parameters extension.
+    // The following syntax elements for the i-th subset of coded video sequences are specified using references to Annex E.
+    // For these syntax elements the same semantics and constraints as the ones specified in Annex E apply, as if these syntax
+    // elements vui_ext_num_units_in_tick[ i ], vui_ext_time_scale[ i ], vui_ext_fixed_frame_rate_flag[ i ],
+    // vui_ext_nal_hrd_parameters_present_flag[ i ], vui_ext_vcl_hrd_parameters_present_flag[ i ],
+    // vui_ext_low_delay_hrd_flag[ i ], and vui_ext_pic_struct_present_flag[ i ] were present as the syntax elements
+    // num_units_in_tick, time_scale, fixed_frame_rate_flag, nal_hrd_parameters_present_flag,
+    // vcl_hrd_parameters_present_flag, low_delay_hrd_flag, and pic_struct_present_flag, respectively, in the VUI parameters
+    // of the active SVC sequence parameter sets for the i-th subset of coded video sequences.
+    bool vuiExtTimingInfoPresentFlag;
+
+    // vui_ext_num_units_in_tick[ i ] specifies the value of num_units_in_tick, as specified in clause E.2.1, for the i-th subset
+    // of coded video sequences.
+    uint32_t vuiExtNumUnitsInTick;
+
+    // vui_ext_time_scale[ i ] specifies the value of time_scale, as specified in clause E.2.1, for the i-th subset of coded video sequences.
+    uint32_t vuiExtTimeScale;
+
+    // vui_ext_fixed_frame_rate_flag[ i ] specifies the value of fixed_frame_rate_flag, as specified in clause E.2.1, for the i-
+    // th subset of coded video sequences.
+    bool vuiExtFixedFrameRateFlag;
+
+    // vui_ext_nal_hrd_parameters_present_flag[ i ] specifies the value of nal_hrd_parameters_present_flag, as specified in
+    // clause E.2.1, for the i-th subset of coded video sequences.
+    // When vui_ext_nal_hrd_parameters_present_flag[ i ] is equal to 1, NAL HRD parameters (clauses E.1.2 and E.2.2) for
+    // the i-th subset of coded video sequences immediately follow the flag
+    bool vuiExtNalHrdParametersPresentFlag;
+    picoH264HypotheticalReferenceDecoder_t nalHrdParameters;
+
+    // vui_ext_vcl_hrd_parameters_present_flag[ i ] specifies the value of vcl_hrd_parameters_present_flag, as specified in
+    // clause E.2.1, for the i-th subset of coded video sequences.
+    // When vui_ext_vcl_hrd_parameters_present_flag[ i ] is equal to 1, VCL HRD parameters (clauses E.1.2 and E.2.2) for
+    // the i-th subset of coded video sequences immediately follow the fla
+    bool vuiExtVclHrdParametersPresentFlag;
+    picoH264HypotheticalReferenceDecoder_t vclHrdParameters;
+
+    // vui_ext_low_delay_hrd_flag[ i ] specifies the value of low_delay_hrd_flag, as specified in clause E.2.1, for the i-th
+    // subset of coded video sequences
+    bool vuiExtLowDelayHrdFlag;
+
+    // vui_ext_pic_struct_present_flag[ i ] specifies the value of pic_struct_present_flag, as specified in clause E.2.1, for the
+    // i-th subset of coded video sequences
+    bool vuiExtPicStructPresentFlag;
+} picoH264SVCVUIParametersExtensionEntry_t;
+typedef picoH264SVCVUIParametersExtensionEntry_t *picoH264SVCVUIParametersExtensionEntry;
+
+typedef struct {
+    // vui_ext_num_entries_minus1 plus 1 specifies the number of information entries that are present in the SVC VUI
+    // parameters extension syntax structure. The value of vui_ext_num_entries_minus1 shall be in the range of 0 to 1023,
+    // inclusive. Each information entry is associated with particular values of temporal_id, dependency_id, and quality_id and
+    // may indicate timing information, NAL HRD parameters, VCL HRD parameters, and the presence of picture structure
+    // information for a particular subset of coded video sequences as specified in the following
+    uint32_t vuiExtNumEntriesMinus1;
+
+    picoH264SVCVUIParametersExtensionEntry_t vuiExtEntries[1024];
+} picoH264SVCVUIParametersExtension_t;
+typedef picoH264SVCVUIParametersExtension_t *picoH264SVCVUIParametersExtension;
+
+typedef struct {
+    // inter_layer_deblocking_filter_control_present_flag equal to 1 specifies that a set of syntax elements controlling the
+    // characteristics of the deblocking filter for inter-layer prediction is present in the slice header.
+    // inter_layer_deblocking_filter_control_present_flag equal to 0 specifies that the set of syntax elements controlling the
+    // characteristics of the deblocking filter for inter-layer prediction is not present in the slice headers and their inferred values
+    // are in effect.
+    bool interLayerDeblockingFilterControlPresentFlag;
+
+    // extended_spatial_scalability_idc specifies the presence of syntax elements related to geometrical parameters for the
+    // resampling processes. The value of extended_spatial_scalability_idc shall be in the range of 0 to 2, inclusive, and the
+    // following applies:
+    //     – If extended_spatial_scalability_idc is equal to 0, no geometrical parameters are present in the subset sequence
+    //     parameter set and the slice headers referring to this subset sequence parameter set.
+    //     – Otherwise, if extended_spatial_scalability_idc is equal to 1, geometrical parameters are present in the subset
+    //     sequence parameter set, but not in the slice headers referring to this subset sequence parameter set.
+    //     – Otherwise (extended_spatial_scalability_idc is equal to 2), geometrical parameters are not present in the subset
+    //     sequence parameter set, but they are present in the slice headers with no_inter_layer_pred_flag equal to 0 and
+    //     quality_id equal to 0 that refer to this subset sequence parameter set
+    uint8_t extendedSpatialScalabilityIDC;
+
+    // chroma_phase_x_plus1_flag specifies the horizontal phase shift of the chroma components in units of half luma samples
+    // of a frame or layer frame. When chroma_phase_x_plus1_flag is not present, it shall be inferred to be equal to 1.
+    // When ChromaArrayType is equal to 1 and chroma_sample_loc_type_top_field and
+    // chroma_sample_loc_type_bottom_field are present, the following applies:
+    //     – If chroma_phase_x_plus1_flag is equal to 0, chroma_sample_loc_type_top_field and
+    //     chroma_sample_loc_type_bottom_field should be equal to 0, 2, or 4.
+    //     – Otherwise (chroma_phase_x_plus1_flag is equal to 1), chroma_sample_loc_type_top_field and
+    //     chroma_sample_loc_type_bottom_field should be equal to 1, 3, or 5.
+    //     When ChromaArrayType is equal to 2, chroma_phase_x_plus1_flag should be equal to 1.
+    bool chromaPhaseXPlus1Flag;
+
+    // chroma_phase_y_plus1 specifies the vertical phase shift of the chroma components in units of half luma samples of a
+    // frame or layer frame. When chroma_phase_y_plus1 is not present, it shall be inferred to be equal to 1. The value of
+    // chroma_phase_y_plus1 shall be in the range of 0 to 2, inclusive.
+    // When ChromaArrayType is equal to 1 and chroma_sample_loc_type_top_field and
+    // chroma_sample_loc_type_bottom_field are present, the following applies:
+    //     – If chroma_phase_y_plus1 is equal to 0, chroma_sample_loc_type_top_field and
+    //     chroma_sample_loc_type_bottom_field should be equal to 2 or 3.
+    //     – Otherwise, if chroma_phase_y_plus1 is equal to 1, chroma_sample_loc_type_top_field and
+    //     chroma_sample_loc_type_bottom_field should be equal to 0 or 1.
+    //     – Otherwise (chroma_phase_y_plus1 is equal to 2), chroma_sample_loc_type_top_field and
+    //     chroma_sample_loc_type_bottom_field should be equal to 4 or 5.
+    uint8_t chromaPhaseYPlus1;
+
+    // seq_ref_layer_chroma_phase_x_plus1_flag specifies the horizontal phase shift of the chroma components in units of
+    // half luma samples of a layer frame for the layer pictures that may be used for inter-layer prediction. When
+    // seq_ref_layer_chroma_phase_x_plus1_flag is not present, it shall be inferred to be equal to chroma_phase_x_plus1_flag.
+    bool seqRefLayerChromaPhaseXPlus1Flag;
+
+    // seq_ref_layer_chroma_phase_y_plus1 specifies the vertical phase shift of the chroma components in units of half luma
+    // samples of a layer frame for the layer pictures that may be used for inter-layer prediction. When
+    // seq_ref_layer_chroma_phase_y_plus1 is not present, it shall be inferred to be equal to chroma_phase_y_plus1. The value
+    // of seq_ref_layer_chroma_phase_y_plus1 shall be in the range of 0 to 2, inclusive.
+    uint8_t seqRefLayerChromaPhaseYPlus1;
+
+    // seq_scaled_ref_layer_left_offset specifies the horizontal offset between the upper-left luma sample of a resampled layer
+    // picture used for inter-layer prediction and the upper-left luma sample of the current picture or current layer picture in
+    // units of two luma samples. When seq_scaled_ref_layer_left_offset is not present, it shall be inferred to be equal to 0. The
+    // value of seq_scaled_ref_layer_left_offset shall be in the range of −2^15 to 2^15 − 1, inclusive.
+    int32_t seqScaledRefLayerLeftOffset;
+
+    // seq_scaled_ref_layer_top_offset specifies the vertical offset between the upper-left luma sample of a resampled layer
+    // picture used for inter-layer prediction and the upper-left luma sample of the current picture or current layer picture.
+    // Depending on the value of frame_mbs_only_flag, the following applies:
+    //     – If frame_mbs_only_flag is equal to 1, the vertical offset is specified in units of two luma samples.
+    //     – Otherwise (frame_mbs_only_flag is equal to 0), the vertical offset is specified in units of four luma samples.
+    //     When seq_scaled_ref_layer_top_offset is not present, it shall be inferred to be equal to 0. The value of
+    //     seq_scaled_ref_layer_top_offset shall be in the range of −2^15 to 2^15 − 1, inclusive
+    int32_t seqScaledRefLayerTopOffset;
+
+    // seq_scaled_ref_layer_right_offset specifies the horizontal offset between the bottom-right luma sample of a resampled
+    // layer picture used for inter-layer prediction and the bottom-right luma sample of the current picture or current layer picture
+    // in units of two luma samples. When seq_scaled_ref_layer_right_offset is not present, it shall be inferred to be equal to 0.
+    // The value of seq_scaled_ref_layer_right_offset shall be in the range of −2^15 to 2^15 − 1, inclusive
+    int32_t seqScaledRefLayerRightOffset;
+
+    // seq_scaled_ref_layer_bottom_offset specifies the vertical offset between the bottom-right luma sample of a resampled
+    // layer picture used for inter-layer prediction and the bottom-right luma sample of the current picture or current layer
+    // picture. Depending on the value of frame_mbs_only_flag, the following applies:
+    //     – If frame_mbs_only_flag is equal to 1, the vertical offset is specified in units of two luma samples.
+    //     – Otherwise (frame_mbs_only_flag is equal to 0), the vertical offset is specified in units of four luma samples.
+    //     When seq_scaled_ref_layer_bottom_offset is not present, it shall be inferred to be equal to 0. The value of
+    //     seq_scaled_ref_layer_bottom_offset shall be in the range of −2^15 to 2^15 − 1, inclusive.
+    int32_t seqScaledRefLayerBottomOffset;
+
+    // seq_tcoeff_level_prediction_flag specifies the presence of the syntax element adaptive_tcoeff_level_prediction_flag in
+    // the subset sequence parameter set
+    bool seqTcoeffLevelPredictionFlag;
+
+    // adaptive_tcoeff_level_prediction_flag specifies the presence of tcoeff_level_prediction_flag in slice headers that refer
+    // to the subset sequence parameter set. When adaptive_tcoeff_level_prediction_flag is not present, it shall be inferred to be
+    // equal to 0
+    bool adaptiveTcoeffLevelPredictionFlag;
+
+    // slice_header_restriction_flag specifies the presence of syntax elements in slice headers that refer to the subset sequence
+    // parameter set
+    bool sliceHeaderRestrictionFlag;
+} picoH264SPSSVCExtension_t;
+typedef picoH264SPSSVCExtension_t *picoH264SPSSVCExtension;
+
+typedef struct {
+    // num_views_minus1 plus 1 specifies the maximum number of coded views in the coded video sequence. The value of
+    // num_view_minus1 shall be in the range of 0 to 1023, inclusive
+    uint16_t numViewsMinus1;
+
+    // view_id[ i ] specifies the view_id of the view with VOIdx equal to i. The value of view_id[ i ] shall be in the range of 0
+    // to 1023, inclusive
+    uint16_t viewId[1024];
+
+    // num_anchor_refs_l0[ i ] specifies the number of view components for inter-view prediction in the initial reference
+    // picture list RefPicList0 (which is derived as specified in clause G.8.2.1) in decoding anchor view components with VOIdx
+    // equal to i. The value of num_anchor_refs_l0[ i ] shall not be greater than Min( 15, num_views_minus1 ). The value of
+    // num_anchor_refs_l0[ 0 ] shall be equal to 0
+    uint8_t numAnchorRefsL0[1024];
+
+    // anchor_ref_l0[ i ][ j ] specifies the view_id of the j-th view component for inter-view prediction in the initial reference
+    // picture list RefPicList0 (which is derived as specified in clause G.8.2.1) in decoding anchor view components with VOIdx
+    // equal to i. The value of anchor_ref_l0[ i ][ j ] shall be in the range of 0 to 1023, inclusive.
+    uint16_t anchorRefL0[1024][16];
+
+    // num_anchor_refs_l1[ i ] specifies the number of view components for inter-view prediction in the initial reference
+    // picture list RefPicList1 (which is derived as specified in clause G.8.2.1) in decoding anchor view components with VOIdx
+    // equal to i. The value of num_anchor_refs_l1[ i ] shall not be greater than Min( 15, num_views_minus1 ). The value of
+    // num_anchor_refs_l1[ 0 ] shall be equal to 0
+    uint8_t numAnchorRefsL1[1024];
+
+    // anchor_ref_l1[ i ][ j ] specifies the view_id of the j-th view component for inter-view prediction in the initial reference
+    // picture list RefPicList1 (which is derived as specified in clause G.8.2.1) in decoding an anchor view component with
+    // VOIdx equal to i. The value of anchor_ref_l1[ i ][ j ] shall be in the range of 0 to 1023, inclusive.
+    uint16_t anchorRefL1[1024][16];
+
+    // num_non_anchor_refs_l0[ i ] specifies the number of view components for inter-view prediction in the initial reference
+    // picture list RefPicList0 (which is derived as specified in clause G.8.2.1) in decoding non-anchor view components with
+    // VOIdx equal to i. The value of num_non_anchor_refs_l0[ i ] shall not be greater than Min( 15, num_views_minus1 ). The
+    // value of num_non_anchor_refs_l0[ 0 ] shall be equal to 0.
+    uint8_t numNonAnchorRefsL0[1024];
+
+    // non_anchor_ref_l0[ i ][ j ] specifies the view_id of the j-th view component for inter-view prediction in the initial
+    // reference picture list RefPicList0 (which is derived as specified in clause G.8.2.1) in decoding non-anchor view
+    // components with VOIdx equal to i. The value of non_anchor_ref_l0[ i ][ j ] shall be in the range of 0 to 1023, inclusive.
+    uint16_t nonAnchorRefL0[1024][16];
+
+    // num_non_anchor_refs_l1[ i ] specifies the number of view components for inter-view prediction in the initial reference
+    // picture list RefPicList1 (which is derived as specified in clause G.8.2.1) in decoding non-anchor view components with
+    // VOIdx equal to i. The value of num_non_anchor_refs_l1[ i ] shall not be greater than Min( 15, num_views_minus1 ). The
+    // value of num_non_anchor_refs_l1[ 0 ] shall be equal to 0.
+    uint8_t numNonAnchorRefsL1[1024];
+
+    // non_anchor_ref_l1[ i ][ j ] specifies the view_id of the j-th view component for inter-view prediction in the initial
+    // reference picture list RefPicList1 (which is derived as specified in clause G.8.2.1) in decoding non-anchor view
+    // components with VOIdx equal to i. The value of non_anchor_ref_l1[ i ][ j ] shall be in the range of 0 to 1023, inclusive.
+    // For any particular view with view_id equal to vId1 and VOIdx equal to vOIdx1 and another view with view_id equal to
+    // vId2 and VOIdx equal to vOIdx2, when vId2 is equal to the value of one of non_anchor_ref_l0[ vOIdx1 ][ j ] for all j in
+    // the range of 0 to num_non_anchor_refs_l0[ vOIdx1 ], exclusive, or one of non_anchor_ref_l1[ vOIdx1 ][ j ] for all j in
+    // the range of 0 to num_non_anchor_refs_l1[ vOIdx1 ], exclusive, vId2 shall also be equal to the value of one of
+    // anchor_ref_l0[ vOIdx1 ][ j ] for all j in the range of 0 to num_anchor_refs_l0[ vOIdx1 ], exclusive, or one of
+    // anchor_ref_l1[ vOIdx1 ][ j ] for all j in the range of 0 to num_anchor_refs_l1[ vOIdx1 ], exclusive.
+    uint16_t nonAnchorRefL1[1024][16];
+
+    // num_level_values_signalled_minus1 plus 1 specifies the number of level values signalled for the coded video sequence.
+    // The value of num_level_values_signalled_minus1 shall be in the range of 0 to 63, inclusive.
+    uint8_t numLevelValuesSignalledMinus1;
+
+    // level_idc[ i ] specifies the i-th level value signalled for the coded video sequence.
+    uint8_t levelIDC[64];
+
+    // num_applicable_ops_minus1[ i ] plus 1 specifies the number of operation points to which the level indicated by
+    // level_idc[ i ] applies. The value of num_applicable_ops_minus1[ i ] shall be in the range of 0 to 1023, inclusive.
+    uint16_t numApplicableOpsMinus1[64];
+
+    // applicable_op_temporal_id[ i ][ j ] specifies the temporal_id of the j-th operation point to which the level indicated by
+    // level_idc[ i ] applies.
+    uint8_t applicableOpTemporalId[64][1024];
+
+    // applicable_op_num_target_views_minus1[ i ][ j ] plus 1 specifies the number of target output views for the j-th
+    // operation point to which the level indicated by level_idc[ i ] applies. The value of
+    // applicable_op_num_target_views_minus1[ i ][ j ] shall be in the range of 0 to 1023, inclusive.
+    uint16_t applicableOpNumTargetViewsMinus1[64][1024];
+
+    // applicable_op_target_view_id[ i ][ j ][ k ] specifies the k-th target output view for the j-th operation point to which the
+    // level indicated by level_idc[ i ] applies. The value of applicable_op_target_view_id[ i ][ j ][ k ] shall be in the range of 0
+    // to 1023, inclusive
+    // Let maxTId be the greatest temporal_id of all NAL units in the coded video sequence, and vId be view_id of any view in
+    // the coded video sequence. There shall be one set of applicable_op_temporal_id[ i ][ j ],
+    // applicable_op_num_target_views_minus1[ i ][ j ], and applicable_op_target_view_id[ i ][ j ][ k ], for any i and j and all
+    // k for the i and j, in which applicable_op_temporal_id[ i ][ j ] is equal to maxTId,
+    // applicable_op_num_target_views_minus1[ i ][ j ] is equal to 0, and applicable_op_target_view_id[ i ][ j ][ k ] is equal to vId
+    uint16_t applicableOpTargetViewId[64][1024][1024];
+
+    // applicable_op_num_views_minus1[ i ][ j ] plus 1 specifies the number of views required for decoding the target output
+    // views corresponding to the j-th operation point to which the level indicated by level_idc[ i ] applies. The number of views
+    // specified by applicable_op_num_views_minus1 includes the target output views and the views that the target output
+    // views depend on as specified by the sub-bitstream extraction process in clause G.8.5 with tIdTarget equal to
+    // applicable_op_temporal_id[ i ][ j ] and viewIdTargetList equal to the list of applicable_op_target_view_id[ i ][ j ][ k ] for
+    // all k in the range of 0 to applicable_op_num_target_views_minus1[ i ][ j ], inclusive, as inputs. The value of
+    // applicable_op_num_views_minus1[ i ][ j ] shall be in the range of 0 to 1023, inclusive.
+    uint16_t applicableOpNumViewsMinus1[64][1024];
+
+    // mfc_format_idc specifies the frame packing arrangement type for view components of the base view and the
+    // corresponding frame packing arrangement type for view components in the non-base view. The semantics of
+    // mfc_format_idc equal to 0 and 1 are specified by Table G-1.
+    // In bitstreams conforming to this version of this Specification, the value of mfc_format_idc shall be equal to 0 or 1. Values
+    // of mfc_format_idc in the range of 2..63 are reserved for future use by ITU-T | ISO/IEC. Decoders shall ignore the coded
+    // video sequence when the value of mfc_format_idc is greater tha
+    uint8_t mfcFormatIDC;
+
+    // default_grid_position_flag equal to 0 specifies that the syntax elements view0_grid_position_x, view0_grid_position_y,
+    // view1_grid_position_x, and view1_grid_position_y are present. default_grid_position_flag equal to 1 specifies that
+    // view0_grid_position_x, view0_grid_position_y, view1_grid_position_x, and view1_grid_position_y are not present.
+    bool defaultGridPositionFlag;
+
+    // view0_grid_position_x has the same semantics as specified in clause D.2.26 for the frame0_grid_position_x syntax
+    // element. The value of view0_grid_position_x shall be equal to 4, 8 or 12
+    uint8_t view0GridPositionX;
+
+    // view0_grid_position_y has the same semantics as specified in clause D.2.26 for the frame0_grid_position_y syntax
+    // element. The value of view0_grid_position_y shall be equal to 4, 8 or 12
+    uint8_t view0GridPositionY;
+
+    // view1_grid_position_x has the same semantics as specified in clause D.2.26 for the frame1_grid_position_x syntax
+    // element. The value of view1_grid_position_x shall be equal to 4, 8 or 12.
+    uint8_t view1GridPositionX;
+
+    // view1_grid_position_y has the same semantics as specified in clause D.2.26 for the frame1_grid_position_y syntax
+    // element. The value of view1_grid_position_y shall be equal to 4, 8 or 12.
+    uint8_t view1GridPositionY;
+
+    // rpu_filter_enabled_flag equal to 1 specifies that a downsampling filter process and an upsampling filter process are used
+    // to generate each colour component of an inter-view prediction reference. rpu_filter_enabled_flag equal to 0 specifies that
+    // all sample values for each colour component of an inter-view prediction reference are set equal to 128
+    bool rpuFilterEnabledFlag;
+
+    // rpu_field_processing_flag equal to 0 specifies that each inter-view prediction reference with field_pic_flag equal to 0 is
+    // processed as a frame when processed by the RPU. rpu_field_processing_flag equal to 1 specifies that each inter-view
+    // prediction reference with field_pic_flag equal to 0 is processed as two fields when processed by the RPU. When not
+    // present, the value of rpu_field_processing_flag is inferred to be equal to 0
+    bool rpuFieldProcessingFlag;
+
+} picoH264SPSMVCExtension_t;
+typedef picoH264SPSMVCExtension_t *picoH264SPSMVCExtension;
+
+typedef struct {
+    // vui_mvc_temporal_id[ i ] indicates the maximum value of temporal_id for all VCL NAL units in the representation of
+    // the i-th operation point
+    uint8_t vuiMVCOpsTemporalId;
+
+    // vui_mvc_num_target_output_views_minus1[ i ] plus one specifies the number of target output views for the i-th
+    // operation point. The value of vui_mvc_num_target_output_views_minus1[ i ] shall be in the range of 0 to 1023, inclusive.
+    uint16_t vuiMVCOpsNumTargetViewsMinus1;
+
+    // vui_mvc_view_id[ i ][ j ] indicates the j-th target output view in the i-th operation point. The value of
+    // vui_mvc_view_id[ i ] shall be in the range of 0 to 1023, inclusive.
+    // The following syntax elements apply to the coded video sequence that is obtained by the sub-bitstream extraction process
+    // as specified in clause G.8.5.3 with tIdTarget equal to vui_mvc_temporal_id[ i ] and viewIdTargetList containing
+    // vui_mvc_view_id[ i ][ j ] for all j in the range of 0 to vui_mvc_num_target_output_views_minus1[ i ], inclusive, as the
+    // inputs and the i-th sub-bitstream as the output
+    uint16_t vuiMVCOpsTargetViewId[1024];
+    
+    // vui_mvc_timing_info_present_flag[ i ] equal to 1 specifies that vui_mvc_num_units_in_tick[ i ],
+    // vui_mvc_time_scale[ i ], and vui_mvc_fixed_frame_rate_flag[ i ] for the i-th sub-bitstream are present in the MVC VUI
+    // parameters extension. vui_mvc_timing_info_present_flag[ i ] equal to 0 specifies that vui_mvc_num_units_in_tick[ i ],
+    // vui_mvc_time_scale[ i ], and vui_mvc_fixed_frame_rate_flag[ i ] for the i-th sub-bitstream are not present in the MVC
+    // VUI parameters extension.
+    // The following syntax elements for the i-th sub-bitstream are specified using references to Annex E. For these syntax
+    // elements the same semantics and constraints as the ones specified in Annex E apply, as if these syntax elements
+    // vui_mvc_num_units_in_tick[ i ], vui_mvc_time_scale[ i ], vui_mvc_fixed_frame_rate_flag[ i ],
+    // vui_mvc_nal_hrd_parameters_present_flag[ i ], vui_mvc_vcl_hrd_parameters_present_flag[ i ],
+    // vui_mvc_low_delay_hrd_flag[ i ], and vui_mvc_pic_struct_present_flag[ i ] were present as the syntax elements
+    // num_units_in_tick, time_scale, fixed_frame_rate_flag, nal_hrd_parameters_present_flag,
+    // vcl_hrd_parameters_present_flag, low_delay_hrd_flag, and pic_struct_present_flag, respectively, in the VUI parameters
+    // of the active MVC sequence parameter sets for the i-th sub-bitstream.
+    bool vuiMVCTimingInfoPresentFlag;
+
+    // vui_mvc_num_units_in_tick[ i ] specifies the value of num_units_in_tick, as specified in clause E.2.1, for the i-th sub-
+    // bitstream.    
+    uint32_t vuiMVCNumUnitsInTick;
+
+    // vui_mvc_time_scale[ i ] specifies the value of time_scale, as specified in clause E.2.1, for the i-th sub-bitstream.
+    uint32_t vuiMVCTimeScale;
+
+    // vui_mvc_fixed_frame_rate_flag[ i ] specifies the value of fixed_frame_rate_flag, as specified in clause E.2.1, for the i-
+    // th sub-bitstream.
+    bool vuiMVCFixedFrameRateFlag;
+
+    // vui_mvc_nal_hrd_parameters_present_flag[ i ] specifies the value of nal_hrd_parameters_present_flag, as specified
+    // in clause E.2.1, for the i-th sub-bitstream.
+    // When vui_mvc_nal_hrd_parameters_present_flag[ i ] is equal to 1, NAL HRD parameters (clauses E.1.2 and E.2.2) for
+    // the i-th sub-bitstream immediately follow the flag.    
+    bool vuiMVCNalHrdParametersPresentFlag;
+    picoH264HypotheticalReferenceDecoder_t vuiMVCNalHrdParameters;
+
+    // vui_mvc_vcl_hrd_parameters_present_flag[ i ] specifies the value of vcl_hrd_parameters_present_flag, as specified in
+    // clause E.2.1, for the i-th sub-bitstream.
+    // When vui_mvc_vcl_hrd_parameters_present_flag[ i ] is equal to 1, VCL HRD parameters (clauses E.1.2 and E.2.2) for
+    // the i-th sub-bitstream immediately follow the flag
+    bool vuiMVCVclHrdParametersPresentFlag;
+    picoH264HypotheticalReferenceDecoder_t vuiMVCVclHrdParameters;
+    
+    // vui_mvc_low_delay_hrd_flag[ i ] specifies the value of low_delay_hrd_flag, as specified in clause E.2.1, for the i-th
+    // sub-bitstream.
+    bool vuiMVCLowDelayHrdFlag;
+
+    // vui_mvc_pic_struct_present_flag[ i ] specifies the value of pic_struct_present_flag, as specified in clause E.2.1, for the
+    // i-th sub-bitstream
+    bool vuiMVCPicStructPresentFlag;
+} picoH264MVCVUIParametersExtensionOpsEntry_t;
+typedef picoH264MVCVUIParametersExtensionOpsEntry_t *picoH264MVCVUIParametersExtensionOpsEntry;
+
+
+typedef struct {
+    // vui_mvc_num_ops_minus1 plus 1 specifies the number of operation points for which timing information, NAL HRD
+    // parameters, VCL HRD parameters, and the pic_struct_present_flag may be present. The value of
+    // vui_mvc_num_ops_minus1 shall be in the range of 0 to 1023, inclusive
+    uint16_t vuiMVCNumOpsMinus1;
+    picoH264MVCVUIParametersExtensionOpsEntry_t vuiMVCOpsEntries[1024];
+} picoH264MVCVUIParametersExtension_t;
+typedef picoH264MVCVUIParametersExtension_t *picoH264MVCVUIParametersExtension;
+
+// NOTE: We only implement this partially, only the parts needed for SVC and MVC parsing
+typedef struct {
+    // the base SPS data
+    picoH264SequenceParameterSet_t spsData;
+
+    bool hasSvcExtension; // present if profile_idc is 83 or 86
+    picoH264SPSSVCExtension_t svcExtension;
+
+    // svc_vui_parameters_present_flag equal to 0 specifies that the syntax structure svc_vui_parameters_extension( ) is not
+    // present. svc_vui_parameters_present_flag equal to 1 specifies that the syntax structure svc_vui_parameters_extension( )
+    // is present
+    bool svcVuiParametersPresentFlag;
+    picoH264SVCVUIParametersExtension_t svcVuiParametersExtension;
+
+    bool hasMvcExtension; // present if profile_idc is 118, 128, or 134
+    picoH264SPSMVCExtension_t mvcExtension;
+
+    // mvc_vui_parameters_present_flag equal to 0 specifies that the syntax structure mvc_vui_parameters_extension( ) is
+    // not present. mvc_vui_parameters_present_flag equal to 1 specifies that the syntax structure
+    // mvc_vui_parameters_extension( ) is present
+    bool mvcVuiParametersPresentFlag;
+    picoH264MVCVUIParametersExtension_t mvcVuiParametersExtension;
+
+    // we don't currently parse the rest of the extensions.
+    // can be added if needed, pull requests welcome!
+} picoH264SubsetSequenceParameterSet_t;
+typedef picoH264SubsetSequenceParameterSet_t *picoH264SubsetSequenceParameterSet;
+
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size);
 void picoH264BitstreamDestroy(picoH264Bitstream bitstream);
 
