@@ -1734,6 +1734,7 @@ const char *picoH264AspectRatioIDCToString(uint8_t idc);
 const char *picoH264ProfileIdcToString(uint8_t profileIdc);
 const char *picoH264VideoFormatToString(picoH264VideoFormat videoFormat);
 const char *picoH264SEIMessageTypeToString(picoH264SEIMessageType seiMessageType);
+const char* picoH264SliceTypeToString(picoH264SliceType sliceType);
 
 // for testing purposes only
 #define PICO_IMPLEMENTATION
@@ -1962,6 +1963,34 @@ const char *picoH264VideoFormatToString(picoH264VideoFormat videoFormat)
         default:
             return "Unknown";
     }
+
+const char* picoH264SliceTypeToString(picoH264SliceType sliceType)
+{
+    switch (sliceType) {
+        case PICO_H264_SLICE_TYPE_P:
+            return "P Slice";
+        case PICO_H264_SLICE_TYPE_B:
+            return "B Slice";
+        case PICO_H264_SLICE_TYPE_I:
+            return "I Slice";
+        case PICO_H264_SLICE_TYPE_SP:
+            return "SP Slice";
+        case PICO_H264_SLICE_TYPE_SI:
+            return "SI Slice";
+        case PICO_H264_SLICE_TYPE_P_ONLY:
+            return "P Only Slice";
+        case PICO_H264_SLICE_TYPE_B_ONLY:
+            return "B Only Slice";
+        case PICO_H264_SLICE_TYPE_I_ONLY:
+            return "I Only Slice";
+        case PICO_H264_SLICE_TYPE_SP_ONLY:
+            return "SP Only Slice";
+        case PICO_H264_SLICE_TYPE_SI_ONLY:
+            return "SI Only Slice";
+        default:
+            return "Unknown Slice Type";
+    }
+}
 }
 
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size)
