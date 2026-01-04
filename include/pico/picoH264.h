@@ -1546,6 +1546,7 @@ void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader);
 void picoH264SequenceParameterSetDebugPrint(picoH264SequenceParameterSet sps);
 void picoH264SequenceParameterSetExtensionDebugPrint(picoH264SequenceParameterSetExtension spsExt);
 void picoH264SubsetSequenceParameterSetDebugPrint(picoH264SubsetSequenceParameterSet spsSubset);
+void picoH264PictureParameterSetDebugPrint(picoH264PictureParameterSet pps);
 
 const char *picoH264NALRefIdcToString(picoH264NALRefIDC nalRefIdc);
 const char *picoH264NALUnitTypeToString(picoH264NALUnitType nalUnitType);
@@ -2544,6 +2545,76 @@ void picoH264SubsetSequenceParameterSetDebugPrint(picoH264SubsetSequenceParamete
             __picoH264MVCVUIParametersExtensionDebugPrint(&spsSubset->mvcVuiParametersExtension);
         }
     }
+}
+
+void picoH264PictureParameterSetDebugPrint(picoH264PictureParameterSet pps)
+{
+    PICO_ASSERT(pps != NULL);
+
+    PICO_H264_LOG("Picture Parameter Set:\n");
+    PICO_H264_LOG("  picParameterSetId: %u\n", (unsigned)pps->picParameterSetId);
+    PICO_H264_LOG("  seqParameterSetId: %u\n", (unsigned)pps->seqParameterSetId);
+    PICO_H264_LOG("  entropyCodingModeFlag: %s\n", pps->entropyCodingModeFlag ? "CABAC" : "Exp-Golomb/CAVLC");
+    PICO_H264_LOG("  bottomFieldPicOrderInFramePresentFlag: %s\n", pps->bottomFieldPicOrderInFramePresentFlag ? "true" : "false");
+    PICO_H264_LOG("  numSliceGroupsMinus1: %u\n", (unsigned)pps->numSliceGroupsMinus1);
+
+    if (pps->numSliceGroupsMinus1 > 0) {
+        PICO_H264_LOG("  sliceGroupMapType: %u\n", (unsigned)pps->sliceGroupMapType);
+
+        if (pps->sliceGroupMapType == 0) {
+            PICO_H264_LOG("    (interleaved slice groups)\n");
+            for (uint32_t i = 0; i < pps->numSliceGroupsMinus1 && i < 256; i++) {
+                PICO_H264_LOG("    runLengthMinus1[%u]: %u\n", (unsigned)i, (unsigned)pps->runLengthMinus1[i]);
+            }
+        } else if (pps->sliceGroupMapType == 1) {
+            PICO_H264_LOG("    (dispersed slice group mapping)\n");
+        } else if (pps->sliceGroupMapType == 2) {
+            PICO_H264_LOG("    (foreground and leftover slice groups)\n");
+            for (uint32_t i = 0; i < pps->numSliceGroupsMinus1 && i < 256; i++) {
+                PICO_H264_LOG("    topLeft[%u]: %u, bottomRight[%u]: %u\n",
+                    (unsigned)i, (unsigned)pps->topLeft[i],
+                    (unsigned)i, (unsigned)pps->bottomRight[i]);
+            }
+        } else if (pps->sliceGroupMapType >= 3 && pps->sliceGroupMapType <= 5) {
+            PICO_H264_LOG("    (changing slice groups, type %u)\n", (unsigned)pps->sliceGroupMapType);
+            PICO_H264_LOG("    sliceGroupChangeDirectionFlag: %s\n", pps->sliceGroupChangeDirectionFlag ? "true" : "false");
+            PICO_H264_LOG("    sliceGroupChangeRateMinus1: %u\n", (unsigned)pps->sliceGroupChangeRateMinus1);
+        } else if (pps->sliceGroupMapType == 6) {
+            PICO_H264_LOG("    (explicit slice group assignment)\n");
+            PICO_H264_LOG("    picSizeInMapUnitsMinus1: %u\n", (unsigned)pps->picSizeInMapUnitsMinus1);
+            for (uint32_t i = 0; i <= pps->picSizeInMapUnitsMinus1 && i < 1024; i++) {
+                PICO_H264_LOG("    sliceGroupId[%u]: %u\n", (unsigned)i, (unsigned)pps->sliceGroupId[i]);
+            }
+        }
+    }
+
+    PICO_H264_LOG("  numRefIdxL0DefaultActiveMinus1: %u\n", (unsigned)pps->numRefIdxL0DefaultActiveMinus1);
+    PICO_H264_LOG("  numRefIdxL1DefaultActiveMinus1: %u\n", (unsigned)pps->numRefIdxL1DefaultActiveMinus1);
+    PICO_H264_LOG("  weightedPredFlag: %s\n", pps->weightedPredFlag ? "true" : "false");
+    PICO_H264_LOG("  weightedBipredIdc: %u\n", (unsigned)pps->weightedBipredIdc);
+    PICO_H264_LOG("  picInitQpMinus26: %d\n", (int)pps->picInitQpMinus26);
+    PICO_H264_LOG("  picInitQsMinus26: %d\n", (int)pps->picInitQsMinus26);
+    PICO_H264_LOG("  chromaQpIndexOffset: %d\n", (int)pps->chromaQpIndexOffset);
+    PICO_H264_LOG("  deblockingFilterControlPresentFlag: %s\n", pps->deblockingFilterControlPresentFlag ? "true" : "false");
+    PICO_H264_LOG("  constrainedIntraPredFlag: %s\n", pps->constrainedIntraPredFlag ? "true" : "false");
+    PICO_H264_LOG("  redundantPicCntPresentFlag: %s\n", pps->redundantPicCntPresentFlag ? "true" : "false");
+    PICO_H264_LOG("  transform8x8ModeFlag: %s\n", pps->transform8x8ModeFlag ? "true" : "false");
+    PICO_H264_LOG("  picScalingMatrixPresentFlag: %s\n", pps->picScalingMatrixPresentFlag ? "true" : "false");
+
+    if (pps->picScalingMatrixPresentFlag) {
+        PICO_H264_LOG("  Scaling Lists:\n");
+        for (uint32_t i = 0; i < 12; i++) {
+            if (pps->picScalingListPresentFlag[i]) {
+                PICO_H264_LOG("    picScalingListPresentFlag[%u]: true\n", (unsigned)i);
+                PICO_H264_LOG("    useDefaultScalingMatrix%sFlag[%u]: %s\n",
+                    (i < 6) ? "4x4" : "8x8",
+                    (unsigned)(i < 6 ? i : i - 6),
+                    (i < 6 ? pps->useDefaultScalingMatrix4x4Flag[i] : pps->useDefaultScalingMatrix8x8Flag[i - 6]) ? "true" : "false");
+            }
+        }
+    }
+
+    PICO_H264_LOG("  secondChromaQpIndexOffset: %d\n", (int)pps->secondChromaQpIndexOffset);
 }
 
 #endif // PICO_H264_IMPLEMENTATION
