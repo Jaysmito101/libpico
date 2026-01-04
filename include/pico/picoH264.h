@@ -1613,6 +1613,18 @@ typedef struct {
 } picoH264PictureParameterSet_t;
 typedef picoH264PictureParameterSet_t *picoH264PictureParameterSet;
 
+
+// NOTE: we do not currently parse the individual SEI message types.
+//       as there are way too many of them, we can add specific parsers if needed
+//       but currently we dont have any use cases for that, so keeping it simple.
+//       pull requests welcome!
+typedef struct {
+    picoH264SEIMessageType payloadType;
+    size_t payloadSize;
+    uint8_t *payloadData; // pointer to payload data from the NAL unit buffer
+} picoH264SEIMessage_t;
+typedef picoH264SEIMessage_t *picoH264SEIMessage;
+
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size);
 void picoH264BitstreamDestroy(picoH264Bitstream bitstream);
 
