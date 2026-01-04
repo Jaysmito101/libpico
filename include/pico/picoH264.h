@@ -1297,7 +1297,7 @@ typedef struct {
     // vui_mvc_view_id[ i ][ j ] for all j in the range of 0 to vui_mvc_num_target_output_views_minus1[ i ], inclusive, as the
     // inputs and the i-th sub-bitstream as the output
     uint16_t vuiMVCOpsTargetViewId[1024];
-    
+
     // vui_mvc_timing_info_present_flag[ i ] equal to 1 specifies that vui_mvc_num_units_in_tick[ i ],
     // vui_mvc_time_scale[ i ], and vui_mvc_fixed_frame_rate_flag[ i ] for the i-th sub-bitstream are present in the MVC VUI
     // parameters extension. vui_mvc_timing_info_present_flag[ i ] equal to 0 specifies that vui_mvc_num_units_in_tick[ i ],
@@ -1314,7 +1314,7 @@ typedef struct {
     bool vuiMVCTimingInfoPresentFlag;
 
     // vui_mvc_num_units_in_tick[ i ] specifies the value of num_units_in_tick, as specified in clause E.2.1, for the i-th sub-
-    // bitstream.    
+    // bitstream.
     uint32_t vuiMVCNumUnitsInTick;
 
     // vui_mvc_time_scale[ i ] specifies the value of time_scale, as specified in clause E.2.1, for the i-th sub-bitstream.
@@ -1327,7 +1327,7 @@ typedef struct {
     // vui_mvc_nal_hrd_parameters_present_flag[ i ] specifies the value of nal_hrd_parameters_present_flag, as specified
     // in clause E.2.1, for the i-th sub-bitstream.
     // When vui_mvc_nal_hrd_parameters_present_flag[ i ] is equal to 1, NAL HRD parameters (clauses E.1.2 and E.2.2) for
-    // the i-th sub-bitstream immediately follow the flag.    
+    // the i-th sub-bitstream immediately follow the flag.
     bool vuiMVCNalHrdParametersPresentFlag;
     picoH264HypotheticalReferenceDecoder_t vuiMVCNalHrdParameters;
 
@@ -1337,7 +1337,7 @@ typedef struct {
     // the i-th sub-bitstream immediately follow the flag
     bool vuiMVCVclHrdParametersPresentFlag;
     picoH264HypotheticalReferenceDecoder_t vuiMVCVclHrdParameters;
-    
+
     // vui_mvc_low_delay_hrd_flag[ i ] specifies the value of low_delay_hrd_flag, as specified in clause E.2.1, for the i-th
     // sub-bitstream.
     bool vuiMVCLowDelayHrdFlag;
@@ -1347,7 +1347,6 @@ typedef struct {
     bool vuiMVCPicStructPresentFlag;
 } picoH264MVCVUIParametersExtensionOpsEntry_t;
 typedef picoH264MVCVUIParametersExtensionOpsEntry_t *picoH264MVCVUIParametersExtensionOpsEntry;
-
 
 typedef struct {
     // vui_mvc_num_ops_minus1 plus 1 specifies the number of operation points for which timing information, NAL HRD
@@ -1396,6 +1395,7 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
 void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader);
 void picoH264SequenceParameterSetDebugPrint(picoH264SequenceParameterSet sps);
 void picoH264SequenceParameterSetExtensionDebugPrint(picoH264SequenceParameterSetExtension spsExt);
+void picoH264SubsetSequenceParameterSetDebugPrint(picoH264SubsetSequenceParameterSet spsSubset);
 
 const char *picoH264NALRefIdcToString(picoH264NALRefIDC nalRefIdc);
 const char *picoH264NALUnitTypeToString(picoH264NALUnitType nalUnitType);
@@ -1404,7 +1404,7 @@ const char *picoH264ProfileIdcToString(uint8_t profileIdc);
 const char *picoH264VideoFormatToString(picoH264VideoFormat videoFormat);
 
 // for testing purposes only
-#define PICO_IMPLEMENTATION 
+#define PICO_IMPLEMENTATION
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_H264_IMPLEMENTATION)
 #define PICO_H264_IMPLEMENTATION
@@ -2226,6 +2226,173 @@ void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader)
 
     if (nalUnitHeader->mvcExtensionFlag) {
         __picoH264PrintMVCExtension(&nalUnitHeader->mvcExtension);
+    }
+}
+
+static void __picoH264SPSSVCExtensionDebugPrint(const picoH264SPSSVCExtension_t *svcExt)
+{
+    if (!svcExt)
+        return;
+
+    PICO_H264_LOG("  SPS SVC Extension:\n");
+    PICO_H264_LOG("    interLayerDeblockingFilterControlPresentFlag: %s\n", svcExt->interLayerDeblockingFilterControlPresentFlag ? "true" : "false");
+    PICO_H264_LOG("    extendedSpatialScalabilityIDC: %u\n", (unsigned)svcExt->extendedSpatialScalabilityIDC);
+    PICO_H264_LOG("    chromaPhaseXPlus1Flag: %s\n", svcExt->chromaPhaseXPlus1Flag ? "true" : "false");
+    PICO_H264_LOG("    chromaPhaseYPlus1: %u\n", (unsigned)svcExt->chromaPhaseYPlus1);
+    PICO_H264_LOG("    seqRefLayerChromaPhaseXPlus1Flag: %s\n", svcExt->seqRefLayerChromaPhaseXPlus1Flag ? "true" : "false");
+    PICO_H264_LOG("    seqRefLayerChromaPhaseYPlus1: %u\n", (unsigned)svcExt->seqRefLayerChromaPhaseYPlus1);
+    PICO_H264_LOG("    seqScaledRefLayerLeftOffset: %d\n", (int)svcExt->seqScaledRefLayerLeftOffset);
+    PICO_H264_LOG("    seqScaledRefLayerTopOffset: %d\n", (int)svcExt->seqScaledRefLayerTopOffset);
+    PICO_H264_LOG("    seqScaledRefLayerRightOffset: %d\n", (int)svcExt->seqScaledRefLayerRightOffset);
+    PICO_H264_LOG("    seqScaledRefLayerBottomOffset: %d\n", (int)svcExt->seqScaledRefLayerBottomOffset);
+    PICO_H264_LOG("    seqTcoeffLevelPredictionFlag: %s\n", svcExt->seqTcoeffLevelPredictionFlag ? "true" : "false");
+    PICO_H264_LOG("    adaptiveTcoeffLevelPredictionFlag: %s\n", svcExt->adaptiveTcoeffLevelPredictionFlag ? "true" : "false");
+    PICO_H264_LOG("    sliceHeaderRestrictionFlag: %s\n", svcExt->sliceHeaderRestrictionFlag ? "true" : "false");
+}
+
+static void __picoH264SVCVUIParametersExtensionDebugPrint(const picoH264SVCVUIParametersExtension_t *svcVui)
+{
+    if (!svcVui)
+        return;
+
+    PICO_H264_LOG("  SVC VUI Parameters Extension:\n");
+    PICO_H264_LOG("    vuiExtNumEntriesMinus1: %u\n", (unsigned)svcVui->vuiExtNumEntriesMinus1);
+
+    for (uint32_t i = 0; i < svcVui->vuiExtNumEntriesMinus1 && i < 1024; i++) {
+        const picoH264SVCVUIParametersExtensionEntry_t *entry = &svcVui->vuiExtEntries[i];
+        PICO_H264_LOG("    Entry[%u]:\n", (unsigned)i);
+        PICO_H264_LOG("      vuiExtDependencyId: %u\n", (unsigned)entry->vuiExtDependencyId);
+        PICO_H264_LOG("      vuiExtQualityId: %u\n", (unsigned)entry->vuiExtQualityId);
+        PICO_H264_LOG("      vuiExtTemporalId: %u\n", (unsigned)entry->vuiExtTemporalId);
+        PICO_H264_LOG("      vuiExtTimingInfoPresentFlag: %s\n", entry->vuiExtTimingInfoPresentFlag ? "true" : "false");
+
+        if (entry->vuiExtTimingInfoPresentFlag) {
+            PICO_H264_LOG("      vuiExtNumUnitsInTick: %u\n", (unsigned)entry->vuiExtNumUnitsInTick);
+            PICO_H264_LOG("      vuiExtTimeScale: %u\n", (unsigned)entry->vuiExtTimeScale);
+            PICO_H264_LOG("      vuiExtFixedFrameRateFlag: %s\n", entry->vuiExtFixedFrameRateFlag ? "true" : "false");
+        }
+
+        PICO_H264_LOG("      vuiExtNalHrdParametersPresentFlag: %s\n", entry->vuiExtNalHrdParametersPresentFlag ? "true" : "false");
+        PICO_H264_LOG("      vuiExtVclHrdParametersPresentFlag: %s\n", entry->vuiExtVclHrdParametersPresentFlag ? "true" : "false");
+
+        PICO_H264_LOG("      vuiExtLowDelayHrdFlag: %s\n", entry->vuiExtLowDelayHrdFlag ? "true" : "false");
+
+        PICO_H264_LOG("      vuiExtPicStructPresentFlag: %s\n", entry->vuiExtPicStructPresentFlag ? "true" : "false");
+    }
+}
+
+static void __picoH264SPSMVCExtensionDebugPrint(const picoH264SPSMVCExtension_t *mvcExt)
+{
+    if (!mvcExt)
+        return;
+
+    PICO_H264_LOG("  SPS MVC Extension:\n");
+    PICO_H264_LOG("    numViewsMinus1: %u\n", (unsigned)mvcExt->numViewsMinus1);
+
+    for (uint16_t i = 0; i < mvcExt->numViewsMinus1 && i < 1024; i++) {
+        PICO_H264_LOG("    viewId[%u]: %u\n", (unsigned)i, (unsigned)mvcExt->viewId[i]);
+    }
+
+    PICO_H264_LOG("    Anchor References (showing first 5 views):\n");
+    for (uint16_t i = 0; i < mvcExt->numViewsMinus1 && i < 5; i++) {
+        PICO_H264_LOG("      View[%u] L0: count=%u\n", (unsigned)i, (unsigned)mvcExt->numAnchorRefsL0[i]);
+        PICO_H264_LOG("      View[%u] L1: count=%u\n", (unsigned)i, (unsigned)mvcExt->numAnchorRefsL1[i]);
+    }
+
+    PICO_H264_LOG("    Non-Anchor References (showing first 5 views):\n");
+    for (uint16_t i = 0; i < mvcExt->numViewsMinus1 && i < 5; i++) {
+        PICO_H264_LOG("      View[%u] L0: count=%u\n", (unsigned)i, (unsigned)mvcExt->numNonAnchorRefsL0[i]);
+        PICO_H264_LOG("      View[%u] L1: count=%u\n", (unsigned)i, (unsigned)mvcExt->numNonAnchorRefsL1[i]);
+    }
+
+    PICO_H264_LOG("    numLevelValuesSignalledMinus1: %u\n", (unsigned)mvcExt->numLevelValuesSignalledMinus1);
+
+    for (uint8_t i = 0; i < mvcExt->numLevelValuesSignalledMinus1 && i < 64; i++) {
+        PICO_H264_LOG("    Level[%u]:\n", (unsigned)i);
+        PICO_H264_LOG("      levelIDC: %u\n", (unsigned)mvcExt->levelIDC[i]);
+        PICO_H264_LOG("      numApplicableOpsMinus1: %u\n", (unsigned)mvcExt->numApplicableOpsMinus1[i]);
+    }
+
+    PICO_H264_LOG("    mfcFormatIDC: %u\n", (unsigned)mvcExt->mfcFormatIDC);
+    PICO_H264_LOG("    defaultGridPositionFlag: %s\n", mvcExt->defaultGridPositionFlag ? "true" : "false");
+
+    if (!mvcExt->defaultGridPositionFlag) {
+        PICO_H264_LOG("    view0GridPositionX: %u\n", (unsigned)mvcExt->view0GridPositionX);
+        PICO_H264_LOG("    view0GridPositionY: %u\n", (unsigned)mvcExt->view0GridPositionY);
+        PICO_H264_LOG("    view1GridPositionX: %u\n", (unsigned)mvcExt->view1GridPositionX);
+        PICO_H264_LOG("    view1GridPositionY: %u\n", (unsigned)mvcExt->view1GridPositionY);
+    }
+
+    PICO_H264_LOG("    rpuFilterEnabledFlag: %s\n", mvcExt->rpuFilterEnabledFlag ? "true" : "false");
+    PICO_H264_LOG("    rpuFieldProcessingFlag: %s\n", mvcExt->rpuFieldProcessingFlag ? "true" : "false");
+}
+
+static void __picoH264MVCVUIParametersExtensionDebugPrint(const picoH264MVCVUIParametersExtension_t *mvcVui)
+{
+    if (!mvcVui)
+        return;
+
+    PICO_H264_LOG("  MVC VUI Parameters Extension:\n");
+    PICO_H264_LOG("    vuiMVCNumOpsMinus1: %u\n", (unsigned)mvcVui->vuiMVCNumOpsMinus1);
+
+    uint16_t numOpsToShow = mvcVui->vuiMVCNumOpsMinus1;
+    for (uint16_t i = 0; i < numOpsToShow && i < 1024; i++) {
+        const picoH264MVCVUIParametersExtensionOpsEntry_t *entry = &mvcVui->vuiMVCOpsEntries[i];
+        PICO_H264_LOG("    Operation Point[%u]:\n", (unsigned)i);
+        PICO_H264_LOG("      vuiMVCOpsTemporalId: %u\n", (unsigned)entry->vuiMVCOpsTemporalId);
+        PICO_H264_LOG("      vuiMVCOpsNumTargetViewsMinus1: %u\n", (unsigned)entry->vuiMVCOpsNumTargetViewsMinus1);
+        PICO_H264_LOG("      vuiMVCTimingInfoPresentFlag: %s\n", entry->vuiMVCTimingInfoPresentFlag ? "true" : "false");
+
+        if (entry->vuiMVCTimingInfoPresentFlag) {
+            PICO_H264_LOG("      vuiMVCNumUnitsInTick: %u\n", (unsigned)entry->vuiMVCNumUnitsInTick);
+            PICO_H264_LOG("      vuiMVCTimeScale: %u\n", (unsigned)entry->vuiMVCTimeScale);
+            PICO_H264_LOG("      vuiMVCFixedFrameRateFlag: %s\n", entry->vuiMVCFixedFrameRateFlag ? "true" : "false");
+        }
+
+        PICO_H264_LOG("      vuiMVCNalHrdParametersPresentFlag: %s\n", entry->vuiMVCNalHrdParametersPresentFlag ? "true" : "false");
+        PICO_H264_LOG("      vuiMVCVclHrdParametersPresentFlag: %s\n", entry->vuiMVCVclHrdParametersPresentFlag ? "true" : "false");
+
+        if (entry->vuiMVCNalHrdParametersPresentFlag || entry->vuiMVCVclHrdParametersPresentFlag) {
+            PICO_H264_LOG("      vuiMVCLowDelayHrdFlag: %s\n", entry->vuiMVCLowDelayHrdFlag ? "true" : "false");
+        }
+
+        PICO_H264_LOG("      vuiMVCPicStructPresentFlag: %s\n", entry->vuiMVCPicStructPresentFlag ? "true" : "false");
+    }
+}
+
+void picoH264SubsetSequenceParameterSetDebugPrint(picoH264SubsetSequenceParameterSet spsSubset)
+{
+    PICO_ASSERT(spsSubset != NULL);
+
+    PICO_H264_LOG("Subset Sequence Parameter Set:\n");
+    PICO_H264_LOG("  NOTE: This is a PARTIAL implementation per ITU-T H.264 specification.\n");
+    PICO_H264_LOG("  NOTE: The following extensions are NOT parsed/present:\n");
+    PICO_H264_LOG("    - seq_parameter_set_mvcd_extension() (for profile_idc 138 or 135)\n");
+    PICO_H264_LOG("    - seq_parameter_set_3davc_extension() (for profile_idc 139)\n");
+    PICO_H264_LOG("    - additional_extension2_flag and associated data\n");
+    PICO_H264_LOG("\n");
+
+    PICO_H264_LOG("  Base SPS Data:\n");
+    picoH264SequenceParameterSetDebugPrint(&spsSubset->spsData);
+
+    PICO_H264_LOG("\n  hasSvcExtension: %s\n", spsSubset->hasSvcExtension ? "true" : "false");
+    if (spsSubset->hasSvcExtension) {
+        __picoH264SPSSVCExtensionDebugPrint(&spsSubset->svcExtension);
+
+        PICO_H264_LOG("  svcVuiParametersPresentFlag: %s\n", spsSubset->svcVuiParametersPresentFlag ? "true" : "false");
+        if (spsSubset->svcVuiParametersPresentFlag) {
+            __picoH264SVCVUIParametersExtensionDebugPrint(&spsSubset->svcVuiParametersExtension);
+        }
+    }
+
+    PICO_H264_LOG("\n  hasMvcExtension: %s\n", spsSubset->hasMvcExtension ? "true" : "false");
+    if (spsSubset->hasMvcExtension) {
+        __picoH264SPSMVCExtensionDebugPrint(&spsSubset->mvcExtension);
+
+        PICO_H264_LOG("  mvcVuiParametersPresentFlag: %s\n", spsSubset->mvcVuiParametersPresentFlag ? "true" : "false");
+        if (spsSubset->mvcVuiParametersPresentFlag) {
+            __picoH264MVCVUIParametersExtensionDebugPrint(&spsSubset->mvcVuiParametersExtension);
+        }
     }
 }
 
