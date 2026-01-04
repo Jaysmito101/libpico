@@ -3072,6 +3072,7 @@ bool __picoH264ParseSEIMessage(picoH264BufferReader br, picoH264SEIMessage seiMe
     if (seiMessageOut) {
         seiMessageOut->payloadType = payloadType;
         seiMessageOut->payloadSize = payloadSize;
+        seiMessageOut->payloadData = (uint8_t *)br->buffer + br->position;
     }
 
     picoH264BufferReaderSkipBits(br, payloadSize * 8);
