@@ -252,6 +252,19 @@ typedef enum {
     PICO_H264_SEI_MESSAGE_TYPE_PHASE_INDICATION                           = 212,
 } picoH264SEIMessageType;
 
+typedef enum {
+    PICO_H264_SLICE_TYPE_P       = 0,
+    PICO_H264_SLICE_TYPE_B       = 1,
+    PICO_H264_SLICE_TYPE_I       = 2,
+    PICO_H264_SLICE_TYPE_SP      = 3,
+    PICO_H264_SLICE_TYPE_SI      = 4,
+    PICO_H264_SLICE_TYPE_P_ONLY  = 5,
+    PICO_H264_SLICE_TYPE_B_ONLY  = 6,
+    PICO_H264_SLICE_TYPE_I_ONLY  = 7,
+    PICO_H264_SLICE_TYPE_SP_ONLY = 8,
+    PICO_H264_SLICE_TYPE_SI_ONLY = 9,
+} picoH264SliceType;
+
 typedef struct {
     // idr_flag equal to 1 specifies that the current coded picture is an IDR picture when the value of dependency_id for the
     // NAL unit is equal to the maximum value of dependency_id in the coded picture. idr_flag equal to 0 specifies that the
@@ -1613,7 +1626,6 @@ typedef struct {
 } picoH264PictureParameterSet_t;
 typedef picoH264PictureParameterSet_t *picoH264PictureParameterSet;
 
-
 // NOTE: we do not currently parse the individual SEI message types.
 //       as there are way too many of them, we can add specific parsers if needed
 //       but currently we dont have any use cases for that, so keeping it simple.
@@ -1633,11 +1645,380 @@ typedef struct {
 typedef picoH264AccessUnitDelimiter_t *picoH264AccessUnitDelimiter;
 
 typedef struct {
-    int dummy;
+    // modification_of_pic_nums_idc together with abs_diff_pic_num_minus1 or long_term_pic_num specifies which of the
+    // reference pictures are re-mapped. The values of modification_of_pic_nums_idc are specified in Table 7-7. The value of
+    // the first modification_of_pic_nums_idc that follows immediately after ref_pic_list_modification_flag_l0 or
+    // ref_pic_list_modification_flag_l1 shall not be equal to 3.
+    uint32_t modificationOfPicNumsIdc;
+
+    // abs_diff_pic_num_minus1 plus 1 specifies the absolute difference between the picture number of the picture being
+    // moved to the current index in the list and the picture number prediction value. abs_diff_pic_num_minus1 shall be in the
+    // range of 0 to MaxPicNum − 1. The allowed values of abs_diff_pic_num_minus1 are further restricted as specified in
+    // clause 8.2.4.3.1.
+    uint32_t absDiffPicNumMinus1;
+
+    // long_term_pic_num specifies the long-term picture number of the picture being moved to the current index in the list.
+    // When decoding a coded frame, long_term_pic_num shall be equal to a LongTermPicNum assigned to one of the reference
+    // frames or complementary reference field pairs marked as "used for long-term reference". When decoding a coded field,
+    // long_term_pic_num shall be equal to a LongTermPicNum assigned to one of the reference fields marked as "used for
+    // long-term reference".
+    uint32_t longTermPicNum;
+
+    // abs_diff_view_idx_minus1 plus 1 specifies the absolute difference between the reference view index to put to the current
+    // index in the reference picture list and the prediction value of the reference view index
+    // NOTE: only used for MVC
+    uint32_t abs_diff_view_idx_minus1;
+} picoH264RefPicListModificationEntry_t;
+typedef picoH264RefPicListModificationEntry_t *picoH264RefPicListModificationEntry;
+
+typedef struct {
+    // ref_pic_list_modification_flag_l0 equal to 1 specifies that the syntax element modification_of_pic_nums_idc is present
+    // for specifying reference picture list 0. ref_pic_list_modification_flag_l0 equal to 0 specifies that this syntax element is
+    // not present.
+    // When ref_pic_list_modification_flag_l0 is equal to 1, the number of times that modification_of_pic_nums_idc is not
+    // equal to 3 following ref_pic_list_modification_flag_l0 shall not exceed num_ref_idx_l0_active_minus1 + 1.
+    // When RefPicList0[ num_ref_idx_l0_active_minus1 ] in the initial reference picture list produced as specified in
+    // clause 8.2.4.2 is equal to "no reference picture", ref_pic_list_modification_flag_l0 shall be equal to 1 and
+    // modification_of_pic_nums_idc shall not be equal to 3 until RefPicList0[ num_ref_idx_l0_active_minus1 ] in the
+    // modified list produced as specified in clause 8.2.4.3 is not equal to "no reference picture"
+    bool refPicListModificationFlagL0;
+
+    uint32_t numModificationsL0;
+    picoH264RefPicListModificationEntry_t modificationsL0[128];
+
+    // ref_pic_list_modification_flag_l1 equal to 1 specifies that the syntax element modification_of_pic_nums_idc is present
+    // for specifying reference picture list 1. ref_pic_list_modification_flag_l1 equal to 0 specifies that this syntax element is
+    // not present.
+    // When ref_pic_list_modification_flag_l1 is equal to 1, the number of times that modification_of_pic_nums_idc is not
+    // equal to 3 following ref_pic_list_modification_flag_l1 shall not exceed num_ref_idx_l1_active_minus1 + 1.
+    // When decoding a slice with slice_type equal to 1 or 6 and RefPicList1[ num_ref_idx_l1_active_minus1 ] in the initial
+    // reference picture list produced as specified in clause 8.2.4.2 is equal to "no reference picture",
+    // ref_pic_list_modification_flag_l1 shall be equal to 1 and modification_of_pic_nums_idc shall not be equal to 3 until
+    // RefPicList1[ num_ref_idx_l1_active_minus1 ] in the modified list produced as specified in clause 8.2.4.3 is not equal to
+    // "no reference picture".
+    bool refPicListModificationFlagL1;
+
+    uint32_t numModificationsL1;
+    picoH264RefPicListModificationEntry_t modificationsL1[128];
+} picoH264RefPicListModification_t;
+typedef picoH264RefPicListModification_t *picoH264RefPicListModification;
+
+typedef struct {
+    // luma_log2_weight_denom is the base 2 logarithm of the denominator for all luma weighting factors. The value of
+    // luma_log2_weight_denom shall be in the range of 0 to 7, inclusive
+    uint8_t lumaLog2WeightDenom;
+
+    // chroma_log2_weight_denom is the base 2 logarithm of the denominator for all chroma weighting factors. The value of
+    // chroma_log2_weight_denom shall be in the range of 0 to 7, inclusive.
+    uint32_t chromaLog2WeightDenom;
+
+    // luma_weight_l0_flag equal to 1 specifies that weighting factors for the luma component of list 0 prediction are present.
+    // luma_weight_l0_flag equal to 0 specifies that these weighting factors are not present.
+    bool lumaWeightL0Flag[32];
+
+    // luma_weight_l0[ i ] is the weighting factor applied to the luma prediction value for list 0 prediction using RefPicList0[ i ].
+    // When luma_weight_l0_flag is equal to 1, the value of luma_weight_l0[ i ] shall be in the range of −128 to 127, inclusive.
+    // When luma_weight_l0_flag is equal to 0, luma_weight_l0[ i ] shall be inferred to be equal to 2
+    // luma_log2_weight_denom for
+    // RefPicList0[ i ].
+    int8_t lumaWeightL0[32];
+
+    // luma_offset_l0[ i ] is the additive offset applied to the luma prediction value for list 0 prediction using RefPicList0[ i ].
+    // The value of luma_offset_l0[ i ] shall be in the range of −128 to 127, inclusive. When luma_weight_l0_flag is equal to 0,
+    // luma_offset_l0[ i ] shall be inferred as equal to 0 for RefPicList0[ i ].
+    int8_t lumaOffsetL0[32];
+
+    // chroma_weight_l0_flag equal to 1 specifies that weighting factors for the chroma prediction values of list 0 prediction
+    // are present. chroma_weight_l0_flag equal to 0 specifies that these weighting factors are not present
+    bool chromaWeightL0Flag[32];
+
+    // chroma_weight_l0[ i ][ j ] is the weighting factor applied to the chroma prediction values for list 0 prediction using
+    // RefPicList0[ i ] with j equal to 0 for Cb and j equal to 1 for Cr. When chroma_weight_l0_flag is equal to 1, the value of
+    // chroma_weight_l0[ i ][ j ] shall be in the range of −128 to 127, inclusive. When chroma_weight_l0_flag is equal to 0,
+    // chroma_weight_l0[ i ][ j ] shall be inferred to be equal to 2^chroma_log2_weight_denom for RefPicList0[ i ].
+    int8_t chromaWeightL0[32][2];
+
+    // chroma_offset_l0[ i ][ j ] is the additive offset applied to the chroma prediction values for list 0 prediction using
+    // RefPicList0[ i ] with j equal to 0 for Cb and j equal to 1 for Cr. The value of chroma_offset_l0[ i ][ j ] shall be in the range
+    // of −128 to 127, inclusive. When chroma_weight_l0_flag is equal to 0, chroma_offset_l0[ i ][ j ] shall be inferred to be
+    // equal to 0 for RefPicList0[ i ].
+    int8_t chromaOffsetL0[32][2];
+
+    // luma_weight_l1_flag, luma_weight_l1, luma_offset_l1, chroma_weight_l1_flag, chroma_weight_l1,
+    // chroma_offset_l1 have the same semantics as luma_weight_l0_flag, luma_weight_l0, luma_offset_l0,
+    // chroma_weight_l0_flag, chroma_weight_l0, chroma_offset_l0, respectively, with l0, list 0, and List0 replaced by l1,
+    // list 1, and List1, respectively.
+    bool lumaWeightL1Flag[32];
+    int16_t lumaWeightL1[32];
+    int16_t lumaOffsetL1[32];
+
+    bool chromaWeightL1Flag[32];
+    int16_t chromaWeightL1[32][2];
+    int16_t chromaOffsetL1[32][2];
+} picoH264PredWeightTable_t;
+typedef picoH264PredWeightTable_t *picoH264PredWeightTable;
+
+typedef struct {
+    // memory_management_control_operation specifies a control operation to be applied to affect the reference picture
+    // marking. The memory_management_control_operation syntax element is followed by data necessary for the operation
+    // specified by the value of memory_management_control_operation. The values and control operations associated with
+    // memory_management_control_operation are specified in Table 7-9. The memory_management_control_operation
+    // syntax elements are processed by the decoding process in the order in which they appear in the slice header, and the
+    // semantics constraints expressed for each memory_management_control_operation apply at the specific position in that
+    // order at which that individual memory_management_control_operation is processed.
+    // 0 => End memory_management_control_operation syntax element loop
+    // 1 => Mark a short-term reference picture as "unused for reference"
+    // 2 => Mark a long-term reference picture as "unused for reference"
+    // 3 => Mark a short-term reference picture as "used for long-term reference" and assign a long-term frame index to it
+    // 4 => Specify the maximum long-term frame index and mark all long-term reference pictures having long-term frame indices greater than the maximum value as "unused for reference"
+    // 5 => Mark all reference pictures as "unused for reference" and set the MaxLongTermFrameIdx variable to "no long-term frame indices"
+    // 6 => Mark the current picture as "used for long-term reference" and assign a long-term frame index to it
+    uint32_t memoryManagementControlOperation;
+
+    // difference_of_pic_nums_minus1 is used (with memory_management_control_operation equal to 3 or 1) to assign a
+    // long-term frame index to a short-term reference picture or to mark a short-term reference picture as "unused for reference".
+    // When the associated memory_management_control_operation is processed by the decoding process, the resulting picture
+    // number derived from difference_of_pic_nums_minus1 shall be a picture number assigned to one of the reference pictures
+    // marked as "used for reference" and not previously assigned to a long-term frame index.
+    uint32_t differenceOfPicNumsMinus1;
+
+    // long_term_pic_num is used (with memory_management_control_operation equal to 2) to mark a long-term reference
+    // picture as "unused for reference". When the associated memory_management_control_operation is processed by the
+    // decoding process, long_term_pic_num shall be equal to a long-term picture number assigned to one of the reference
+    // pictures that is currently marked as "used for long-term reference"
+    uint32_t longTermPicNum;
+
+    // long_term_frame_idx is used (with memory_management_control_operation equal to 3 or 6) to assign a long-term
+    // frame index to a picture. When the associated memory_management_control_operation is processed by the decoding
+    // process, the value of long_term_frame_idx shall be in the range of 0 to MaxLongTermFrameIdx, inclusive.
+    uint32_t longTermFrameIdx;
+
+    // max_long_term_frame_idx_plus1 minus 1 specifies the maximum value of long-term frame index allowed for
+    // long-term reference pictures (until receipt of another value of max_long_term_frame_idx_plus1). The value of
+    // max_long_term_frame_idx_plus1 shall be in the range of 0 to max_num_ref_frames, inclusive.
+    uint32_t maxLongTermFrameIdxPlus1;
+} picoH264MMCOOperation_t;
+typedef picoH264MMCOOperation_t *picoH264MMCOOperation;
+
+typedef struct {
+    // no_output_of_prior_pics_flag specifies how the previously-decoded pictures in the decoded picture buffer are treated
+    // after decoding of an IDR picture. See Annex C. When the IDR picture is the first IDR picture in the bitstream, the value
+    // of no_output_of_prior_pics_flag has no effect on the decoding process. When the IDR picture is not the first IDR picture
+    // in the bitstream and the value of PicWidthInMbs, FrameHeightInMbs, or max_dec_frame_buffering derived from the
+    // active sequence parameter set is different from the value of PicWidthInMbs, FrameHeightInMbs, or
+    // max_dec_frame_buffering derived from the sequence parameter set active for the preceding picture,
+    // no_output_of_prior_pics_flag equal to 1 may (but should not) be inferred by the decoder, regardless of the actual value
+    // of no_output_of_prior_pics_flag.
+    bool noOutputOfPriorPicsFlag;
+
+    // long_term_reference_flag equal to 0 specifies that the MaxLongTermFrameIdx variable is set equal to "no long-term
+    // frame indices" and that the IDR picture is marked as "used for short-term reference". long_term_reference_flag equal to 1
+    // specifies that the MaxLongTermFrameIdx variable is set equal to 0 and that the current IDR picture is marked "used for
+    // long-term reference" and is assigned LongTermFrameIdx equal to 0. When max_num_ref_frames is equal to 0,
+    // long_term_reference_flag shall be equal to 0.
+    bool longTermReferenceFlag;
+
+    // adaptive_ref_pic_marking_mode_flag selects the reference picture marking mode of the currently decoded picture as
+    // specified in Table 7-8. adaptive_ref_pic_marking_mode_flag shall be equal to 1 when the number of frames,
+    // complementary field pairs, and non-paired fields that are currently marked as "used for long-term reference" is equal to
+    // Max( max_num_ref_frames, 1 ).
+    bool adaptiveRefPicMarkingModeFlag;
+
+    uint32_t numMMCOOperations;
+    picoH264MMCOOperation_t mmcoOperations[128];
+} picoH264DecRefPicMarking_t;
+typedef picoH264DecRefPicMarking_t *picoH264DecRefPicMarking;
+
+typedef struct {
+    // first_mb_in_slice specifies the address of the first macroblock in the slice. When arbitrary slice order is not allowed as
+    // specified in Annex A, the value of first_mb_in_slice is constrained as follows:
+    //     – If separate_colour_plane_flag is equal to 0, the value of first_mb_in_slice shall not be less than the value of
+    //     first_mb_in_slice for any other slice of the current picture that precedes the current slice in decoding order.
+    //     – Otherwise (separate_colour_plane_flag is equal to 1), the value of first_mb_in_slice shall not be less than the value
+    //     of first_mb_in_slice for any other slice of the current picture that precedes the current slice in decoding order and
+    //     has the same value of colour_plane_id.
+    // The first macroblock address of the slice is derived as follows:
+    //     – If MbaffFrameFlag is equal to 0, first_mb_in_slice is the macroblock address of the first macroblock in the slice,
+    //     and first_mb_in_slice shall be in the range of 0 to PicSizeInMbs − 1, inclusive.
+    //     – Otherwise (MbaffFrameFlag is equal to 1), first_mb_in_slice * 2 is the macroblock address of the first macroblock
+    //     in the slice, which is the top macroblock of the first macroblock pair in the slice, and first_mb_in_slice shall be in
+    //     the range of 0 to PicSizeInMbs / 2 − 1, inclusive
+    uint32_t firstMbInSlice;
+
+    // When slice_type has a value in the range 5..9, it is a requirement of bitstream conformance that all other slices of the
+    // current coded picture shall have a value of slice_type equal to the current value of slice_type or equal to the current value
+    // of slice_type minus 5
+    picoH264SliceType sliceType;
+
+    // pic_parameter_set_id specifies the picture parameter set in use. The value of pic_parameter_set_id shall be in the range
+    // of 0 to 255, inclusive.
+    uint8_t picParameterSetId;
+
+    // colour_plane_id specifies the colour plane associated with the current slice RBSP when separate_colour_plane_flag is
+    // equal to 1. The value of colour_plane_id shall be in the range of 0 to 2, inclusive. colour_plane_id equal to 0, 1, and 2
+    // correspond to the Y, Cb, and Cr planes, respectively.
+    uint8_t colourPlaneId;
+
+    // frame_num is used as an identifier for pictures and shall be represented by log2_max_frame_num_minus4 + 4 bits in the bitstream
+    uint32_t frameNum;
+
+    // field_pic_flag equal to 1 specifies that the slice is a slice of a coded field. field_pic_flag equal to 0 specifies that the slice
+    // is a slice of a coded frame. When field_pic_flag is not present it shall be inferred to be equal to 0.
+    bool fieldPicFlag;
+
+    // bottom_field_flag equal to 1 specifies that the slice is part of a coded bottom field. bottom_field_flag equal to 0 specifies
+    // that the picture is a coded top field. When this syntax element is not present for the current slice, it shall be inferred to be
+    // equal to 0.
+    bool bottomFieldFlag;
+
+    // idr_pic_id identifies an IDR picture. The values of idr_pic_id in all the slices of an IDR picture shall remain unchanged.
+    // When two consecutive access units in decoding order are both IDR access units, the value of idr_pic_id in the slices of
+    // the first such IDR access unit shall differ from the idr_pic_id in the second such IDR access unit. The value of idr_pic_id
+    // shall be in the range of 0 to 65535, inclusive
+    uint16_t idrPicId;
+
+    // pic_order_cnt_lsb specifies the picture order count modulo MaxPicOrderCntLsb for the top field of a coded frame or
+    // for a coded field. The length of the pic_order_cnt_lsb syntax element is log2_max_pic_order_cnt_lsb_minus4 + 4 bits.
+    // The value of the pic_order_cnt_lsb shall be in the range of 0 to MaxPicOrderCntLsb − 1, inclusive
+    uint32_t picOrderCntLsb;
+
+    // delta_pic_order_cnt_bottom specifies the picture order count difference between the bottom field and the top field of a
+    // coded frame as follows:
+    //     – If the current picture includes a memory_management_control_operation equal to 5, the value of
+    //     delta_pic_order_cnt_bottom shall be in the range of ( 1 − MaxPicOrderCntLsb ) to 2^31 − 1, inclusive.
+    //     – Otherwise (the current picture does not include a memory_management_control_operation equal to 5), the value of
+    //     delta_pic_order_cnt_bottom shall be in the range of −2^31 + 1 to 2^31 − 1, inclusive.
+    //     When this syntax element is not present in the bitstream for the current slice, it shall be inferred to be equal to 0.
+    int32_t deltaPicOrderCntBottom;
+
+    // delta_pic_order_cnt[ 0 ] specifies the picture order count difference from the expected picture order count for the top
+    // field of a coded frame or for a coded field as specified in clause 8.2.1. The value of delta_pic_order_cnt[ 0 ] shall be in
+    // the range of −2^31 + 1 to 2^31 − 1, inclusive. When this syntax element is not present in the bitstream for the current slice, it
+    // shall be inferred to be equal to 0.
+    // delta_pic_order_cnt[ 1 ] specifies the picture order count difference from the expected picture order count for the bottom
+    // field of a coded frame specified in clause 8.2.1. The value of delta_pic_order_cnt[ 1 ] shall be in the range of −2^31 + 1
+    // to 2^31 − 1, inclusive. When this syntax element is not present in the bitstream for the current slice, it shall be inferred to
+    // be equal to 0.
+    int32_t deltaPicOrderCnt[2];
+
+    // redundant_pic_cnt shall be equal to 0 for slices and slice data partitions belonging to the primary coded picture. The
+    // value of redundant_pic_cnt shall be greater than 0 for coded slices or coded slice data partitions of a redundant coded
+    // picture. When redundant_pic_cnt is not present in the bitstream, its value shall be inferred to be equal to 0. The value of
+    // redundant_pic_cnt shall be in the range of 0 to 127, inclusive
+    int8_t redundantPicCnt;
+
+    // direct_spatial_mv_pred_flag specifies the method used in the decoding process to derive motion vectors and reference
+    // indices for inter prediction as follows:
+    //     – If direct_spatial_mv_pred_flag is equal to 1, the derivation process for luma motion vectors for B_Skip,
+    //     B_Direct_16x16, and B_Direct_8x8 in clause 8.4.1.2 shall use spatial direct mode prediction as specified in
+    //     clause 8.4.1.2.2.
+    //     – Otherwise (direct_spatial_mv_pred_flag is equal to 0), the derivation process for luma motion vectors for B_Skip,
+    //     B_Direct_16x16, and B_Direct_8x8 in clause 8.4.1.2 shall use temporal direct mode prediction as specified in
+    //     clause 8.4.1.2.3
+    bool directSpatialMvPredFlag;
+
+    // num_ref_idx_active_override_flag equal to 1 specifies that the syntax element num_ref_idx_l0_active_minus1 is
+    // present for P, SP, and B slices and that the syntax element num_ref_idx_l1_active_minus1 is present for B slices.
+    // num_ref_idx_active_override_flag equal to 0 specifies that the syntax elements num_ref_idx_l0_active_minus1 and
+    // num_ref_idx_l1_active_minus1 are not present.
+    // When the current slice is a P, SP, or B slice and field_pic_flag is equal to 0 and the value of
+    // num_ref_idx_l0_default_active_minus1 in the picture parameter set exceeds 15, num_ref_idx_active_override_flag shall
+    // be equal to 1.
+    // When the current slice is a B slice and field_pic_flag is equal to 0 and the value of
+    // num_ref_idx_l1_default_active_minus1 in the picture parameter set exceeds 15, num_ref_idx_active_override_flag shall
+    // be equal to 1.
+    bool numRefIdxActiveOverrideFlag;
+
+    // num_ref_idx_l0_active_minus1 specifies the maximum reference index for reference picture list 0 that shall be used to
+    // decode the slice.
+    // When the current slice is a P, SP, or B slice and num_ref_idx_l0_active_minus1 is not present,
+    // num_ref_idx_l0_active_minus1 shall be inferred to be equal to num_ref_idx_l0_default_active_minus1.
+    // The range of num_ref_idx_l0_active_minus1 is specified as follows:
+    //     – If field_pic_flag is equal to 0, num_ref_idx_l0_active_minus1 shall be in the range of 0 to 15, inclusive. When
+    //     MbaffFrameFlag is equal to 1, num_ref_idx_l0_active_minus1 is the maximum index value for the decoding of frame
+    //     macroblocks and 2 * num_ref_idx_l0_active_minus1 + 1 is the maximum index value for the decoding of field
+    //     macroblocks.
+    //     – Otherwise (field_pic_flag is equal to 1), num_ref_idx_l0_active_minus1 shall be in the range of 0 to 31, inclusive.
+    uint32_t numRefIdxL0ActiveMinus1;
+
+    // num_ref_idx_l1_active_minus1 specifies the maximum reference index for reference picture list 1 that shall be used to
+    // decode the slice.
+    // When the current slice is a B slice and num_ref_idx_l1_active_minus1 is not present, num_ref_idx_l1_active_minus1
+    // shall be inferred to be equal to num_ref_idx_l1_default_active_minus1
+    uint32_t numRefIdxL1ActiveMinus1;
+
+    picoH264RefPicListModification_t refPicListMvcModification;
+
+    picoH264RefPicListModification_t refPicListModification;
+
+    picoH264PredWeightTable_t predWeightTable;
+
+    picoH264DecRefPicMarking_t decRefPicMarking;
+
+    // cabac_init_idc specifies the index for determining the initialization table used in the initialization process for context
+    // variables. The value of cabac_init_idc shall be in the range of 0 to 2, inclusive.
+    uint32_t cabacInitIdc;
+
+    // slice_qp_delta specifies the initial value of QPY to be used for all the macroblocks in the slice until modified by the value
+    // of mb_qp_delta in the macroblock layer. The initial QPY quantization parameter for the slice is computed as
+    // SliceQPY = 26 + pic_init_qp_minus26 + slice_qp_delta
+    // The value of slice_qp_delta shall be limited such that SliceQPY is in the range of −QpBdOffsetY to +51, inclusive.
+    int8_t sliceQpDelta;
+
+    // sp_for_switch_flag specifies the decoding process to be used to decode P macroblocks in an SP slice as follows:
+    //     – If sp_for_switch_flag is equal to 0, the P macroblocks in the SP slice shall be decoded using the SP decoding process
+    //     for non-switching pictures as specified in clause 8.6.1.
+    //     – Otherwise (sp_for_switch_flag is equal to 1), the P macroblocks in the SP slice shall be decoded using the SP and SI
+    //     decoding process for switching pictures as specified in clause 8.6.2.
+    bool spForSwitchFlag;
+
+    // slice_qs_delta specifies the value of QSY for all the macroblocks in SP and SI slices. The QSY quantization parameter
+    // for the slice is computed as
+    //     QSY = 26 + pic_init_qs_minus26 + slice_qs_delta (7-33)
+    // The value of slice_qs_delta shall be limited such that QSY is in the range of 0 to 51, inclusive. This value of QSY is used
+    // for the decoding of all macroblocks in SI slices with mb_type equal to SI and all macroblocks in SP slices that are coded
+    // in an Inter macroblock prediction mode.
+    int8_t sliceQsDelta;
+
+    // disable_deblocking_filter_idc specifies whether the operation of the deblocking filter shall be disabled across some
+    // block edges of the slice and specifies for which edges the filtering is disabled. When disable_deblocking_filter_idc is not
+    // present in the slice header, the value of disable_deblocking_filter_idc shall be inferred to be equal to 0.
+    // The value of disable_deblocking_filter_idc shall be in the range of 0 to 2, inclusive.
+    int8_t disableDeblockingFilterIdc;
+
+    // slice_alpha_c0_offset_div2 specifies the offset used in accessing the α and tC0 deblocking filter tables for filtering
+    // operations controlled by the macroblocks within the slice. From this value, the offset that shall be applied when addressing
+    // these tables shall be computed as
+    //     FilterOffsetA = slice_alpha_c0_offset_div2 << 1
+    // The value of slice_alpha_c0_offset_div2 shall be in the range of −6 to +6, inclusive. When slice_alpha_c0_offset_div2 is
+    // not present in the slice header, the value of slice_alpha_c0_offset_div2 shall be inferred to be equal to 0.
+    int32_t sliceAlphaC0OffsetDiv2;
+
+    // slice_beta_offset_div2 specifies the offset used in accessing the β deblocking filter table for filtering operations
+    // controlled by the macroblocks within the slice. From this value, the offset that is applied when addressing the β table of
+    // the deblocking filter shall be computed as
+    //     FilterOffsetB = slice_beta_offset_div2 << 1
+    // The value of slice_beta_offset_div2 shall be in the range of −6 to +6, inclusive. When slice_beta_offset_div2 is not
+    // present in the slice header the value of slice_beta_offset_div2 shall be inferred to be equal to 0.
+    int32_t sliceBetaOffsetDiv2;
+
+    // slice_group_change_cycle is used to derive the number of slice group map units in slice group 0 when
+    // slice_group_map_type is equal to 3, 4, or 5, as specified by
+    //     MapUnitsInSliceGroup0 = Min( slice_group_change_cycle * SliceGroupChangeRate, PicSizeInMapUnits )
+    // The value of slice_group_change_cycle is represented in the bitstream by the following number of bits
+    //     Ceil( Log2( PicSizeInMapUnits ÷ SliceGroupChangeRate + 1 ) )
+    // The value of slice_group_change_cycle shall be in the range of 0 to Ceil( PicSizeInMapUnits÷SliceGroupChangeRate ),
+    // inclusive.
+    uint32_t sliceGroupChangeCycle;
 } picoH264SliceHeader_t;
 typedef picoH264SliceHeader_t *picoH264SliceHeader;
 
 typedef struct {
+    // NOTE: we do not currently parse slice data
+    //       as its not needed for the primary use case of
+    //       this library (vulkan video / directx video decoding)
+    // TODO: This is something that will probably be implemented in the future
+    //       pull requests are welcome :)
     int dummy;
 } picoH264SliceData_t;
 typedef picoH264SliceData_t *picoH264SliceData;
@@ -1708,7 +2089,7 @@ typedef struct {
 
     // redundant_pic_cnt has the same semantics as specified for slice_data_partition_b_layer( ) syntax structure.
     uint16_t redundantPicCnt;
-    
+
     picoH264SliceData_t data;
 } picoH264SliceDataPartitionCLayer_t;
 typedef picoH264SliceDataPartitionCLayer_t *picoH264SliceDataPartitionCLayer;
@@ -1963,6 +2344,7 @@ const char *picoH264VideoFormatToString(picoH264VideoFormat videoFormat)
         default:
             return "Unknown";
     }
+}
 
 const char* picoH264SliceTypeToString(picoH264SliceType sliceType)
 {
@@ -1990,7 +2372,6 @@ const char* picoH264SliceTypeToString(picoH264SliceType sliceType)
         default:
             return "Unknown Slice Type";
     }
-}
 }
 
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size)
@@ -2782,8 +3163,8 @@ void picoH264PictureParameterSetDebugPrint(picoH264PictureParameterSet pps)
             PICO_H264_LOG("    (foreground and leftover slice groups)\n");
             for (uint32_t i = 0; i < pps->numSliceGroupsMinus1 && i < 256; i++) {
                 PICO_H264_LOG("    topLeft[%u]: %u, bottomRight[%u]: %u\n",
-                    (unsigned)i, (unsigned)pps->topLeft[i],
-                    (unsigned)i, (unsigned)pps->bottomRight[i]);
+                              (unsigned)i, (unsigned)pps->topLeft[i],
+                              (unsigned)i, (unsigned)pps->bottomRight[i]);
             }
         } else if (pps->sliceGroupMapType >= 3 && pps->sliceGroupMapType <= 5) {
             PICO_H264_LOG("    (changing slice groups, type %u)\n", (unsigned)pps->sliceGroupMapType);
@@ -2817,9 +3198,9 @@ void picoH264PictureParameterSetDebugPrint(picoH264PictureParameterSet pps)
             if (pps->picScalingListPresentFlag[i]) {
                 PICO_H264_LOG("    picScalingListPresentFlag[%u]: true\n", (unsigned)i);
                 PICO_H264_LOG("    useDefaultScalingMatrix%sFlag[%u]: %s\n",
-                    (i < 6) ? "4x4" : "8x8",
-                    (unsigned)(i < 6 ? i : i - 6),
-                    (i < 6 ? pps->useDefaultScalingMatrix4x4Flag[i] : pps->useDefaultScalingMatrix8x8Flag[i - 6]) ? "true" : "false");
+                              (i < 6) ? "4x4" : "8x8",
+                              (unsigned)(i < 6 ? i : i - 6),
+                              (i < 6 ? pps->useDefaultScalingMatrix4x4Flag[i] : pps->useDefaultScalingMatrix8x8Flag[i - 6]) ? "true" : "false");
             }
         }
     }
