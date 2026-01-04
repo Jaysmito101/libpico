@@ -1385,6 +1385,156 @@ typedef struct {
 } picoH264SubsetSequenceParameterSet_t;
 typedef picoH264SubsetSequenceParameterSet_t *picoH264SubsetSequenceParameterSet;
 
+typedef struct {
+    // pic_parameter_set_id identifies the picture parameter set that is referred to in the slice header.
+    // The value of pic_parameter_set_id shall be in the range of 0 to 255, inclusive.
+    uint8_t picParameterSetId;
+
+    // seq_parameter_set_id refers to the active sequence parameter set.
+    // The value of seq_parameter_set_id shall be in the range of 0 to 31, inclusive.
+    uint8_t seqParameterSetId;
+
+    // entropy_coding_mode_flag selects the entropy decoding method to be applied for the syntax elements for which two
+    // descriptors appear in the syntax tables as follows:
+    //     – If entropy_coding_mode_flag is equal to 0, the method specified by the left descriptor in the syntax table is applied
+    //     (Exp-Golomb coded, see clause 9.1 or CAVLC, see clause 9.2).
+    //     – Otherwise (entropy_coding_mode_flag is equal to 1), the method specified by the right descriptor in the syntax table
+    //     is applied (CABAC, see clause 9.3)
+    bool entropyCodingModeFlag;
+
+    // bottom_field_pic_order_in_frame_present_flag equal to 1 specifies that the syntax elements
+    // delta_pic_order_cnt_bottom (when pic_order_cnt_type is equal to 0) or delta_pic_order_cnt[ 1 ] (when
+    // pic_order_cnt_type is equal to 1), which are related to picture order counts for the bottom field of a coded frame, are
+    // present in the slice headers for coded frames as specified in clause 7.3.3. bottom_field_pic_order_in_frame_present_flag
+    // equal to 0 specifies that the syntax elements delta_pic_order_cnt_bottom and delta_pic_order_cnt[ 1 ] are not present in
+    // the slice headers
+    bool bottomFieldPicOrderInFramePresentFlag;
+
+    // num_slice_groups_minus1 plus 1 specifies the number of slice groups for a picture.
+    // When num_slice_groups_minus1 is equal to 0, all slices of the picture belong to the same slice group.
+    // The allowed range of num_slice_groups_minus1 is specified in Annex A.
+    uint32_t numSliceGroupsMinus1;
+
+    // slice_group_map_type specifies how the mapping of slice group map units to slice groups is coded. The value of
+    // slice_group_map_type shall be in the range of 0 to 6, inclusive.
+    // slice_group_map_type equal to 0 specifies interleaved slice groups.
+    // slice_group_map_type equal to 1 specifies a dispersed slice group mapping.
+    // slice_group_map_type equal to 2 specifies one or more "foreground" slice groups and a "leftover" slice group.
+    // slice_group_map_type values equal to 3, 4, and 5 specify changing slice groups. When num_slice_groups_minus1 is not
+    // equal to 1, slice_group_map_type shall not be equal to 3, 4, or 5.
+    // slice_group_map_type equal to 6 specifies an explicit assignment of a slice group to each slice group map unit
+    uint8_t sliceGroupMapType;
+
+    // run_length_minus1[i] is used to specify the number of consecutive slice group map units to be assigned
+    // to the i-th slice group in raster scan order of slice group map units.
+    // The value of run_length_minus1[i] shall be in the range of 0 to PicSizeInMapUnits − 1, inclusive.
+    uint32_t runLengthMinus1[1024];
+
+    // top_left[i] and bottom_right[i] specify the top-left and bottom-right corners of a rectangle, respectively.
+    // top_left[i] and bottom_right[i] are slice group map unit positions in a raster scan of the picture.
+    uint32_t topLeft[256];
+    uint32_t bottomRight[256];
+
+    // slice_group_change_direction_flag is used with slice_group_map_type to specify the refined map type
+    // when slice_group_map_type is equal to 3, 4, or 5.
+    bool sliceGroupChangeDirectionFlag;
+
+    // slice_group_change_rate_minus1 is used to specify the variable SliceGroupChangeRate.
+    uint32_t sliceGroupChangeRateMinus1;
+
+    // pic_size_in_map_units_minus1 is used to specify the number of slice group map units in the picture.
+    // pic_size_in_map_units_minus1 shall be equal to PicSizeInMapUnits − 1.
+    uint32_t picSizeInMapUnitsMinus1;
+
+    // slice_group_id[i] identifies a slice group of the i-th slice group map unit in raster scan order.
+    // The length of the slice_group_id[i] syntax element is Ceil(Log2(num_slice_groups_minus1 + 1)) bits.
+    // The value of slice_group_id[i] shall be in the range of 0 to num_slice_groups_minus1, inclusive.
+    uint32_t sliceGroupId[1024]; // dynamically allocated array
+
+    // num_ref_idx_l0_default_active_minus1 specifies how num_ref_idx_l0_active_minus1 is inferred for P, SP, and B slices
+    // with num_ref_idx_active_override_flag equal to 0.
+    // The value of num_ref_idx_l0_default_active_minus1 shall be in the range of 0 to 31, inclusive.
+    uint8_t numRefIdxL0DefaultActiveMinus1;
+
+    // num_ref_idx_l1_default_active_minus1 specifies how num_ref_idx_l1_active_minus1 is inferred for B slices
+    // with num_ref_idx_active_override_flag equal to 0.
+    // The value of num_ref_idx_l1_default_active_minus1 shall be in the range of 0 to 31, inclusive.
+    uint8_t numRefIdxL1DefaultActiveMinus1;
+
+    // weighted_pred_flag equal to 0 specifies that the default weighted prediction shall be applied to P and SP slices.
+    // weighted_pred_flag equal to 1 specifies that explicit weighted prediction shall be applied to P and SP slices.
+    bool weightedPredFlag;
+
+    // weighted_bipred_idc equal to 0 specifies that the default weighted prediction shall be applied to B slices.
+    // weighted_bipred_idc equal to 1 specifies that explicit weighted prediction shall be applied to B slices.
+    // weighted_bipred_idc equal to 2 specifies that implicit weighted prediction shall be applied to B slices.
+    // The value of weighted_bipred_idc shall be in the range of 0 to 2, inclusive.
+    uint8_t weightedBipredIdc;
+
+    // pic_init_qp_minus26 specifies the initial value minus 26 of SliceQPY for each slice.
+    // The initial value is modified at the slice layer when a non-zero value of slice_qp_delta is decoded.
+    // The value of pic_init_qp_minus26 shall be in the range of −(26 + QpBdOffsetY) to +25, inclusive.
+    int8_t picInitQpMinus26;
+
+    // pic_init_qs_minus26 specifies the initial value minus 26 of SliceQSY for all macroblocks in SP or SI slices.
+    // The initial value is modified at the slice layer when a non-zero value of slice_qs_delta is decoded.
+    // The value of pic_init_qs_minus26 shall be in the range of −26 to +25, inclusive.
+    int8_t picInitQsMinus26;
+
+    // chroma_qp_index_offset specifies the offset that shall be added to QPY and QSY for addressing the table of QPc values
+    // for the Cb chroma component.
+    // The value of chroma_qp_index_offset shall be in the range of −12 to +12, inclusive.
+    int8_t chromaQpIndexOffset;
+
+    // deblocking_filter_control_present_flag equal to 1 specifies that a set of syntax elements controlling the
+    // characteristics of the deblocking filter is present in the slice header.
+    // deblocking_filter_control_present_flag equal to 0 specifies that the set of syntax elements controlling
+    // the characteristics of the deblocking filter is not present in the slice headers.
+    bool deblockingFilterControlPresentFlag;
+
+    // constrained_intra_pred_flag equal to 0 specifies that intra prediction allows usage of residual data and
+    // decoded samples of neighbouring macroblocks coded using Inter macroblock prediction modes.
+    // constrained_intra_pred_flag equal to 1 specifies constrained intra prediction, in which case prediction
+    // of macroblocks coded using Intra macroblock prediction modes uses residual data and decoded samples
+    // from I or SI macroblock types only.
+    bool constrainedIntraPredFlag;
+
+    // redundant_pic_cnt_present_flag equal to 0 specifies that the redundant_pic_cnt syntax element is not present
+    // in slice headers, coded slice data partition B NAL units, and coded slice data partition C NAL units.
+    // redundant_pic_cnt_present_flag equal to 1 specifies that the redundant_pic_cnt syntax element is present.
+    bool redundantPicCntPresentFlag;
+
+    // transform_8x8_mode_flag equal to 1 specifies that the 8x8 transform decoding process may be in use.
+    // transform_8x8_mode_flag equal to 0 specifies that the 8x8 transform decoding process is not in use.
+    bool transform8x8ModeFlag;
+
+    // pic_scaling_matrix_present_flag equal to 1 specifies that parameters are present to modify the scaling lists
+    // specified in the sequence parameter set.
+    // pic_scaling_matrix_present_flag equal to 0 specifies that the scaling lists used for the picture shall be
+    // inferred to be equal to those specified by the sequence parameter set.
+    bool picScalingMatrixPresentFlag;
+
+    // pic_scaling_list_present_flag[i] equal to 1 specifies that the scaling list syntax structure is present to specify
+    // the scaling list for index i.
+    // pic_scaling_list_present_flag[i] equal to 0 specifies that the syntax structure for scaling list i is not present.
+    bool picScalingListPresentFlag[12]; // 6 for 4x4 + 6 for 8x8
+
+    // ScalingList4x4 and ScalingList8x8 specify the scaling lists.
+    uint8_t scalingList4x4[6][16];
+    uint8_t scalingList8x8[6][64];
+
+    // UseDefaultScalingMatrix4x4Flag and UseDefaultScalingMatrix8x8Flag specify whether default scaling matrices are used.
+    bool useDefaultScalingMatrix4x4Flag[6];
+    bool useDefaultScalingMatrix8x8Flag[6];
+
+    // second_chroma_qp_index_offset specifies the offset that shall be added to QPY and QSY for addressing
+    // the table of QPc values for the Cr chroma component.
+    // The value of second_chroma_qp_index_offset shall be in the range of −12 to +12, inclusive.
+    int8_t secondChromaQpIndexOffset;
+
+} picoH264PictureParameterSet_t;
+typedef picoH264PictureParameterSet_t *picoH264PictureParameterSet;
+
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size);
 void picoH264BitstreamDestroy(picoH264Bitstream bitstream);
 
