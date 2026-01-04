@@ -265,6 +265,7 @@ typedef enum {
     PICO_H264_SEI_MESSAGE_TYPE_NN_POST_FILTER_CHARACTERISTICS             = 210,
     PICO_H264_SEI_MESSAGE_TYPE_NN_POST_FILTER_ACTIVATION                  = 211,
     PICO_H264_SEI_MESSAGE_TYPE_PHASE_INDICATION                           = 212,
+    PICO_H264_SEI_MESSAGE_TYPE_UNKNOWN                                    = 0xFF // not part of spec
 } picoH264SEIMessageType;
 
 typedef enum {
@@ -2197,6 +2198,10 @@ uint64_t picoH264BufferReaderU(picoH264BufferReader bufferReader, uint32_t n);
 // descriptor is specified in clause 9.1
 uint64_t picoH264BufferReaderUE(picoH264BufferReader bufferReader);
 
+// advances the bitstream pointer by n bit positions. When n is equal to 0, skip_bits( n ) does not
+// advance the bitstream pointer.
+void picoH264BufferReaderSkipBits(picoH264BufferReader bufferReader, size_t numBits);
+
 // find the next NAL unit in the bitstream, returns true if found, false if not found or error, forward the bitstream position to the start of the NAL unit
 // NOTE: it move the cursor to the start of the start code prefix of the NAL unit (0x000001 or 0x00000001), to read the NAL unit itself, use picoH264ReadNALUnit after this function
 bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut);
@@ -2207,6 +2212,8 @@ bool picoH264ReadNALUnit(picoH264Bitstream bitstream, uint8_t *nalUnitBuffer, si
 // parse the NAL unit header and extract the NAL unit payload, returns true if successful, false if error (e.g. invalid NAL unit)
 // it also expects to find the start code prefix at the start of nalUnitBuffer (0x000001 or 0x00000001)
 bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeader nalUnitHeaderOut, uint8_t *nalPayloadOut, size_t *nalPayloadSizeOut);
+
+bool picoH264ParseSEIMessages(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SEIMessage seiMessageOut, size_t maxSEIMessages, size_t *numSEIMessagesOut);
 
 // the following functions print various structures to stdout for debugging purposes
 void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader);
@@ -2785,6 +2792,24 @@ uint64_t picoH264BufferReaderUE(picoH264BufferReader bufferReader)
     return ((1ULL << leadingZeroBits) - 1) + suffix;
 }
 
+void picoH264BufferReaderSkipBits(picoH264BufferReader bufferReader, size_t numBits)
+{
+    PICO_ASSERT(bufferReader != NULL);
+
+    for (size_t i = 0; i < numBits; i++) {
+        if (bufferReader->position >= bufferReader->size) {
+            PICO_H264_LOG("picoH264BufferReaderSkipBits: Attempted to skip past end of buffer\n");
+            break;
+        }
+
+        bufferReader->bitPosition++;
+        if (bufferReader->bitPosition >= 8) {
+            bufferReader->bitPosition = 0;
+            bufferReader->position++;
+        }
+    }
+}
+
 bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut)
 {
     PICO_ASSERT(bitstream != NULL);
@@ -3009,6 +3034,79 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
 
         // NOTE: there might be a bug with this??
         *nalPayloadSizeOut = payloadIndex;
+    }
+
+    return true;
+}
+
+bool __picoH264ParseSEIMessage(picoH264BufferReader br, picoH264SEIMessage seiMessageOut)
+{
+    PICO_ASSERT(br != NULL);
+    PICO_ASSERT(seiMessageOut != NULL);
+
+    uint32_t payloadType = 0;
+    uint32_t payloadSize = 0;
+
+    if (!picoH264BufferReaderMoreDataInByteStream(br) || (size_t)(br->size - br->position) < payloadSize) {
+        PICO_H264_LOG("__picoH264ParseSEIMessage: Not enough data for SEI message payload\n");
+        return false;
+    }
+
+    while (picoH264BufferReaderNextBits(br, 8) == 0xFF) {
+        picoH264BufferReaderSkipBits(br, 8);
+        payloadType += 255;
+    }
+    payloadType += (uint8_t)picoH264BufferReaderU(br, 8);
+
+    if (!picoH264BufferReaderMoreDataInByteStream(br) || (size_t)(br->size - br->position) < payloadSize) {
+        PICO_H264_LOG("__picoH264ParseSEIMessage: Not enough data for SEI message payload\n");
+        return false;
+    }
+
+    while (picoH264BufferReaderNextBits(br, 8) == 0xFF) {
+        picoH264BufferReaderSkipBits(br, 8);
+        payloadSize += 255;
+    }
+    payloadSize += (uint8_t)picoH264BufferReaderU(br, 8);
+
+    if (seiMessageOut) {
+        seiMessageOut->payloadType = payloadType;
+        seiMessageOut->payloadSize = payloadSize;
+    }
+
+    picoH264BufferReaderSkipBits(br, payloadSize * 8);
+
+    return true;
+}
+
+bool picoH264ParseSEIMessages(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SEIMessage seiMessageOut, size_t maxSEIMessages, size_t *numSEIMessagesOut)
+{
+    PICO_ASSERT(nalUnitPayloadBuffer != NULL);
+    PICO_ASSERT(nalUnitPayloadSize > 0);
+
+    PICO_ASSERT(seiMessageOut != NULL);
+    PICO_ASSERT(numSEIMessagesOut != NULL);
+
+    picoH264BufferReader_t br = {0};
+    picoH264BufferReaderInit(&br, nalUnitPayloadBuffer, nalUnitPayloadSize);
+
+    size_t seiMessageCount = 0;
+
+    do {
+        if (seiMessageCount >= maxSEIMessages) {
+            PICO_H264_LOG("picoH264ParseSEIMessages: Exceeded maximum number of SEI messages to parse\n");
+            return false;
+        }
+
+        if (!__picoH264ParseSEIMessage(&br, seiMessageOut ? &seiMessageOut[seiMessageCount] : NULL)) {
+            PICO_H264_LOG("picoH264ParseSEIMessages: Failed to parse SEI message %zu\n", seiMessageCount);
+            return false;
+        }
+        seiMessageCount++;
+    } while (picoH264BufferReaderMoreRBSPData(&br));
+
+    if (numSEIMessagesOut) {
+        *numSEIMessagesOut = seiMessageCount;
     }
 
     return true;
