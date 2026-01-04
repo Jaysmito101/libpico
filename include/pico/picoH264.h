@@ -2108,6 +2108,12 @@ void picoH264SubsetSequenceParameterSetDebugPrint(picoH264SubsetSequenceParamete
 void picoH264PictureParameterSetDebugPrint(picoH264PictureParameterSet pps);
 void picoH264SEIMessageDebugPrint(picoH264SEIMessage seiMessage);
 void picoH264AccessUnitDelimiterDebugPrint(picoH264AccessUnitDelimiter aud);
+void picoH264SliceHeaderDebugPrint(picoH264SliceHeader sliceHeader);
+void picoH264SliceDataDebugPrint(picoH264SliceData sliceData);
+void picoH264SliceLayerWithoutPartitioningDebugPrint(picoH264SliceLayerWithoutPartitioning sliceLayer);
+void picoH264SliceDataPartitionALayerDebugPrint(picoH264SliceDataPartitionALayer sliceDataPartitionALayer);
+void picoH264SliceDataPartitionBLayerDebugPrint(picoH264SliceDataPartitionBLayer sliceDataPartitionBLayer);
+void picoH264SliceDataPartitionCLayerDebugPrint(picoH264SliceDataPartitionCLayer sliceDataPartitionCLayer);
 
 const char *picoH264NALRefIdcToString(picoH264NALRefIDC nalRefIdc);
 const char *picoH264NALUnitTypeToString(picoH264NALUnitType nalUnitType);
@@ -3223,6 +3229,169 @@ void picoH264AccessUnitDelimiterDebugPrint(picoH264AccessUnitDelimiter aud)
 
     PICO_H264_LOG("Access Unit Delimiter:\n");
     PICO_H264_LOG("  primaryPicType: %u\n", aud->primaryPicType);
+}
+
+static void __picoH264RefPicListModificationDebugPrint(const picoH264RefPicListModification_t *refPicListModification)
+{
+    if (!refPicListModification)
+        return;
+
+    PICO_H264_LOG("  Ref Pic List Modification:\n");
+    PICO_H264_LOG("    refPicListModificationFlagL0: %s\n", refPicListModification->refPicListModificationFlagL0 ? "true" : "false");
+    if (refPicListModification->refPicListModificationFlagL0) {
+        PICO_H264_LOG("    numModificationsL0: %u\n", (unsigned)refPicListModification->numModificationsL0);
+        for (uint32_t i = 0; i < refPicListModification->numModificationsL0; i++) {
+            PICO_H264_LOG("      modificationL0[%u]: modificationOfPicNumsIdc: %u, absDiffPicNumMinus1: %u, longTermPicNum: %u, abs_diff_view_idx_minus1: %u\n",
+                          (unsigned)i, (unsigned)refPicListModification->modificationsL0[i].modificationOfPicNumsIdc,
+                          (unsigned)refPicListModification->modificationsL0[i].absDiffPicNumMinus1,
+                          (unsigned)refPicListModification->modificationsL0[i].longTermPicNum,
+                          (unsigned)refPicListModification->modificationsL0[i].abs_diff_view_idx_minus1);
+        }
+    }
+    PICO_H264_LOG("    refPicListModificationFlagL1: %s\n", refPicListModification->refPicListModificationFlagL1 ? "true" : "false");
+    if (refPicListModification->refPicListModificationFlagL1) {
+        PICO_H264_LOG("    numModificationsL1: %u\n", (unsigned)refPicListModification->numModificationsL1);
+        for (uint32_t i = 0; i < refPicListModification->numModificationsL1; i++) {
+            PICO_H264_LOG("      modificationL1[%u]: modificationOfPicNumsIdc: %u, absDiffPicNumMinus1: %u, longTermPicNum: %u, abs_diff_view_idx_minus1: %u\n",
+                          (unsigned)i, (unsigned)refPicListModification->modificationsL1[i].modificationOfPicNumsIdc,
+                          (unsigned)refPicListModification->modificationsL1[i].absDiffPicNumMinus1,
+                          (unsigned)refPicListModification->modificationsL1[i].longTermPicNum,
+                          (unsigned)refPicListModification->modificationsL1[i].abs_diff_view_idx_minus1);
+        }
+    }
+}
+
+static void __picoH264PredWeightTableDebugPrint(const picoH264PredWeightTable_t *predWeightTable)
+{
+    if (!predWeightTable)
+        return;
+
+    PICO_H264_LOG("  Pred Weight Table:\n");
+    PICO_H264_LOG("    lumaLog2WeightDenom: %u\n", (unsigned)predWeightTable->lumaLog2WeightDenom);
+    PICO_H264_LOG("    chromaLog2WeightDenom: %u\n", (unsigned)predWeightTable->chromaLog2WeightDenom);
+    for (int i = 0; i < 32; i++) {
+        if (predWeightTable->lumaWeightL0Flag[i]) {
+            PICO_H264_LOG("    lumaWeightL0[%d]: %d, lumaOffsetL0[%d]: %d\n", i, (int)predWeightTable->lumaWeightL0[i], i, (int)predWeightTable->lumaOffsetL0[i]);
+        }
+        if (predWeightTable->chromaWeightL0Flag[i]) {
+            PICO_H264_LOG("    chromaWeightL0[%d][0]: %d, chromaOffsetL0[%d][0]: %d\n", i, (int)predWeightTable->chromaWeightL0[i][0], i, (int)predWeightTable->chromaOffsetL0[i][0]);
+            PICO_H264_LOG("    chromaWeightL0[%d][1]: %d, chromaOffsetL0[%d][1]: %d\n", i, (int)predWeightTable->chromaWeightL0[i][1], i, (int)predWeightTable->chromaOffsetL0[i][1]);
+        }
+        if (predWeightTable->lumaWeightL1Flag[i]) {
+            PICO_H264_LOG("    lumaWeightL1[%d]: %d, lumaOffsetL1[%d]: %d\n", i, (int)predWeightTable->lumaWeightL1[i], i, (int)predWeightTable->lumaOffsetL1[i]);
+        }
+        if (predWeightTable->chromaWeightL1Flag[i]) {
+            PICO_H264_LOG("    chromaWeightL1[%d][0]: %d, chromaOffsetL1[%d][0]: %d\n", i, (int)predWeightTable->chromaWeightL1[i][0], i, (int)predWeightTable->chromaOffsetL1[i][0]);
+            PICO_H264_LOG("    chromaWeightL1[%d][1]: %d, chromaOffsetL1[%d][1]: %d\n", i, (int)predWeightTable->chromaWeightL1[i][1], i, (int)predWeightTable->chromaOffsetL1[i][1]);
+        }
+    }
+}
+
+static void __picoH264DecRefPicMarkingDebugPrint(const picoH264DecRefPicMarking_t *decRefPicMarking)
+{
+    if (!decRefPicMarking)
+        return;
+
+    PICO_H264_LOG("  Dec Ref Pic Marking:\n");
+    PICO_H264_LOG("    noOutputOfPriorPicsFlag: %s\n", decRefPicMarking->noOutputOfPriorPicsFlag ? "true" : "false");
+    PICO_H264_LOG("    longTermReferenceFlag: %s\n", decRefPicMarking->longTermReferenceFlag ? "true" : "false");
+    PICO_H264_LOG("    adaptiveRefPicMarkingModeFlag: %s\n", decRefPicMarking->adaptiveRefPicMarkingModeFlag ? "true" : "false");
+    if (decRefPicMarking->adaptiveRefPicMarkingModeFlag) {
+        PICO_H264_LOG("    numMMCOOperations: %u\n", (unsigned)decRefPicMarking->numMMCOOperations);
+        for (uint32_t i = 0; i < decRefPicMarking->numMMCOOperations; i++) {
+            PICO_H264_LOG("      mmco[%u]: memoryManagementControlOperation: %u, differenceOfPicNumsMinus1: %u, longTermPicNum: %u, longTermFrameIdx: %u, maxLongTermFrameIdxPlus1: %u\n",
+                          (unsigned)i, (unsigned)decRefPicMarking->mmcoOperations[i].memoryManagementControlOperation,
+                          (unsigned)decRefPicMarking->mmcoOperations[i].differenceOfPicNumsMinus1,
+                          (unsigned)decRefPicMarking->mmcoOperations[i].longTermPicNum,
+                          (unsigned)decRefPicMarking->mmcoOperations[i].longTermFrameIdx,
+                          (unsigned)decRefPicMarking->mmcoOperations[i].maxLongTermFrameIdxPlus1);
+        }
+    }
+}
+
+void picoH264SliceHeaderDebugPrint(picoH264SliceHeader sliceHeader)
+{
+    PICO_ASSERT(sliceHeader != NULL);
+
+    PICO_H264_LOG("Slice Header:\n");
+    PICO_H264_LOG("  firstMbInSlice: %u\n", (unsigned)sliceHeader->firstMbInSlice);
+    PICO_H264_LOG("  sliceType: %s (%u)\n", picoH264SliceTypeToString(sliceHeader->sliceType), (unsigned)sliceHeader->sliceType);
+    PICO_H264_LOG("  picParameterSetId: %u\n", (unsigned)sliceHeader->picParameterSetId);
+    PICO_H264_LOG("  colourPlaneId: %u\n", (unsigned)sliceHeader->colourPlaneId);
+    PICO_H264_LOG("  frameNum: %u\n", (unsigned)sliceHeader->frameNum);
+    PICO_H264_LOG("  fieldPicFlag: %s\n", sliceHeader->fieldPicFlag ? "true" : "false");
+    if (sliceHeader->fieldPicFlag) {
+        PICO_H264_LOG("  bottomFieldFlag: %s\n", sliceHeader->bottomFieldFlag ? "true" : "false");
+    }
+    PICO_H264_LOG("  idrPicId: %u\n", (unsigned)sliceHeader->idrPicId);
+    PICO_H264_LOG("  picOrderCntLsb: %u\n", (unsigned)sliceHeader->picOrderCntLsb);
+    PICO_H264_LOG("  deltaPicOrderCntBottom: %d\n", (int)sliceHeader->deltaPicOrderCntBottom);
+    PICO_H264_LOG("  deltaPicOrderCnt[0]: %d\n", (int)sliceHeader->deltaPicOrderCnt[0]);
+    PICO_H264_LOG("  deltaPicOrderCnt[1]: %d\n", (int)sliceHeader->deltaPicOrderCnt[1]);
+    PICO_H264_LOG("  redundantPicCnt: %d\n", (int)sliceHeader->redundantPicCnt);
+    PICO_H264_LOG("  directSpatialMvPredFlag: %s\n", sliceHeader->directSpatialMvPredFlag ? "true" : "false");
+    PICO_H264_LOG("  numRefIdxActiveOverrideFlag: %s\n", sliceHeader->numRefIdxActiveOverrideFlag ? "true" : "false");
+    if (sliceHeader->numRefIdxActiveOverrideFlag) {
+        PICO_H264_LOG("  numRefIdxL0ActiveMinus1: %u\n", (unsigned)sliceHeader->numRefIdxL0ActiveMinus1);
+        PICO_H264_LOG("  numRefIdxL1ActiveMinus1: %u\n", (unsigned)sliceHeader->numRefIdxL1ActiveMinus1);
+    }
+
+    __picoH264RefPicListModificationDebugPrint(&sliceHeader->refPicListModification);
+    __picoH264RefPicListModificationDebugPrint(&sliceHeader->refPicListMvcModification);
+    __picoH264PredWeightTableDebugPrint(&sliceHeader->predWeightTable);
+    __picoH264DecRefPicMarkingDebugPrint(&sliceHeader->decRefPicMarking);
+
+    PICO_H264_LOG("  cabacInitIdc: %u\n", (unsigned)sliceHeader->cabacInitIdc);
+    PICO_H264_LOG("  sliceQpDelta: %d\n", (int)sliceHeader->sliceQpDelta);
+    PICO_H264_LOG("  spForSwitchFlag: %s\n", sliceHeader->spForSwitchFlag ? "true" : "false");
+    PICO_H264_LOG("  sliceQsDelta: %d\n", (int)sliceHeader->sliceQsDelta);
+    PICO_H264_LOG("  disableDeblockingFilterIdc: %d\n", (int)sliceHeader->disableDeblockingFilterIdc);
+    PICO_H264_LOG("  sliceAlphaC0OffsetDiv2: %d\n", (int)sliceHeader->sliceAlphaC0OffsetDiv2);
+    PICO_H264_LOG("  sliceBetaOffsetDiv2: %d\n", (int)sliceHeader->sliceBetaOffsetDiv2);
+    PICO_H264_LOG("  sliceGroupChangeCycle: %u\n", (unsigned)sliceHeader->sliceGroupChangeCycle);
+}
+
+void picoH264SliceDataDebugPrint(picoH264SliceData sliceData)
+{
+    PICO_ASSERT(sliceData != NULL);
+    PICO_H264_LOG("Slice Data: (not implemented)\n");
+}
+
+void picoH264SliceLayerWithoutPartitioningDebugPrint(picoH264SliceLayerWithoutPartitioning sliceLayer)
+{
+    PICO_ASSERT(sliceLayer != NULL);
+    PICO_H264_LOG("Slice Layer Without Partitioning:\n");
+    picoH264SliceHeaderDebugPrint(&sliceLayer->header);
+    picoH264SliceDataDebugPrint(&sliceLayer->data);
+}
+
+void picoH264SliceDataPartitionALayerDebugPrint(picoH264SliceDataPartitionALayer sliceDataPartitionALayer)
+{
+    PICO_ASSERT(sliceDataPartitionALayer != NULL);
+    PICO_H264_LOG("Slice Data Partition A Layer:\n");
+    picoH264SliceHeaderDebugPrint(&sliceDataPartitionALayer->header);
+    PICO_H264_LOG("  sliceId: %u\n", (unsigned)sliceDataPartitionALayer->sliceId);
+    picoH264SliceDataDebugPrint(&sliceDataPartitionALayer->data);
+}
+
+void picoH264SliceDataPartitionBLayerDebugPrint(picoH264SliceDataPartitionBLayer sliceDataPartitionBLayer)
+{
+    PICO_ASSERT(sliceDataPartitionBLayer != NULL);
+    PICO_H264_LOG("Slice Data Partition B Layer:\n");
+    PICO_H264_LOG("  sliceId: %u\n", (unsigned)sliceDataPartitionBLayer->sliceId);
+    PICO_H264_LOG("  colorPlaneId: %u\n", (unsigned)sliceDataPartitionBLayer->colorPlaneId);
+    PICO_H264_LOG("  redundantPicCnt: %u\n", (unsigned)sliceDataPartitionBLayer->redundantPicCnt);
+    picoH264SliceDataDebugPrint(&sliceDataPartitionBLayer->data);
+}
+
+void picoH264SliceDataPartitionCLayerDebugPrint(picoH264SliceDataPartitionCLayer sliceDataPartitionCLayer)
+{
+    PICO_ASSERT(sliceDataPartitionCLayer != NULL);
+    PICO_H264_LOG("Slice Data Partition C Layer:\n");
+    PICO_H264_LOG("  sliceId: %u\n", (unsigned)sliceDataPartitionCLayer->sliceId);
+    PICO_H264_LOG("  colorPlaneId: %u\n", (unsigned)sliceDataPartitionCLayer->colorPlaneId);
+    PICO_H264_LOG("  redundantPicCnt: %u\n", (unsigned)sliceDataPartitionCLayer->redundantPicCnt);
+    picoH264SliceDataDebugPrint(&sliceDataPartitionCLayer->data);
 }
 
 const char *picoH264SEIMessageTypeToString(picoH264SEIMessageType seiMessageType)
