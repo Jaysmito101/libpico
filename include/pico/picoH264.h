@@ -1637,12 +1637,14 @@ void picoH264SequenceParameterSetDebugPrint(picoH264SequenceParameterSet sps);
 void picoH264SequenceParameterSetExtensionDebugPrint(picoH264SequenceParameterSetExtension spsExt);
 void picoH264SubsetSequenceParameterSetDebugPrint(picoH264SubsetSequenceParameterSet spsSubset);
 void picoH264PictureParameterSetDebugPrint(picoH264PictureParameterSet pps);
+void picoH264SEIMessageDebugPrint(picoH264SEIMessage seiMessage);
 
 const char *picoH264NALRefIdcToString(picoH264NALRefIDC nalRefIdc);
 const char *picoH264NALUnitTypeToString(picoH264NALUnitType nalUnitType);
 const char *picoH264AspectRatioIDCToString(uint8_t idc);
 const char *picoH264ProfileIdcToString(uint8_t profileIdc);
 const char *picoH264VideoFormatToString(picoH264VideoFormat videoFormat);
+const char *picoH264SEIMessageTypeToString(picoH264SEIMessageType seiMessageType);
 
 // for testing purposes only
 #define PICO_IMPLEMENTATION
@@ -2705,6 +2707,173 @@ void picoH264PictureParameterSetDebugPrint(picoH264PictureParameterSet pps)
     }
 
     PICO_H264_LOG("  secondChromaQpIndexOffset: %d\n", (int)pps->secondChromaQpIndexOffset);
+}
+
+void picoH264SEIMessageDebugPrint(picoH264SEIMessage seiMessage)
+{
+    PICO_ASSERT(seiMessage != NULL);
+
+    PICO_H264_LOG("SEI Message:\n");
+    PICO_H264_LOG("  seiMessageType: %s (%u)\n", picoH264SEIMessageTypeToString(seiMessage->payloadType), (unsigned)seiMessage->payloadType);
+    PICO_H264_LOG("  payloadSize: %u\n", (unsigned)seiMessage->payloadSize);
+}
+
+const char *picoH264SEIMessageTypeToString(picoH264SEIMessageType seiMessageType)
+{
+    switch (seiMessageType) {
+        case PICO_H264_SEI_MESSAGE_TYPE_BUFFERING_PERIOD:
+            return "Buffering Period";
+        case PICO_H264_SEI_MESSAGE_TYPE_PIC_TIMING:
+            return "Picture Timing";
+        case PICO_H264_SEI_MESSAGE_TYPE_PAN_SCAN_RECT:
+            return "Pan Scan Rectangle";
+        case PICO_H264_SEI_MESSAGE_TYPE_FILLER_PAYLOAD:
+            return "Filler Payload";
+        case PICO_H264_SEI_MESSAGE_TYPE_USER_DATA_REGISTERED_ITU_T_35:
+            return "User Data Registered (ITU-T T.35)";
+        case PICO_H264_SEI_MESSAGE_TYPE_USER_DATA_UNREGISTERED:
+            return "User Data Unregistered";
+        case PICO_H264_SEI_MESSAGE_TYPE_RECOVERY_POINT:
+            return "Recovery Point";
+        case PICO_H264_SEI_MESSAGE_TYPE_DEC_REF_PIC_MARKING_REPETITION:
+            return "Decoded Reference Picture Marking Repetition";
+        case PICO_H264_SEI_MESSAGE_TYPE_SPARE_PIC:
+            return "Spare Picture";
+        case PICO_H264_SEI_MESSAGE_TYPE_SCENE_INFO:
+            return "Scene Information";
+        case PICO_H264_SEI_MESSAGE_TYPE_SUB_SEQ_INFO:
+            return "Sub-Sequence Information";
+        case PICO_H264_SEI_MESSAGE_TYPE_SUB_SEQ_LAYER_CHARACTERISTICS:
+            return "Sub-Sequence Layer Characteristics";
+        case PICO_H264_SEI_MESSAGE_TYPE_SUB_SEQ_CHARACTERISTICS:
+            return "Sub-Sequence Characteristics";
+        case PICO_H264_SEI_MESSAGE_TYPE_FILL_FRAME_FREEZE:
+            return "Fill Frame (Freeze)";
+        case PICO_H264_SEI_MESSAGE_TYPE_FILL_FRAME_FREEZE_RELEASE:
+            return "Fill Frame (Freeze Release)";
+        case PICO_H264_SEI_MESSAGE_TYPE_FULL_FRAME_SNAPSHOT:
+            return "Full Frame Snapshot";
+        case PICO_H264_SEI_MESSAGE_TYPE_PROGRESSIVE_REFINEMENT_SEGMENT_START:
+            return "Progressive Refinement Segment Start";
+        case PICO_H264_SEI_MESSAGE_TYPE_PROGRESSIVE_REFINEMENT_SEGMENT_END:
+            return "Progressive Refinement Segment End";
+        case PICO_H264_SEI_MESSAGE_TYPE_MOTION_CONSTRAINED_SLICE_GROUP_SET:
+            return "Motion Constrained Slice Group Set";
+        case PICO_H264_SEI_MESSAGE_TYPE_FILM_GRAIN_CHARACTERISTICS:
+            return "Film Grain Characteristics";
+        case PICO_H264_SEI_MESSAGE_TYPE_DEBLOCKING_FILTER_DISPLAY_PREFERENCE:
+            return "Deblocking Filter Display Preference";
+        case PICO_H264_SEI_MESSAGE_TYPE_STEREO_VIDEO_INFO:
+            return "Stereo Video Information";
+        case PICO_H264_SEI_MESSAGE_TYPE_POST_FILTER_HINT:
+            return "Post-Filter Hint";
+        case PICO_H264_SEI_MESSAGE_TYPE_TONE_MAPPING_INFO:
+            return "Tone Mapping Information";
+        case PICO_H264_SEI_MESSAGE_TYPE_SCALABILITY_INFO:
+            return "Scalability Information (Annex F)";
+        case PICO_H264_SEI_MESSAGE_TYPE_SUB_PIC_SCALABLE_LAYER:
+            return "Sub-Picture Scalable Layer (Annex F)";
+        case PICO_H264_SEI_MESSAGE_TYPE_NON_REQUIRED_LAYER_REP:
+            return "Non-Required Layer Representation (Annex F)";
+        case PICO_H264_SEI_MESSAGE_TYPE_PRIORITY_LAYER_INFO:
+            return "Priority Layer Information (Annex F)";
+        case PICO_H264_SEI_MESSAGE_TYPE_LAYERS_NOT_PRESENT:
+            return "Layers Not Present (Annex F)";
+        case PICO_H264_SEI_MESSAGE_TYPE_LAYER_DEPENDENCY_CHANGE:
+            return "Layer Dependency Change (Annex F)";
+        case PICO_H264_SEI_MESSAGE_TYPE_SCALABLE_NESTING:
+            return "Scalable Nesting (Annex F)";
+        case PICO_H264_SEI_MESSAGE_TYPE_BASE_LAYER_TEMPORAL_HRD:
+            return "Base Layer Temporal HRD (Annex F)";
+        case PICO_H264_SEI_MESSAGE_TYPE_QUALITY_LAYER_INTEGRITY_CHECK:
+            return "Quality Layer Integrity Check (Annex F)";
+        case PICO_H264_SEI_MESSAGE_TYPE_REDUNDANT_PIC_PROPERTY:
+            return "Redundant Picture Property (Annex F)";
+        case PICO_H264_SEI_MESSAGE_TYPE_TL0_DEP_REP_INDEX:
+            return "Temporal Layer 0 Dependency Representation Index (Annex F)";
+        case PICO_H264_SEI_MESSAGE_TYPE_TL_SWITCHING_POINT:
+            return "Temporal Layer Switching Point (Annex F)";
+        case PICO_H264_SEI_MESSAGE_TYPE_PARALLEL_DECODING_INFO:
+            return "Parallel Decoding Information (Annex G)";
+        case PICO_H264_SEI_MESSAGE_TYPE_MVC_SCALABLE_NESTING:
+            return "MVC Scalable Nesting (Annex G)";
+        case PICO_H264_SEI_MESSAGE_TYPE_VIEW_SCALABILITY_INFO:
+            return "View Scalability Information (Annex G)";
+        case PICO_H264_SEI_MESSAGE_TYPE_MULTIVIEW_SCENE_INFO:
+            return "Multiview Scene Information (Annex G)";
+        case PICO_H264_SEI_MESSAGE_TYPE_MULTIVIEW_ACQUISITION_INFO:
+            return "Multiview Acquisition Information (Annex G)";
+        case PICO_H264_SEI_MESSAGE_TYPE_NON_REQUIRED_VIEW_COMPONENT:
+            return "Non-Required View Component (Annex G)";
+        case PICO_H264_SEI_MESSAGE_TYPE_VIEW_DEPENDENCY_CHANGE:
+            return "View Dependency Change (Annex G)";
+        case PICO_H264_SEI_MESSAGE_TYPE_OPERATION_POINTS_NOT_PRESENT:
+            return "Operation Points Not Present (Annex G)";
+        case PICO_H264_SEI_MESSAGE_TYPE_BASE_VIEW_TEMPORAL_HRD:
+            return "Base View Temporal HRD (Annex G)";
+        case PICO_H264_SEI_MESSAGE_TYPE_FRAME_PACKING_ARRANGEMENT:
+            return "Frame Packing Arrangement";
+        case PICO_H264_SEI_MESSAGE_TYPE_MULTIVIEW_VIEW_POSITION:
+            return "Multiview View Position (Annex G)";
+        case PICO_H264_SEI_MESSAGE_TYPE_DISPLAY_ORIENTATION:
+            return "Display Orientation";
+        case PICO_H264_SEI_MESSAGE_TYPE_MVCD_SCALABLE_NESTING:
+            return "MVCD Scalable Nesting (Annex H)";
+        case PICO_H264_SEI_MESSAGE_TYPE_MVCD_VIEW_SCALABILITY_INFO:
+            return "MVCD View Scalability Information (Annex H)";
+        case PICO_H264_SEI_MESSAGE_TYPE_DEPTH_REPRESENTATION_INFO:
+            return "Depth Representation Information (Annex H)";
+        case PICO_H264_SEI_MESSAGE_TYPE_THREE_DIMENSIONAL_REFERENCE_DISPLAYS_INFO:
+            return "Three-Dimensional Reference Displays Information (Annex H)";
+        case PICO_H264_SEI_MESSAGE_TYPE_DEPTH_TIMING:
+            return "Depth Timing (Annex H)";
+        case PICO_H264_SEI_MESSAGE_TYPE_DEPTH_SAMPLING_INFO:
+            return "Depth Sampling Information (Annex H)";
+        case PICO_H264_SEI_MESSAGE_TYPE_CONSTRAINED_DEPTH_PARAMETER_SET_IDENTIFIER:
+            return "Constrained Depth Parameter Set Identifier (Annex I)";
+        case PICO_H264_SEI_MESSAGE_TYPE_GREEN_METADATA:
+            return "Green Metadata (ISO/IEC 23001-11)";
+        case PICO_H264_SEI_MESSAGE_TYPE_MASTERING_DISPLAY_COLOUR_VOLUME:
+            return "Mastering Display Colour Volume";
+        case PICO_H264_SEI_MESSAGE_TYPE_COLOUR_REMAPPING_INFO:
+            return "Colour Remapping Information";
+        case PICO_H264_SEI_MESSAGE_TYPE_CONTENT_LIGHT_LEVEL_INFO:
+            return "Content Light Level Information";
+        case PICO_H264_SEI_MESSAGE_TYPE_ALTERNATIVE_TRANSFER_CHARACTERISTICS:
+            return "Alternative Transfer Characteristics";
+        case PICO_H264_SEI_MESSAGE_TYPE_AMBIENT_VIEWING_ENVIRONMENT:
+            return "Ambient Viewing Environment";
+        case PICO_H264_SEI_MESSAGE_TYPE_CONTENT_COLOUR_VOLUME:
+            return "Content Colour Volume";
+        case PICO_H264_SEI_MESSAGE_TYPE_EQUIRECTANGULAR_PROJECTION:
+            return "Equirectangular Projection";
+        case PICO_H264_SEI_MESSAGE_TYPE_CUBEMAP_PROJECTION:
+            return "Cubemap Projection";
+        case PICO_H264_SEI_MESSAGE_TYPE_SPHERE_ROTATION:
+            return "Sphere Rotation";
+        case PICO_H264_SEI_MESSAGE_TYPE_REGIONWISE_PACKING:
+            return "Regionwise Packing";
+        case PICO_H264_SEI_MESSAGE_TYPE_OMNI_VIEWPORT:
+            return "Omni Viewport";
+        case PICO_H264_SEI_MESSAGE_TYPE_ALTERNATIVE_DEPTH_INFO:
+            return "Alternative Depth Information (Annex H)";
+        case PICO_H264_SEI_MESSAGE_TYPE_SEI_MANIFEST:
+            return "SEI Manifest";
+        case PICO_H264_SEI_MESSAGE_TYPE_SEI_PREFIX_INDICATION:
+            return "SEI Prefix Indication";
+        case PICO_H264_SEI_MESSAGE_TYPE_ANNOTATED_REGIONS:
+            return "Annotated Regions (ITU-T H.274 | ISO/IEC 23002-7)";
+        case PICO_H264_SEI_MESSAGE_TYPE_SHUTTER_INTERVAL_INFO:
+            return "Shutter Interval Information";
+        case PICO_H264_SEI_MESSAGE_TYPE_NN_POST_FILTER_CHARACTERISTICS:
+            return "Neural Network Post-Filter Characteristics (ITU-T H.274 | ISO/IEC 23002-7)";
+        case PICO_H264_SEI_MESSAGE_TYPE_NN_POST_FILTER_ACTIVATION:
+            return "Neural Network Post-Filter Activation (ITU-T H.274 | ISO/IEC 23002-7)";
+        case PICO_H264_SEI_MESSAGE_TYPE_PHASE_INDICATION:
+            return "Phase Indication (ITU-T H.274 | ISO/IEC 23002-7)";
+        default:
+            return "Unknown SEI Message Type";
+    }
 }
 
 #endif // PICO_H264_IMPLEMENTATION
