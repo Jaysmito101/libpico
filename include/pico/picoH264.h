@@ -70,6 +70,9 @@ typedef size_t (*picoH264BitstreamReadFunc)(void *userData, uint8_t *buffer, siz
 typedef bool (*picoH264BitstreamSeekFunc)(void *userData, int64_t offset, int origin);
 typedef size_t (*picoH264BitstreamTellFunc)(void *userData);
 
+// This is a interface for the user to provide a bitstream abstraction.
+// This is to be used for cases when reading huge H.264 bitstreams from files 
+// or network streams which cannot be fully loaded into memory.
 typedef struct {
     void *userData;
 
@@ -78,6 +81,18 @@ typedef struct {
     picoH264BitstreamTellFunc tell;
 } picoH264Bitsteam_t;
 typedef picoH264Bitsteam_t *picoH264Bitstream;
+
+// This is a core utility to help parse H.264 bitstreams from memory buffers.
+// This is mostly to be used internally by the library, but is made public 
+// for advanced use cases such as parsing contents or portions that arent 
+// being parsed by the library directly at the moment.
+typedef struct {
+    const uint8_t *buffer;
+    size_t size;
+    size_t position;
+    size_t bitPosition;
+} picoH264BufferReader_t;
+typedef picoH264BufferReader_t *picoH264BufferReader;
 
 typedef enum {
     PICO_H264_NAL_UNIT_TYPE_UNSPECIFIED             = 0,
@@ -266,59 +281,49 @@ typedef enum {
 } picoH264SliceType;
 
 typedef struct {
-    // idr_flag equal to 1 specifies that the current coded picture is an IDR picture when the value of dependency_id for the
-    // NAL unit is equal to the maximum value of dependency_id in the coded picture. idr_flag equal to 0 specifies that the
-    // current coded picture is not an IDR picture when the value of dependency_id for the NAL unit is equal to the maximum
-    // value of dependency_id in the coded picture. The value of idr_flag shall be the same for all NAL units of a dependency
-    // representation.
+    // Indicates if this is an IDR (Instantaneous Decoder Refresh) picture.
+    // True when this NAL represents an IDR at its maximum dependency level.
+    // Must be consistent across all NAL units in the same dependency representation.
     bool idrFlag;
 
-    // priority_id specifies a priority identifier for the NAL unit
+    // Priority identifier for the NAL unit (0-63). Lower values = higher priority.
+    // Used by the sub-bitstream extraction process (see clause F.8.8.1).
     uint8_t priorityId;
 
-    // no_inter_layer_pred_flag specifies whether inter-layer prediction may be used for decoding the coded slice. When
-    // no_inter_layer_pred_flag is equal to 1, inter-layer prediction is not used for decoding the coded slice. When
-    // no_inter_layer_pred_flag is equal to 0, inter-layer prediction may be used for decoding the coded slice as signalled in the
-    // macroblock layer.
-    // For prefix NAL units, no_inter_layer_pred_flag shall be equal to 1. When nal_unit_type is equal to 20 and quality_id is
-    // greater than 0, no_inter_layer_pred_flag shall be equal to 0.
-    // The variable MinNoInterLayerPredFlag is set equal to the minimum value of no_inter_layer_pred_flag for the slices of
-    // the layer representation
+    // Controls inter-layer prediction for this slice:
+    // - true: Inter-layer prediction is NOT used (required for prefix NAL units)
+    // - false: Inter-layer prediction MAY be used (required when quality_id > 0)
     bool noInterLayerPredFlag;
 
-    // dependency_id specifies a dependency identifier for the NAL unit. dependency_id shall be equal to 0 in prefix NAL units.
+    // Dependency layer identifier (0-7). Must be 0 for prefix NAL units.
+    // Combined with quality_id to form DQId = (dependency_id << 4) + quality_id
     uint8_t dependencyId;
 
-    // quality_id specifies a quality identifier for the NAL unit. quality_id shall be equal to 0 in prefix NAL units. The
-    // assignment of values to quality_id is constrained by the sub-bitstream extraction process as specified in clause F.8.8.1.
-    // The variable DQId is derived by
-    // DQId = ( dependency_id << 4 ) + quality_id
-    // When nal_unit_type is equal to 20, the bitstream shall not contain data that result in DQId equal to 0
+    // Quality layer identifier (0-15). Must be 0 for prefix NAL units.
+    // Higher values represent enhanced quality versions of the same spatial layer.
+    // Combined with dependency_id to form DQId (see above).
     uint8_t qualityId;
 
-    // temporal_id specifies a temporal identifier for the NAL unit.
-    // The value of temporal_id shall be the same for all prefix NAL units and coded slice in scalable extension NAL units of
-    // an access unit. When an access unit contains any NAL unit with nal_unit_type equal to 5 or idr_flag equal to 1,
-    // temporal_id shall be equal to 0
+    // Temporal layer identifier (0-7). Indicates the temporal sub-layer.
+    // Must be 0 for IDR pictures (when idr_flag=1 or nal_unit_type=5).
+    // Must be consistent across all NAL units in an access unit.
     uint8_t temporalId;
 
-    // use_ref_base_pic_flag equal to 1 specifies that reference base pictures (when present) and decoded pictures (when
-    // reference base pictures are not present) are used as reference pictures for inter prediction.
-    // use_ref_base_pic_flag equal to 0 specifies that reference base pictures are not used as reference pictures for inter
-    // prediction (i.e., only decoded pictures are used for inter prediction).
-    // The values of use_ref_base_pic_flag shall be the same for all NAL units of a dependency representation
+    // Controls reference picture selection for inter prediction:
+    // - true: Use reference base pictures (or decoded pictures if unavailable)
+    // - false: Use only decoded pictures (not reference base pictures)
+    // Must be consistent across all NAL units in a dependency representation.
     bool useRefBasePicFlag;
 
-    // discardable_flag equal to 1 specifies that the current NAL unit is not used for decoding dependency representations that
-    // are part of the current coded picture or any subsequent coded picture in decoding order and have a greater value of
-    // dependency_id than the current NAL unit. discardable_flag equal to 0 specifies that the current NAL unit may be used
-    // for decoding dependency representations that are part of the current coded picture or any subsequent coded picture in
-    // decoding order and have a greater value of dependency_id than the current NAL unit
+    // Indicates if this NAL unit can be discarded without affecting higher dependency layers:
+    // - true: Safe to discard; not needed by NAL units with higher dependency_id
+    // - false: May be required by higher dependency layers
     bool discardableFlag;
 
-    // output_flag affects the decoded picture output and removal processes as specified in Annex C. The value of output_flag
-    // shall be the same for all NAL units of a dependency representation. For any particular value of dependency_id, the value
-    // of output_flag shall be the same for both fields of a complementary field pair.
+    // Controls decoded picture output (see Annex C):
+    // - true: Picture should be output after decoding
+    // - false: Picture is for reference only, not for output
+    // Must be consistent for all NAL units at the same dependency_id.
     bool outputFlag;
 } picoH264NALUnitHeaderSVCExtension_t;
 typedef picoH264NALUnitHeaderSVCExtension_t *picoH264NALUnitHeaderSVCExtension;
@@ -2097,10 +2102,107 @@ typedef picoH264SliceDataPartitionCLayer_t *picoH264SliceDataPartitionCLayer;
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size);
 void picoH264BitstreamDestroy(picoH264Bitstream bitstream);
 
+void picoH264BufferedReaderInit(picoH264BufferReader bufferReader, const uint8_t *buffer, size_t size);
+// these functions are based of whats mentioned and repeatedly used in the H264 spec
+
+// byte_aligned( ) is specified as follows:
+//     – If the current position in the bitstream is on a byte boundary, i.e., the next bit in the bitstream is the first bit in a
+//     byte, the return value of byte_aligned( ) is equal to TRUE.
+//     – Otherwise, the return value of byte_aligned( ) is equal to FALSE
+bool picoH264BufferedReaderByteAligned(picoH264BufferReader bufferReader);
+
+// more_data_in_byte_stream( ), which is used only in the byte stream NAL unit syntax structure specified in Annex B, is
+// specified as follows:
+//     – If more data follow in the byte stream, the return value of more_data_in_byte_stream( ) is equal to TRUE.
+//     – Otherwise, the return value of more_data_in_byte_stream( ) is equal to FALSE
+bool picoH264BufferedReaderMoreDataInByteStream(picoH264BufferReader bufferReader);
+
+// more_rbsp_data( ) is specified as follows:
+//     – If there is no more data in the RBSP, the return value of more_rbsp_data( ) is equal to FALSE.
+//     – Otherwise, the RBSP data is searched for the last (least significant, right-most) bit equal to 1 that is present in
+//     the RBSP. Given the position of this bit, which is the first bit (rbsp_stop_one_bit) of the rbsp_trailing_bits( )
+//     syntax structure, the following applies:
+//     – If there is more data in an RBSP before the rbsp_trailing_bits( ) syntax structure, the return value of
+//     more_rbsp_data( ) is equal to TRUE.
+//     – Otherwise, the return value of more_rbsp_data( ) is equal to FALSE.
+//     The method for enabling determination of whether there is more data in the RBSP is specified by the application (or
+//     in Annex B for applications that use the byte stream format)
+bool picoH264BufferedReaderMoreRSBPData(picoH264BufferReader bufferReader);
+
+// more_rbsp_trailing_data( ) is specified as follows:
+//     – If there is more data in an RBSP, the return value of more_rbsp_trailing_data( ) is equal to TRUE.
+//     – Otherwise, the return value of more_rbsp_trailing_data( ) is equal to FALSE.
+bool picoH264BufferedReaderMoreRSBPTrailingData(picoH264BufferReader bufferReader);
+
+// next_bits( n ) provides the next bits in the bitstream for comparison purposes, without advancing the bitstream pointer.
+// When used within the byte stream as specified in Annex B, next_bits( n ) returns a value of 0 if fewer than n bits remain
+// within the byte stream.
+// n shall be in the range of 0 to 64, inclusive.
+uint64_t picoH264BufferedReaderNextBits(picoH264BufferReader bufferReader, uint32_t n);
+
+// read_bits( n ) reads the next n bits from the bitstream and advances the bitstream pointer by n bit positions. When n is
+// equal to 0, read_bits( n ) is specified to return a value equal to 0 and to not advance the bitstream pointer.
+// n shall be in the range of 0 to 64, inclusive.
+uint64_t picoH264BufferedReaderReadBits(picoH264BufferReader bufferReader, uint32_t n);
+
+// ae(v): context-adaptive arithmetic entropy-coded syntax element. The parsing process for this descriptor is
+// specified in clause 9.3
+uint64_t picoH264BufferedReaderAR(picoH264BufferReader bufferReader);
+
+// b(8): byte having any pattern of bit string (8 bits). The parsing process for this descriptor is specified by the
+// return value of the function read_bits( 8 )
+uint8_t picoH264BufferedReaderB(picoH264BufferReader bufferReader);
+
+// ce(v): context-adaptive variable-length entropy-coded syntax element with the left bit first. The parsing process
+// for this descriptor is specified in clause 9.2.
+uint64_t picoH264BufferedReaderCE(picoH264BufferReader bufferReader);
+
+// f(n): fixed-pattern bit string using n bits written (from left to right) with the left bit first. The parsing process for
+// this descriptor is specified by the return value of the function read_bits( n ).
+uint64_t picoH264BufferedReaderF(picoH264BufferReader bufferReader, uint32_t n);
+
+// i(n): signed integer using n bits. When n is "v" in the syntax table, the number of bits varies in a manner dependent
+// on the value of other syntax elements. The parsing process for this descriptor is specified by the return value of
+// the function read_bits( n ) interpreted as a two's complement integer representation with most significant bit
+// written first.
+int64_t picoH264BufferedReaderI(picoH264BufferReader bufferReader, uint32_t n);
+
+// me(v): mapped Exp-Golomb-coded syntax element with the left bit first. The parsing process for this descriptor
+// is specified in clause 9.1.
+uint64_t picoH264BufferedReaderME(picoH264BufferReader bufferReader);
+
+// se(v): signed integer Exp-Golomb-coded syntax element with the left bit first. The parsing process for this
+// descriptor is specified in clause 9.1.
+int64_t picoH264BufferedReaderSE(picoH264BufferReader bufferReader);
+
+// te(v): truncated Exp-Golomb-coded syntax element with left bit first. The parsing process for this descriptor is
+// specified in clause 9.1.
+uint64_t picoH264BufferedReaderTE(picoH264BufferReader bufferReader, uint32_t range);
+
+// u(n): unsigned integer using n bits. When n is "v" in the syntax table, the number of bits varies in a manner
+// dependent on the value of other syntax elements. The parsing process for this descriptor is specified by the return
+// value of the function read_bits( n ) interpreted as a binary representation of an unsigned integer with most
+// significant bit written first.
+uint64_t picoH264BufferedReaderU(picoH264BufferReader bufferReader, uint32_t n);
+
+// ue(v): unsigned integer Exp-Golomb-coded syntax element with the left bit first. The parsing process for this
+// descriptor is specified in clause 9.1
+uint64_t picoH264BufferedReaderUE(picoH264BufferReader bufferReader);
+
+
+
+// find the next NAL unit in the bitstream, returns true if found, false if not found or error, forward the bitstream position to the start of the NAL unit
+// NOTE: it move the cursor to the start of the start code prefix of the NAL unit (0x000001 or 0x00000001), to read the NAL unit itself, use picoH264ReadNALUnit after this function
 bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut);
+
+// read the NAL unit from the bitstream into the provided buffer, returns true if successful, false if error (e.g. buffer too small)
 bool picoH264ReadNALUnit(picoH264Bitstream bitstream, uint8_t *nalUnitBuffer, size_t nalUnitBufferSize, size_t nalUnitSizeOut);
+
+// parse the NAL unit header and extract the NAL unit payload, returns true if successful, false if error (e.g. invalid NAL unit)
+// it also expects to find the start code prefix at the start of nalUnitBuffer (0x000001 or 0x00000001)
 bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeader nalUnitHeaderOut, uint8_t *nalPayloadOut, size_t *nalPayloadSizeOut);
 
+// the following functions print various structures to stdout for debugging purposes
 void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader);
 void picoH264SequenceParameterSetDebugPrint(picoH264SequenceParameterSet sps);
 void picoH264SequenceParameterSetExtensionDebugPrint(picoH264SequenceParameterSetExtension spsExt);
@@ -2115,13 +2217,14 @@ void picoH264SliceDataPartitionALayerDebugPrint(picoH264SliceDataPartitionALayer
 void picoH264SliceDataPartitionBLayerDebugPrint(picoH264SliceDataPartitionBLayer sliceDataPartitionBLayer);
 void picoH264SliceDataPartitionCLayerDebugPrint(picoH264SliceDataPartitionCLayer sliceDataPartitionCLayer);
 
+// the following functions return string representations of various enums for debugging purposes
 const char *picoH264NALRefIdcToString(picoH264NALRefIDC nalRefIdc);
 const char *picoH264NALUnitTypeToString(picoH264NALUnitType nalUnitType);
 const char *picoH264AspectRatioIDCToString(uint8_t idc);
 const char *picoH264ProfileIdcToString(uint8_t profileIdc);
 const char *picoH264VideoFormatToString(picoH264VideoFormat videoFormat);
 const char *picoH264SEIMessageTypeToString(picoH264SEIMessageType seiMessageType);
-const char* picoH264SliceTypeToString(picoH264SliceType sliceType);
+const char *picoH264SliceTypeToString(picoH264SliceType sliceType);
 
 // for testing purposes only
 #define PICO_IMPLEMENTATION
@@ -2138,6 +2241,18 @@ typedef struct {
     size_t position;
 } __picoH264BitstreamBufferContext_t;
 typedef __picoH264BitstreamBufferContext_t *__picoH264BitstreamBufferContext;
+
+
+static void __picoH264BufferReaderContextInit(__picoH264BufferReaderContext context, const uint8_t *buffer, size_t size)
+{
+    PICO_ASSERT(context != NULL);
+    PICO_ASSERT(buffer != NULL);
+
+    context->buffer      = buffer;
+    context->size        = size;
+    context->position    = 0;
+    context->bitPosition = 0;
+}
 
 static size_t __picoH264BitstreamBufferRead(void *userData, uint8_t *buffer, size_t size)
 {
@@ -2199,7 +2314,7 @@ static size_t __picoH264BitstreamBufferTell(void *userData)
     return context->position;
 }
 
-static bool __picoH264FindNextNALUnit(picoH264Bitstream bitstream)
+static bool __picoH264FindNextNALUnit(__picoH264BufferReaderContext_t bitstream)
 {
     PICO_ASSERT(bitstream != NULL);
     PICO_ASSERT(bitstream->read != NULL);
@@ -2352,7 +2467,7 @@ const char *picoH264VideoFormatToString(picoH264VideoFormat videoFormat)
     }
 }
 
-const char* picoH264SliceTypeToString(picoH264SliceType sliceType)
+const char *picoH264SliceTypeToString(picoH264SliceType sliceType)
 {
     switch (sliceType) {
         case PICO_H264_SLICE_TYPE_P:
@@ -2419,6 +2534,27 @@ void picoH264BitstreamDestroy(picoH264Bitstream bitstream)
     }
     PICO_FREE(bitstream);
 }
+
+
+
+void picoH264BufferedReaderInit(picoH264BufferReader bufferReader, const uint8_t *buffer, size_t size);
+bool picoH264BufferedReaderByteAligned(picoH264BufferReader bufferReader);
+bool picoH264BufferedReaderMoreDataInByteStream(picoH264BufferReader bufferReader);
+bool picoH264BufferedReaderMoreRSBPData(picoH264BufferReader bufferReader);
+bool picoH264BufferedReaderMoreRSBPTrailingData(picoH264BufferReader bufferReader);
+uint64_t picoH264BufferedReaderNextBits(picoH264BufferReader bufferReader, uint32_t n);
+uint64_t picoH264BufferedReaderReadBits(picoH264BufferReader bufferReader, uint32_t n);
+uint64_t picoH264BufferedReaderAR(picoH264BufferReader bufferReader);
+uint8_t picoH264BufferedReaderB(picoH264BufferReader bufferReader);
+uint64_t picoH264BufferedReaderCE(picoH264BufferReader bufferReader);
+uint64_t picoH264BufferedReaderF(picoH264BufferReader bufferReader, uint32_t n);
+int64_t picoH264BufferedReaderI(picoH264BufferReader bufferReader, uint32_t n);
+uint64_t picoH264BufferedReaderME(picoH264BufferReader bufferReader);
+int64_t picoH264BufferedReaderSE(picoH264BufferReader bufferReader);
+uint64_t picoH264BufferedReaderTE(picoH264BufferReader bufferReader, uint32_t range);
+uint64_t picoH264BufferedReaderU(picoH264BufferReader bufferReader, uint32_t n);
+uint64_t picoH264BufferedReaderUE(picoH264BufferReader bufferReader);
+
 
 bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut)
 {
@@ -2561,6 +2697,9 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
     PICO_ASSERT(nalUnitBuffer != NULL);
     PICO_ASSERT(nalUnitSize > 0);
     PICO_ASSERT(nalUnitHeaderOut != NULL);
+
+    __picoH264BufferReaderContext_t br = {0};
+    __picoH264BufferReaderContextInit(&br, nalUnitBuffer, nalUnitSize);
 
     (void)nalPayloadOut;
     (void)nalPayloadSizeOut;
