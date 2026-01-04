@@ -2570,9 +2570,41 @@ bool picoH264BufferReaderMoreRBSPData(picoH264BufferReader bufferReader)
 {
     PICO_ASSERT(bufferReader != NULL);
 
+    size_t totalBitsRemaining = (bufferReader->size - bufferReader->position) * 8 - bufferReader->bitPosition;
     
+    if (totalBitsRemaining == 0) {
+        return false;
+    }
 
-    return false;
+    size_t lastOneBitPosition = 0;
+    bool foundOne = false;
+    
+    for (size_t byteIdx = bufferReader->size; byteIdx > bufferReader->position; byteIdx--) {
+        uint8_t byte = bufferReader->buffer[byteIdx - 1];
+        
+        for (int bitIdx = 0; bitIdx < 8; bitIdx++) {
+            if (byte & (1 << bitIdx)) {
+                size_t bitPos = (byteIdx - 1 - bufferReader->position) * 8 + (7 - bitIdx) - bufferReader->bitPosition;
+                
+                if (byteIdx - 1 == bufferReader->position && bitIdx < (int)bufferReader->bitPosition) {
+                    continue;
+                }
+                
+                lastOneBitPosition = bitPos;
+                foundOne = true;
+                break;
+            }
+        }
+        if (foundOne) {
+            break;
+        }
+    }
+    
+    if (!foundOne) {
+        return false;
+    }
+    
+    return lastOneBitPosition > 0;
 }
 
 bool picoH264BufferReaderMoreRBSPTrailingData(picoH264BufferReader bufferReader)
