@@ -1632,6 +1632,87 @@ typedef struct {
 } picoH264AccessUnitDelimiter_t;
 typedef picoH264AccessUnitDelimiter_t *picoH264AccessUnitDelimiter;
 
+typedef struct {
+    int dummy;
+} picoH264SliceHeader_t;
+typedef picoH264SliceHeader_t *picoH264SliceHeader;
+
+typedef struct {
+    int dummy;
+} picoH264SliceData_t;
+typedef picoH264SliceData_t *picoH264SliceData;
+
+typedef struct {
+    picoH264SliceHeader_t header;
+    picoH264SliceData_t data;
+} picoH264SliceLayerWithoutPartitioning_t;
+typedef picoH264SliceLayerWithoutPartitioning_t *picoH264SliceLayerWithoutPartitioning;
+
+typedef struct {
+    picoH264SliceHeader_t header;
+
+    // slice_id identifies the slice associated with the slice data partition. The value of slice_id is constrained as follows:
+    //     – If separate_colour_plane_flag is equal to 0, the following applies:
+    //         – If arbitrary slice order is not allowed as specified in Annex A, the first slice of a coded picture, in decoding
+    //         order, shall have slice_id equal to 0 and the value of slice_id shall be incremented by one for each subsequent
+    //         slice of the coded picture in decoding order.
+    //         – Otherwise (arbitrary slice order is allowed), each slice shall have a unique slice_id value within the set of slices
+    //         of the coded picture.
+    //     – Otherwise (separate_colour_plane_flag is equal to 1), the following applies:
+    //         – If arbitrary slice order is not allowed as specified in Annex A, the first slice of a coded picture having each
+    //         value of colour_plane_id, in decoding order, shall have slice_id equal to 0 and the value of slice_id shall be
+    //         incremented by one for each subsequent slice of the coded picture having the same value of colour_plane_id,
+    //         in decoding order.
+    //     – Otherwise (arbitrary slice order is allowed) each slice shall have a unique slice_id value within each set of slices
+    //     of the coded picture that have the same value of colour_plane_id.
+    //     The range of slice_id is specified as follows:
+    //         – If MbaffFrameFlag is equal to 0, slice_id shall be in the range of 0 to PicSizeInMbs − 1, inclusive.
+    //         – Otherwise (MbaffFrameFlag is equal to 1), slice_id shall be in the range of 0 to PicSizeInMbs / 2 − 1, inclusive.
+    uint16_t sliceId;
+    picoH264SliceData_t data;
+} picoH264SliceDataPartitionALayer_t;
+typedef picoH264SliceDataPartitionALayer_t *picoH264SliceDataPartitionALayer;
+
+typedef struct {
+    // slice_id has the same semantics as specified for slice_data_partition_a_layer( ) syntax structure.
+    uint16_t sliceId;
+
+    // colour_plane_id specifies the colour plane associated with the current slice RBSP when separate_colour_plane_flag is
+    // equal to 1. The value of colour_plane_id shall be in the range of 0 to 2, inclusive. colour_plane_id equal to 0, 1, and 2
+    // correspond to the Y, Cb, and Cr planes, respectively.
+    uint16_t colorPlaneId;
+
+    // redundant_pic_cnt shall be equal to 0 for coded slices and coded slice data partitions belonging to the primary coded
+    // picture. The redundant_pic_cnt shall be greater than 0 for coded slices and coded slice data partitions in redundant coded
+    // pictures. When redundant_pic_cnt is not present, its value shall be inferred to be equal to 0. The value of
+    // redundant_pic_cnt shall be in the range of 0 to 127, inclusive.
+    // The presence of a slice data partition B RBSP is specified as follows:
+    //     – If the syntax elements of a slice data partition A RBSP indicate the presence of any syntax elements of category 3 in
+    //     the slice data for a slice, a slice data partition B RBSP shall be present having the same value of slice_id and
+    //     redundant_pic_cnt as in the slice data partition A RBSP.
+    //     – Otherwise (the syntax elements of a slice data partition A RBSP do not indicate the presence of any syntax elements
+    //     of category 3 in the slice data for a slice), no slice data partition B RBSP shall be present having the same value of
+    //     slice_id and redundant_pic_cnt as in the slice data partition A RBSP.
+    uint16_t redundantPicCnt;
+
+    picoH264SliceData_t data;
+} picoH264SliceDataPartitionBLayer_t;
+typedef picoH264SliceDataPartitionBLayer_t *picoH264SliceDataPartitionBLayer;
+
+typedef struct {
+    // slice_id has the same semantics as specified for slice_data_partition_a_layer( ) syntax structure.
+    uint16_t sliceId;
+
+    // colour_plane_id has the same semantics as specified for slice_data_partition_b_layer( ) syntax structure.
+    uint16_t colorPlaneId;
+
+    // redundant_pic_cnt has the same semantics as specified for slice_data_partition_b_layer( ) syntax structure.
+    uint16_t redundantPicCnt;
+    
+    picoH264SliceData_t data;
+} picoH264SliceDataPartitionCLayer_t;
+typedef picoH264SliceDataPartitionCLayer_t *picoH264SliceDataPartitionCLayer;
+
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size);
 void picoH264BitstreamDestroy(picoH264Bitstream bitstream);
 
