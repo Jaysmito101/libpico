@@ -807,7 +807,7 @@ typedef struct {
 
     // seq_parameter_set_id identifies the sequence parameter set that is referred to by the picture parameter set. The value of
     // seq_parameter_set_id shall be in the range of 0 to 31, inclusive.
-    uint32_t seqParameterSetId;
+    uint8_t seqParameterSetId;
 
     // chroma_format_idc specifies the chroma sampling relative to the luma sampling. The value of
     // chroma_format_idc shall be in the range of 0 to 3, inclusive. When chroma_format_idc is not present, it shall be inferred
@@ -824,7 +824,7 @@ typedef struct {
     // follows:
     // – If separate_colour_plane_flag is equal to 0, ChromaArrayType is set equal to chroma_format_idc.
     // – Otherwise (separate_colour_plane_flag is equal to 1), ChromaArrayType is set equal to 0
-    bool separateColourPlaneFlag;
+    bool seperateColourPlaneFlag;
 
     // bit_depth_luma_minus8 specifies the bit depth of the samples of the luma array and the value of the luma quantization
     // parameter range offset QpBdOffsetY, as specified by
@@ -832,7 +832,7 @@ typedef struct {
     //     QpBdOffsetY = 6 * bit_depth_luma_minus8 (7-4)
     // When bit_depth_luma_minus8 is not present, it shall be inferred to be equal to 0. bit_depth_luma_minus8 shall be in the
     // range of 0 to 6, inclusive.
-    uint64_t bitDepthLumaMinus8;
+    uint8_t bitDepthLumaMinus8;
 
     // bit_depth_chroma_minus8 specifies the bit depth of the samples of the chroma arrays and the value of the chroma
     // quantization parameter range offset QpBdOffsetC, as specified by
@@ -840,7 +840,7 @@ typedef struct {
     //     QpBdOffsetC = 6 * bit_depth_chroma_minus8 (7-6)
     // When bit_depth_chroma_minus8 is not present, it shall be inferred to be equal to 0. bit_depth_chroma_minus8 shall be
     // in the range of 0 to 6, inclusive.
-    uint64_t bitDepthChromaMinus8;
+    uint8_t bitDepthChromaMinus8;
 
     // qpprime_y_zero_transform_bypass_flag equal to 1 specifies that, when QP′Y is equal to 0, a transform bypass
     // operation for the transform coefficient decoding process and picture construction process prior to deblocking filter process
@@ -2213,7 +2213,12 @@ bool picoH264ReadNALUnit(picoH264Bitstream bitstream, uint8_t *nalUnitBuffer, si
 // it also expects to find the start code prefix at the start of nalUnitBuffer (0x000001 or 0x00000001)
 bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, picoH264NALUnitHeader nalUnitHeaderOut, uint8_t *nalPayloadOut, size_t *nalPayloadSizeOut);
 
+// parse SEI messages from the NAL unit payload, returns true if successful, false if error (e.g. invalid SEI message)
+// if numSEIMessagesOut is less than the number of SEI messages found, only the first numSEIMessagesOut SEI messages are written to seiMessageOut
+// the number of SEI messages parsed can be queried via numSEIMessagesOut by just passing NULL for seiMessageOut
 bool picoH264ParseSEIMessages(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SEIMessage seiMessageOut, size_t maxSEIMessages, size_t *numSEIMessagesOut);
+
+bool picoH264ParseSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet spsOut);
 
 // the following functions print various structures to stdout for debugging purposes
 void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader);
@@ -3093,6 +3098,10 @@ bool picoH264ParseSEIMessages(const uint8_t *nalUnitPayloadBuffer, size_t nalUni
 
     size_t seiMessageCount = 0;
 
+    if (seiMessageOut) {
+        memset(seiMessageOut, 0, sizeof(picoH264SEIMessage_t) * maxSEIMessages);
+    }
+
     do {
         if (seiMessageCount >= maxSEIMessages) {
             PICO_H264_LOG("picoH264ParseSEIMessages: Exceeded maximum number of SEI messages to parse\n");
@@ -3108,6 +3117,65 @@ bool picoH264ParseSEIMessages(const uint8_t *nalUnitPayloadBuffer, size_t nalUni
 
     if (numSEIMessagesOut) {
         *numSEIMessagesOut = seiMessageCount;
+    }
+
+    return true;
+}
+
+bool picoH264ParseSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet spsOut)
+{
+    PICO_ASSERT(nalUnitPayloadBuffer != NULL);
+    PICO_ASSERT(nalUnitPayloadSize > 0);
+    PICO_ASSERT(spsOut != NULL);
+
+    memset(spsOut, 0, sizeof(picoH264SequenceParameterSet_t));
+
+    picoH264BufferReader_t br = {0};
+    picoH264BufferReaderInit(&br, nalUnitPayloadBuffer, nalUnitPayloadSize);
+
+    spsOut->profileIdc         = (uint8_t)picoH264BufferReaderU(&br, 8);
+    spsOut->constraintSet0Flag = picoH264BufferReaderU(&br, 1) != 0;
+    spsOut->constraintSet1Flag = picoH264BufferReaderU(&br, 1) != 0;
+    spsOut->constraintSet2Flag = picoH264BufferReaderU(&br, 1) != 0;
+    spsOut->constraintSet3Flag = picoH264BufferReaderU(&br, 1) != 0;
+    spsOut->constraintSet4Flag = picoH264BufferReaderU(&br, 1) != 0;
+    spsOut->constraintSet5Flag = picoH264BufferReaderU(&br, 1) != 0;
+
+    // next 2 bits are reserved zero bits
+    if (picoH264BufferReaderU(&br, 2) != 0) {
+        PICO_H264_LOG("picoH264ParseSequenceParameterSet: Reserved bits are not zero\n");
+        return false;
+    }
+
+    spsOut->levelIdc          = (uint8_t)picoH264BufferReaderU(&br, 8);
+    spsOut->seqParameterSetId = (uint8_t)picoH264BufferReaderUE(&br);
+
+    if (spsOut->profileIdc == 100 || spsOut->profileIdc == 110 ||
+        spsOut->profileIdc == 122 || spsOut->profileIdc == 244 || spsOut->profileIdc == 44 ||
+        spsOut->profileIdc == 83 || spsOut->profileIdc == 86 || spsOut->profileIdc == 118 ||
+        spsOut->profileIdc == 128 || spsOut->profileIdc == 138 || spsOut->profileIdc == 139 ||
+        spsOut->profileIdc == 134 || spsOut->profileIdc == 135) {
+        spsOut->chromaFormatIdc = (uint8_t)picoH264BufferReaderUE(&br);
+        if (spsOut->chromaFormatIdc == 3) {
+            spsOut->seperateColourPlaneFlag = picoH264BufferReaderU(&br, 1) != 0;
+        }
+        spsOut->bitDepthLumaMinus8   = (uint8_t)picoH264BufferReaderUE(&br);
+        spsOut->bitDepthChromaMinus8 = (uint8_t)picoH264BufferReaderUE(&br);
+        spsOut->qpprimeYZeroTransformBypassFlag = picoH264BufferReaderU(&br, 1) != 0;
+        spsOut->seqScalingMatrixPresentFlag = picoH264BufferReaderU(&br, 1) != 0;
+
+        if (spsOut->seqScalingMatrixPresentFlag) {
+            
+        }
+    } else {
+        // NOTE: some of these values will indeed be set to the default by the memset above,
+        //       however, we are adding these explicit assignments here for clarity with the spec.
+        spsOut->chromaFormatIdc = 1; // default value (4:2:0)
+        spsOut->seperateColourPlaneFlag = false;
+        spsOut->bitDepthLumaMinus8 = 0;
+        spsOut->bitDepthChromaMinus8 = 0;
+        spsOut->qpprimeYZeroTransformBypassFlag = false;
+        spsOut->seqScalingMatrixPresentFlag = false;
     }
 
     return true;
@@ -3322,7 +3390,7 @@ void picoH264SequenceParameterSetDebugPrint(picoH264SequenceParameterSet sps)
     if (sps->profileIdc == 100 || sps->profileIdc == 110 || sps->profileIdc == 122 || sps->profileIdc == 244 || sps->profileIdc == 44 || sps->profileIdc == 83 || sps->profileIdc == 86 || sps->profileIdc == 118 || sps->profileIdc == 128 || sps->profileIdc == 138 || sps->profileIdc == 139 || sps->profileIdc == 134 || sps->profileIdc == 135) {
         PICO_H264_LOG("  chromaFormatIdc: %u\n", (unsigned)sps->chromaFormatIdc);
         if (sps->chromaFormatIdc == 3) {
-            PICO_H264_LOG("  separateColourPlaneFlag: %s\n", sps->separateColourPlaneFlag ? "true" : "false");
+            PICO_H264_LOG("  seperateColourPlaneFlag: %s\n", sps->seperateColourPlaneFlag ? "true" : "false");
         }
         PICO_H264_LOG("  bitDepthLumaMinus8: %llu\n", (unsigned long long)sps->bitDepthLumaMinus8);
         PICO_H264_LOG("  bitDepthChromaMinus8: %llu\n", (unsigned long long)sps->bitDepthChromaMinus8);
