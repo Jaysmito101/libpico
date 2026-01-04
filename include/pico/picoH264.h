@@ -71,7 +71,7 @@ typedef bool (*picoH264BitstreamSeekFunc)(void *userData, int64_t offset, int or
 typedef size_t (*picoH264BitstreamTellFunc)(void *userData);
 
 // This is a interface for the user to provide a bitstream abstraction.
-// This is to be used for cases when reading huge H.264 bitstreams from files 
+// This is to be used for cases when reading huge H.264 bitstreams from files
 // or network streams which cannot be fully loaded into memory.
 typedef struct {
     void *userData;
@@ -83,8 +83,8 @@ typedef struct {
 typedef picoH264Bitsteam_t *picoH264Bitstream;
 
 // This is a core utility to help parse H.264 bitstreams from memory buffers.
-// This is mostly to be used internally by the library, but is made public 
-// for advanced use cases such as parsing contents or portions that arent 
+// This is mostly to be used internally by the library, but is made public
+// for advanced use cases such as parsing contents or portions that arent
 // being parsed by the library directly at the moment.
 typedef struct {
     const uint8_t *buffer;
@@ -2102,20 +2102,28 @@ typedef picoH264SliceDataPartitionCLayer_t *picoH264SliceDataPartitionCLayer;
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size);
 void picoH264BitstreamDestroy(picoH264Bitstream bitstream);
 
-void picoH264BufferedReaderInit(picoH264BufferReader bufferReader, const uint8_t *buffer, size_t size);
+void picoH264BufferReaderInit(picoH264BufferReader bufferReader, const uint8_t *buffer, size_t size);
 // these functions are based of whats mentioned and repeatedly used in the H264 spec
 
 // byte_aligned( ) is specified as follows:
 //     – If the current position in the bitstream is on a byte boundary, i.e., the next bit in the bitstream is the first bit in a
 //     byte, the return value of byte_aligned( ) is equal to TRUE.
 //     – Otherwise, the return value of byte_aligned( ) is equal to FALSE
-bool picoH264BufferedReaderByteAligned(picoH264BufferReader bufferReader);
+bool picoH264BufferReaderByteAligned(picoH264BufferReader bufferReader);
 
 // more_data_in_byte_stream( ), which is used only in the byte stream NAL unit syntax structure specified in Annex B, is
 // specified as follows:
 //     – If more data follow in the byte stream, the return value of more_data_in_byte_stream( ) is equal to TRUE.
 //     – Otherwise, the return value of more_data_in_byte_stream( ) is equal to FALSE
-bool picoH264BufferedReaderMoreDataInByteStream(picoH264BufferReader bufferReader);
+bool picoH264BufferReaderMoreDataInByteStream(picoH264BufferReader bufferReader);
+
+// rbsp_trailing_bits( ) is specified as follows:
+// rbsp_trailing_bits( ) { 
+//      rbsp_stop_one_bit /* equal to 1 */
+//      while( !byte_aligned( ) )
+//      rbsp_alignment_zero_bit /* equal to 0 */
+// }
+void picoH264BufferReaderRBSPTrailingBits(picoH264BufferReader bufferReader);
 
 // more_rbsp_data( ) is specified as follows:
 //     – If there is no more data in the RBSP, the return value of more_rbsp_data( ) is equal to FALSE.
@@ -2127,69 +2135,67 @@ bool picoH264BufferedReaderMoreDataInByteStream(picoH264BufferReader bufferReade
 //     – Otherwise, the return value of more_rbsp_data( ) is equal to FALSE.
 //     The method for enabling determination of whether there is more data in the RBSP is specified by the application (or
 //     in Annex B for applications that use the byte stream format)
-bool picoH264BufferedReaderMoreRSBPData(picoH264BufferReader bufferReader);
+bool picoH264BufferReaderMoreRBSPData(picoH264BufferReader bufferReader);
 
 // more_rbsp_trailing_data( ) is specified as follows:
 //     – If there is more data in an RBSP, the return value of more_rbsp_trailing_data( ) is equal to TRUE.
 //     – Otherwise, the return value of more_rbsp_trailing_data( ) is equal to FALSE.
-bool picoH264BufferedReaderMoreRSBPTrailingData(picoH264BufferReader bufferReader);
+bool picoH264BufferReaderMoreRBSPTrailingData(picoH264BufferReader bufferReader);
 
 // next_bits( n ) provides the next bits in the bitstream for comparison purposes, without advancing the bitstream pointer.
 // When used within the byte stream as specified in Annex B, next_bits( n ) returns a value of 0 if fewer than n bits remain
 // within the byte stream.
 // n shall be in the range of 0 to 64, inclusive.
-uint64_t picoH264BufferedReaderNextBits(picoH264BufferReader bufferReader, uint32_t n);
+uint64_t picoH264BufferReaderNextBits(picoH264BufferReader bufferReader, uint32_t n);
 
 // read_bits( n ) reads the next n bits from the bitstream and advances the bitstream pointer by n bit positions. When n is
 // equal to 0, read_bits( n ) is specified to return a value equal to 0 and to not advance the bitstream pointer.
 // n shall be in the range of 0 to 64, inclusive.
-uint64_t picoH264BufferedReaderReadBits(picoH264BufferReader bufferReader, uint32_t n);
+uint64_t picoH264BufferReaderReadBits(picoH264BufferReader bufferReader, uint32_t n);
 
 // ae(v): context-adaptive arithmetic entropy-coded syntax element. The parsing process for this descriptor is
 // specified in clause 9.3
-uint64_t picoH264BufferedReaderAR(picoH264BufferReader bufferReader);
+uint64_t picoH264BufferReaderAR(picoH264BufferReader bufferReader);
 
 // b(8): byte having any pattern of bit string (8 bits). The parsing process for this descriptor is specified by the
 // return value of the function read_bits( 8 )
-uint8_t picoH264BufferedReaderB(picoH264BufferReader bufferReader);
+uint8_t picoH264BufferReaderB(picoH264BufferReader bufferReader);
 
 // ce(v): context-adaptive variable-length entropy-coded syntax element with the left bit first. The parsing process
 // for this descriptor is specified in clause 9.2.
-uint64_t picoH264BufferedReaderCE(picoH264BufferReader bufferReader);
+uint64_t picoH264BufferReaderCE(picoH264BufferReader bufferReader);
 
 // f(n): fixed-pattern bit string using n bits written (from left to right) with the left bit first. The parsing process for
 // this descriptor is specified by the return value of the function read_bits( n ).
-uint64_t picoH264BufferedReaderF(picoH264BufferReader bufferReader, uint32_t n);
+uint64_t picoH264BufferReaderF(picoH264BufferReader bufferReader, uint32_t n);
 
 // i(n): signed integer using n bits. When n is "v" in the syntax table, the number of bits varies in a manner dependent
 // on the value of other syntax elements. The parsing process for this descriptor is specified by the return value of
 // the function read_bits( n ) interpreted as a two's complement integer representation with most significant bit
 // written first.
-int64_t picoH264BufferedReaderI(picoH264BufferReader bufferReader, uint32_t n);
+int64_t picoH264BufferReaderI(picoH264BufferReader bufferReader, uint32_t n);
 
 // me(v): mapped Exp-Golomb-coded syntax element with the left bit first. The parsing process for this descriptor
 // is specified in clause 9.1.
-uint64_t picoH264BufferedReaderME(picoH264BufferReader bufferReader);
+uint64_t picoH264BufferReaderME(picoH264BufferReader bufferReader);
 
 // se(v): signed integer Exp-Golomb-coded syntax element with the left bit first. The parsing process for this
 // descriptor is specified in clause 9.1.
-int64_t picoH264BufferedReaderSE(picoH264BufferReader bufferReader);
+int64_t picoH264BufferReaderSE(picoH264BufferReader bufferReader);
 
 // te(v): truncated Exp-Golomb-coded syntax element with left bit first. The parsing process for this descriptor is
 // specified in clause 9.1.
-uint64_t picoH264BufferedReaderTE(picoH264BufferReader bufferReader, uint32_t range);
+uint64_t picoH264BufferReaderTE(picoH264BufferReader bufferReader, uint32_t range);
 
 // u(n): unsigned integer using n bits. When n is "v" in the syntax table, the number of bits varies in a manner
 // dependent on the value of other syntax elements. The parsing process for this descriptor is specified by the return
 // value of the function read_bits( n ) interpreted as a binary representation of an unsigned integer with most
 // significant bit written first.
-uint64_t picoH264BufferedReaderU(picoH264BufferReader bufferReader, uint32_t n);
+uint64_t picoH264BufferReaderU(picoH264BufferReader bufferReader, uint32_t n);
 
 // ue(v): unsigned integer Exp-Golomb-coded syntax element with the left bit first. The parsing process for this
 // descriptor is specified in clause 9.1
-uint64_t picoH264BufferedReaderUE(picoH264BufferReader bufferReader);
-
-
+uint64_t picoH264BufferReaderUE(picoH264BufferReader bufferReader);
 
 // find the next NAL unit in the bitstream, returns true if found, false if not found or error, forward the bitstream position to the start of the NAL unit
 // NOTE: it move the cursor to the start of the start code prefix of the NAL unit (0x000001 or 0x00000001), to read the NAL unit itself, use picoH264ReadNALUnit after this function
@@ -2241,18 +2247,6 @@ typedef struct {
     size_t position;
 } __picoH264BitstreamBufferContext_t;
 typedef __picoH264BitstreamBufferContext_t *__picoH264BitstreamBufferContext;
-
-
-static void __picoH264BufferReaderContextInit(__picoH264BufferReaderContext context, const uint8_t *buffer, size_t size)
-{
-    PICO_ASSERT(context != NULL);
-    PICO_ASSERT(buffer != NULL);
-
-    context->buffer      = buffer;
-    context->size        = size;
-    context->position    = 0;
-    context->bitPosition = 0;
-}
 
 static size_t __picoH264BitstreamBufferRead(void *userData, uint8_t *buffer, size_t size)
 {
@@ -2314,7 +2308,7 @@ static size_t __picoH264BitstreamBufferTell(void *userData)
     return context->position;
 }
 
-static bool __picoH264FindNextNALUnit(__picoH264BufferReaderContext_t bitstream)
+static bool __picoH264FindNextNALUnit(picoH264Bitstream bitstream)
 {
     PICO_ASSERT(bitstream != NULL);
     PICO_ASSERT(bitstream->read != NULL);
@@ -2535,26 +2529,222 @@ void picoH264BitstreamDestroy(picoH264Bitstream bitstream)
     PICO_FREE(bitstream);
 }
 
+void picoH264BufferReaderInit(picoH264BufferReader bufferReader, const uint8_t *buffer, size_t size)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    bufferReader->buffer      = buffer;
+    bufferReader->size        = size;
+    bufferReader->position    = 0;
+    bufferReader->bitPosition = 0;
+}
 
+bool picoH264BufferReaderByteAligned(picoH264BufferReader bufferReader)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    return bufferReader->bitPosition == 0;
+}
 
-void picoH264BufferedReaderInit(picoH264BufferReader bufferReader, const uint8_t *buffer, size_t size);
-bool picoH264BufferedReaderByteAligned(picoH264BufferReader bufferReader);
-bool picoH264BufferedReaderMoreDataInByteStream(picoH264BufferReader bufferReader);
-bool picoH264BufferedReaderMoreRSBPData(picoH264BufferReader bufferReader);
-bool picoH264BufferedReaderMoreRSBPTrailingData(picoH264BufferReader bufferReader);
-uint64_t picoH264BufferedReaderNextBits(picoH264BufferReader bufferReader, uint32_t n);
-uint64_t picoH264BufferedReaderReadBits(picoH264BufferReader bufferReader, uint32_t n);
-uint64_t picoH264BufferedReaderAR(picoH264BufferReader bufferReader);
-uint8_t picoH264BufferedReaderB(picoH264BufferReader bufferReader);
-uint64_t picoH264BufferedReaderCE(picoH264BufferReader bufferReader);
-uint64_t picoH264BufferedReaderF(picoH264BufferReader bufferReader, uint32_t n);
-int64_t picoH264BufferedReaderI(picoH264BufferReader bufferReader, uint32_t n);
-uint64_t picoH264BufferedReaderME(picoH264BufferReader bufferReader);
-int64_t picoH264BufferedReaderSE(picoH264BufferReader bufferReader);
-uint64_t picoH264BufferedReaderTE(picoH264BufferReader bufferReader, uint32_t range);
-uint64_t picoH264BufferedReaderU(picoH264BufferReader bufferReader, uint32_t n);
-uint64_t picoH264BufferedReaderUE(picoH264BufferReader bufferReader);
+void picoH264BufferReaderRBSPTrailingBits(picoH264BufferReader bufferReader)
+{
+    PICO_ASSERT(bufferReader != NULL);
 
+    uint8_t stopBit = (uint8_t)picoH264BufferReaderReadBits(bufferReader, 1);
+    PICO_ASSERT(stopBit == 1);
+
+    while (!picoH264BufferReaderByteAligned(bufferReader)) {
+        uint8_t alignBit = (uint8_t)picoH264BufferReaderReadBits(bufferReader, 1);
+        PICO_ASSERT(alignBit == 0);
+    }
+}
+
+bool picoH264BufferReaderMoreDataInByteStream(picoH264BufferReader bufferReader)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    if (bufferReader->position < bufferReader->size) {
+        return true;
+    }
+    return false;
+}
+
+bool picoH264BufferReaderMoreRBSPData(picoH264BufferReader bufferReader)
+{
+    PICO_ASSERT(bufferReader != NULL);
+
+    
+
+    return false;
+}
+
+bool picoH264BufferReaderMoreRBSPTrailingData(picoH264BufferReader bufferReader)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    size_t totalBitsRemaining = (bufferReader->size - bufferReader->position) * 8 - bufferReader->bitPosition;
+    return totalBitsRemaining > 0;
+}
+
+uint64_t picoH264BufferReaderNextBits(picoH264BufferReader bufferReader, uint32_t n)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    PICO_ASSERT(n <= 64);
+
+    if (n == 0) {
+        return 0;
+    }
+
+    size_t savedPosition    = bufferReader->position;
+    size_t savedBitPosition = bufferReader->bitPosition;
+
+    size_t totalBitsRemaining = (bufferReader->size - bufferReader->position) * 8 - bufferReader->bitPosition;
+    if (n > totalBitsRemaining) {
+        return 0;
+    }
+
+    uint64_t result = picoH264BufferReaderReadBits(bufferReader, n);
+
+    bufferReader->position    = savedPosition;
+    bufferReader->bitPosition = savedBitPosition;
+
+    return result;
+}
+
+uint64_t picoH264BufferReaderReadBits(picoH264BufferReader bufferReader, uint32_t n)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    PICO_ASSERT(n <= 64);
+
+    if (n == 0) {
+        return 0;
+    }
+
+    uint64_t result = 0;
+    for (uint32_t i = 0; i < n; i++) {
+        if (bufferReader->position >= bufferReader->size) {
+            PICO_H264_LOG("picoH264BufferReaderReadBits: Attempted to read past end of buffer\n");
+            break;
+        }
+
+        uint8_t currentByte = bufferReader->buffer[bufferReader->position];
+        uint8_t bit         = (currentByte >> (7 - bufferReader->bitPosition)) & 1;
+        result              = (result << 1) | bit;
+
+        bufferReader->bitPosition++;
+        if (bufferReader->bitPosition >= 8) {
+            bufferReader->bitPosition = 0;
+            bufferReader->position++;
+        }
+    }
+
+    return result;
+}
+
+uint64_t picoH264BufferReaderAR(picoH264BufferReader bufferReader)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    PICO_H264_LOG("picoH264BufferReaderAR: CABAC parsing not implemented yet in buffer reader\n");
+    return 0;
+}
+
+uint8_t picoH264BufferReaderB(picoH264BufferReader bufferReader)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    return (uint8_t)picoH264BufferReaderReadBits(bufferReader, 8);
+}
+
+uint64_t picoH264BufferReaderCE(picoH264BufferReader bufferReader)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    PICO_H264_LOG("picoH264BufferReaderCE: CAVLC parsing not implemented yet in buffer reader\n");
+    return 0;
+}
+
+uint64_t picoH264BufferReaderF(picoH264BufferReader bufferReader, uint32_t n)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    return picoH264BufferReaderReadBits(bufferReader, n);
+}
+
+int64_t picoH264BufferReaderI(picoH264BufferReader bufferReader, uint32_t n)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    PICO_ASSERT(n <= 64);
+
+    if (n == 0) {
+        return 0;
+    }
+
+    uint64_t unsignedValue = picoH264BufferReaderReadBits(bufferReader, n);
+    if (unsignedValue & (1ULL << (n - 1))) {
+        return (int64_t)(unsignedValue | (~0ULL << n));
+    } 
+    
+    return (int64_t)unsignedValue;
+}
+
+uint64_t picoH264BufferReaderME(picoH264BufferReader bufferReader)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    // NOTE: the exact use of this will depend on the mapping used, here we just read it as UE
+    //       and the caller can apply the mapping as needed.
+    return picoH264BufferReaderUE(bufferReader);
+}
+
+int64_t picoH264BufferReaderSE(picoH264BufferReader bufferReader)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    uint64_t codeNum = picoH264BufferReaderUE(bufferReader);
+
+    switch (codeNum) {
+        case 0: return 0;
+        case 1: return 1;
+        case 2: return -1;
+        case 3: return 2;
+        case 4: return -2;
+        case 5: return 3;
+        case 6: return -3;
+        default: {
+            int64_t value = (codeNum + 1) / 2;
+            if (((codeNum + 1) & 1) == 0) {
+                value = -value;
+            }
+            return value;
+        }
+    }
+}
+
+uint64_t picoH264BufferReaderTE(picoH264BufferReader bufferReader, uint32_t range)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    if (range == 1) {
+        uint64_t bit = picoH264BufferReaderReadBits(bufferReader, 1);
+        return 1 - bit;
+    }
+
+    return picoH264BufferReaderUE(bufferReader);
+}
+
+uint64_t picoH264BufferReaderU(picoH264BufferReader bufferReader, uint32_t n)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    return picoH264BufferReaderReadBits(bufferReader, n);
+}
+
+uint64_t picoH264BufferReaderUE(picoH264BufferReader bufferReader)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    int leadingZeroBits = 0;
+    while (picoH264BufferReaderReadBits(bufferReader, 1) == 0) {
+        leadingZeroBits++;
+        if (leadingZeroBits > 31) {
+            PICO_H264_LOG("picoH264BufferReaderUE: Too many leading zero bits\n");
+            return 0;
+        }
+    }
+    if (leadingZeroBits == 0) {
+        return 0;
+    }
+    uint64_t suffix = picoH264BufferReaderReadBits(bufferReader, (uint32_t)leadingZeroBits);
+    return ((1ULL << leadingZeroBits) - 1) + suffix;
+}
 
 bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut)
 {
@@ -2698,8 +2888,8 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
     PICO_ASSERT(nalUnitSize > 0);
     PICO_ASSERT(nalUnitHeaderOut != NULL);
 
-    __picoH264BufferReaderContext_t br = {0};
-    __picoH264BufferReaderContextInit(&br, nalUnitBuffer, nalUnitSize);
+    picoH264BufferReader_t br = {0};
+    picoH264BufferReaderInit(&br, nalUnitBuffer, nalUnitSize);
 
     (void)nalPayloadOut;
     (void)nalPayloadSizeOut;
