@@ -2223,7 +2223,7 @@ bool picoH264ParseSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size
 bool picoH264ParseSubsetSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SubsetSequenceParameterSet subsetSpsOut);
 bool picoH264ParsePictureParameterSetGetSPSId(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, uint8_t *spsIdOut);
 bool picoH264ParsePictureParameterSet(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet sps, picoH264PictureParameterSet ppsOut);
-
+bool picoH264ParseAccessUnitDelimiter(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264AccessUnitDelimiter audOut);
 
 // get the default scaling list for the given index, returns true if successful, false if error (e.g. invalid index)
 // scalingListIndex is in the range of 0 to 11 inclusive
@@ -3932,6 +3932,21 @@ bool picoH264ParsePictureParameterSet(const uint8_t *nalUnitPayloadBuffer, size_
     return true;
 }
 
+bool picoH264ParseAccessUnitDelimiter(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264AccessUnitDelimiter audOut)
+{
+    PICO_ASSERT(nalUnitPayloadBuffer != NULL);
+    PICO_ASSERT(nalUnitPayloadSize > 0);
+    PICO_ASSERT(audOut != NULL);
+
+    picoH264BufferReader_t br = {0};
+    picoH264BufferReaderInit(&br, nalUnitPayloadBuffer, nalUnitPayloadSize);
+
+    audOut->primaryPicType = (uint8_t)picoH264BufferReaderU(&br, 3);
+
+    picoH264BufferReaderRBSPTrailingBits(&br);
+
+    return true;
+}
 
 const char *picoH264NALRefIdcToString(picoH264NALRefIDC nalRefIdc)
 {
