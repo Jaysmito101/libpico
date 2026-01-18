@@ -2230,9 +2230,18 @@ bool picoH264ParseSEIMessages(const uint8_t *nalUnitPayloadBuffer, size_t nalUni
 
 bool picoH264ParseSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet spsOut);
 bool picoH264ParseSubsetSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SubsetSequenceParameterSet subsetSpsOut);
-bool picoH264ParsePictureParameterSetGetSPSId(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, uint8_t *spsIdOut);
+
+bool picoH264PictureParameterSetParseSPSId(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, uint8_t *spsIdOut);
+
 bool picoH264ParsePictureParameterSet(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet sps, picoH264PictureParameterSet ppsOut);
+
 bool picoH264ParseAccessUnitDelimiter(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264AccessUnitDelimiter audOut);
+
+bool picoH264SliceHeaderParsePPSId(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, uint8_t *ppsIdOut);
+bool picoH264ParseSliceLayerWithoutPartitioning(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceLayerWithoutPartitioning sliceLayerOut);
+bool picoH264ParseSliceDataPartitionALayer(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceDataPartitionALayer sliceDataPartitionALayerOut);
+bool picoH264ParseSliceDataPartitionBLayer(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceDataPartitionBLayer sliceDataPartitionBLayerOut);
+bool picoH264ParseSliceDataPartitionCLayer(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceDataPartitionCLayer sliceDataPartitionCLayerOut);
 
 // get the default scaling list for the given index, returns true if successful, false if error (e.g. invalid index)
 // scalingListIndex is in the range of 0 to 11 inclusive
@@ -3861,7 +3870,7 @@ bool picoH264ParseSubsetSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer
     return true;
 }
 
-bool picoH264ParsePictureParameterSetGetSPSId(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, uint8_t *spsIdOut)
+bool picoH264PictureParameterSetParseSPSId(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, uint8_t *spsIdOut)
 {
     PICO_ASSERT(nalUnitPayloadBuffer != NULL);
     PICO_ASSERT(nalUnitPayloadSize > 0);
@@ -3972,6 +3981,135 @@ bool picoH264ParseAccessUnitDelimiter(const uint8_t *nalUnitPayloadBuffer, size_
     picoH264BufferReaderRBSPTrailingBits(&br);
 
     return true;
+}
+
+bool picoH264SliceHeaderParsePPSId(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, uint8_t *ppsIdOut)
+{
+    PICO_ASSERT(nalUnitPayloadBuffer != NULL);
+    PICO_ASSERT(nalUnitPayloadSize > 0);
+    PICO_ASSERT(ppsIdOut != NULL);
+
+    picoH264BufferReader_t br = {0};
+    picoH264BufferReaderInit(&br, nalUnitPayloadBuffer, nalUnitPayloadSize);
+
+    // first_mb_in_slice
+    (void)picoH264BufferReaderUE(&br);
+    // slice_type
+    (void)picoH264BufferReaderUE(&br);
+    // pic_parameter_set_id
+    *ppsIdOut = (uint8_t)picoH264BufferReaderUE(&br);
+
+    return true;
+}
+
+static bool __picoH264ParseSliceHeader(picoH264BufferReader br, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceHeader sliceHeaderOut) {
+    PICO_ASSERT(br != NULL);
+    PICO_ASSERT(sps != NULL);
+    PICO_ASSERT(pps != NULL);
+    PICO_ASSERT(sliceHeaderOut != NULL);
+
+    // TODO: impl
+ 
+    return true;
+}
+
+bool picoH264ParseSliceLayerWithoutPartitioning(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceLayerWithoutPartitioning sliceLayerOut)
+{
+    PICO_ASSERT(nalUnitPayloadBuffer != NULL);
+    PICO_ASSERT(nalUnitPayloadSize > 0);
+    PICO_ASSERT(sps != NULL);
+    PICO_ASSERT(pps != NULL);
+    PICO_ASSERT(sliceLayerOut != NULL);
+
+    picoH264BufferReader_t br = {0};
+    picoH264BufferReaderInit(&br, nalUnitPayloadBuffer, nalUnitPayloadSize);
+
+    memset(sliceLayerOut, 0, sizeof(picoH264SliceLayerWithoutPartitioning_t));
+
+    if (!__picoH264ParseSliceHeader(&br, sps, pps, &sliceLayerOut->header)) {
+        PICO_H264_LOG("picoH264ParseSliceLayerWithoutPartitioning: Failed to parse slice header\n");
+        return false;
+    }
+
+    sliceLayerOut->data.rawData = picoH264BufferReaderGetCurrentBytePointer(&br);
+    sliceLayerOut->data.rawDataSize = picoH264BufferReaderGetBitsRemaining(&br) / 8;
+
+    return true;
+}
+
+bool picoH264ParseSliceDataPartitionALayer(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceDataPartitionALayer sliceDataPartitionALayerOut)
+{
+    PICO_ASSERT(nalUnitPayloadBuffer != NULL);
+    PICO_ASSERT(nalUnitPayloadSize > 0);
+    PICO_ASSERT(sps != NULL);
+    PICO_ASSERT(pps != NULL);
+    PICO_ASSERT(sliceDataPartitionALayerOut != NULL);
+
+    picoH264BufferReader_t br = {0};
+    picoH264BufferReaderInit(&br, nalUnitPayloadBuffer, nalUnitPayloadSize);
+
+    memset(sliceDataPartitionALayerOut, 0, sizeof(picoH264SliceDataPartitionALayer_t));
+
+    if (!__picoH264ParseSliceHeader(&br, sps, pps, &sliceDataPartitionALayerOut->header)) {
+        PICO_H264_LOG("picoH264ParseSliceDataPartitionALayer: Failed to parse slice header\n");
+        return false;
+    }
+    sliceDataPartitionALayerOut->sliceId = (uint16_t)picoH264BufferReaderUE(&br);
+
+    sliceDataPartitionALayerOut->data.rawData = picoH264BufferReaderGetCurrentBytePointer(&br);
+    sliceDataPartitionALayerOut->data.rawDataSize = picoH264BufferReaderGetBitsRemaining(&br) / 8;
+
+    return true;
+}
+
+bool picoH264ParseSliceDataPartitionBLayer(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceDataPartitionBLayer sliceDataPartitionBLayerOut)
+{
+    PICO_ASSERT(nalUnitPayloadBuffer != NULL);
+    PICO_ASSERT(nalUnitPayloadSize > 0);
+    PICO_ASSERT(sps != NULL);
+    PICO_ASSERT(pps != NULL);
+    PICO_ASSERT(sliceDataPartitionBLayerOut != NULL);
+
+    picoH264BufferReader_t br = {0};
+    picoH264BufferReaderInit(&br, nalUnitPayloadBuffer, nalUnitPayloadSize);
+
+    memset(sliceDataPartitionBLayerOut, 0, sizeof(picoH264SliceDataPartitionBLayer_t));
+
+    sliceDataPartitionBLayerOut->sliceId = (uint16_t)picoH264BufferReaderUE(&br);
+    if (sps->seperateColourPlaneFlag) {
+        sliceDataPartitionBLayerOut->colorPlaneId = (uint8_t)picoH264BufferReaderU(&br, 2);
+    }
+    if (pps->redundantPicCntPresentFlag) {
+        sliceDataPartitionBLayerOut->redundantPicCnt = (uint8_t)picoH264BufferReaderUE(&br);
+    }
+    sliceDataPartitionBLayerOut->data.rawData = picoH264BufferReaderGetCurrentBytePointer(&br);
+    sliceDataPartitionBLayerOut->data.rawDataSize = picoH264BufferReaderGetBitsRemaining(&br) / 8;
+    return true;
+}
+
+bool picoH264ParseSliceDataPartitionCLayer(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceDataPartitionCLayer sliceDataPartitionCLayerOut)
+{
+    PICO_ASSERT(nalUnitPayloadBuffer != NULL);
+    PICO_ASSERT(nalUnitPayloadSize > 0);
+    PICO_ASSERT(sps != NULL);
+    PICO_ASSERT(pps != NULL);
+    PICO_ASSERT(sliceDataPartitionCLayerOut != NULL);
+
+    picoH264BufferReader_t br = {0};
+    picoH264BufferReaderInit(&br, nalUnitPayloadBuffer, nalUnitPayloadSize);
+
+    memset(sliceDataPartitionCLayerOut, 0, sizeof(picoH264SliceDataPartitionCLayer_t));
+
+    sliceDataPartitionCLayerOut->sliceId = (uint16_t)picoH264BufferReaderUE(&br);
+    if (sps->seperateColourPlaneFlag) {
+        sliceDataPartitionCLayerOut->colorPlaneId = (uint8_t)picoH264BufferReaderU(&br, 2);
+    }
+    if (pps->redundantPicCntPresentFlag) {
+        sliceDataPartitionCLayerOut->redundantPicCnt = (uint8_t)picoH264BufferReaderUE(&br);
+    }
+    sliceDataPartitionCLayerOut->data.rawData = picoH264BufferReaderGetCurrentBytePointer(&br);
+    sliceDataPartitionCLayerOut->data.rawDataSize = picoH264BufferReaderGetBitsRemaining(&br) / 8;
+    return true;    
 }
 
 const char *picoH264NALRefIdcToString(picoH264NALRefIDC nalRefIdc)
