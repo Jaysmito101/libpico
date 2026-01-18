@@ -1618,8 +1618,8 @@ typedef struct {
     bool picScalingListPresentFlag[12]; // 6 for 4x4 + 6 for 8x8
 
     // ScalingList4x4 and ScalingList8x8 specify the scaling lists.
-    uint8_t scalingList4x4[6][16];
-    uint8_t scalingList8x8[6][64];
+    int32_t scalingList4x4[6][16];
+    int32_t scalingList8x8[6][64];
 
     // UseDefaultScalingMatrix4x4Flag and UseDefaultScalingMatrix8x8Flag specify whether default scaling matrices are used.
     bool useDefaultScalingMatrix4x4Flag[6];
