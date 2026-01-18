@@ -2230,12 +2230,14 @@ bool picoH264ParseSEIMessages(const uint8_t *nalUnitPayloadBuffer, size_t nalUni
 
 bool picoH264ParseSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet spsOut);
 bool picoH264ParseSubsetSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SubsetSequenceParameterSet subsetSpsOut);
+bool picoH264ParseSequenceParameterSetExtension(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSetExtension spsExtOut);
 
 bool picoH264PictureParameterSetParseSPSId(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, uint8_t *spsIdOut);
 
 bool picoH264ParsePictureParameterSet(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet sps, picoH264PictureParameterSet ppsOut);
 
 bool picoH264ParseAccessUnitDelimiter(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264AccessUnitDelimiter audOut);
+
 
 bool picoH264SliceHeaderParsePPSId(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, uint8_t *ppsIdOut);
 bool picoH264ParseSliceLayerWithoutPartitioning(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceLayerWithoutPartitioning sliceLayerOut);
@@ -3866,6 +3868,31 @@ bool picoH264ParseSubsetSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer
     }
 
     // NOTE: we do not parse the additional data here for sps_subset
+
+    return true;
+}
+
+bool picoH264ParseSequenceParameterSetExtension(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSetExtension spsExtOut)
+{
+    PICO_ASSERT(nalUnitPayloadBuffer != NULL);
+    PICO_ASSERT(nalUnitPayloadSize > 0);
+    PICO_ASSERT(spsExtOut != NULL);
+
+    picoH264BufferReader_t br = {0};
+    picoH264BufferReaderInit(&br, nalUnitPayloadBuffer, nalUnitPayloadSize);
+
+    memset(spsExtOut, 0, sizeof(picoH264SequenceParameterSetExtension_t));
+
+    spsExtOut->seqParameterSetId = (uint8_t)picoH264BufferReaderUE(&br);
+    spsExtOut->auxFormatIdc     = (uint8_t)picoH264BufferReaderUE(&br);
+    if (spsExtOut->auxFormatIdc == 1) {
+        spsExtOut->bitDepthAuxMinus8 = (uint8_t)picoH264BufferReaderUE(&br);
+        spsExtOut->alphaIncrFlag      = picoH264BufferReaderU(&br, 1) != 0;
+        spsExtOut->alphaOpaqueValue    = (uint8_t)picoH264BufferReaderU(&br, spsExtOut->bitDepthAuxMinus8 + 9);
+        spsExtOut->alphaTransparentValue = (uint8_t)picoH264BufferReaderU(&br, spsExtOut->bitDepthAuxMinus8 + 9);
+    }
+
+    spsExtOut->additionalExtensionFlag = picoH264BufferReaderU(&br, 1) != 0;
 
     return true;
 }
