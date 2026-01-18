@@ -2026,7 +2026,8 @@ typedef struct {
     //       this library (vulkan video / directx video decoding)
     // TODO: This is something that will probably be implemented in the future
     //       pull requests are welcome :)
-    int dummy;
+    uint8_t *rawData;
+    size_t rawDataSize; // approximate size of the slice data in bytes
 } picoH264SliceData_t;
 typedef picoH264SliceData_t *picoH264SliceData;
 
