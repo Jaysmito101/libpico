@@ -2204,6 +2204,14 @@ uint64_t picoH264BufferReaderUE(picoH264BufferReader bufferReader);
 // advance the bitstream pointer.
 void picoH264BufferReaderSkipBits(picoH264BufferReader bufferReader, size_t numBits);
 
+// get a pointer to the current byte in the buffer reader
+// ignores the current bit position within the byte, so if the current bit position is not byte aligned, it will 
+// return a pointer to the byte containing the current bit position
+uint8_t* picoH264BufferReaderGetCurrentBytePointer(picoH264BufferReader bufferReader);
+
+// get the number of bits remaining in the buffer reader
+size_t picoH264BufferReaderGetBitsRemaining(picoH264BufferReader bufferReader);
+
 // find the next NAL unit in the bitstream, returns true if found, false if not found or error, forward the bitstream position to the start of the NAL unit
 // NOTE: it move the cursor to the start of the start code prefix of the NAL unit (0x000001 or 0x00000001), to read the NAL unit itself, use picoH264ReadNALUnit after this function
 bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut);
@@ -2830,6 +2838,23 @@ void picoH264BufferReaderSkipBits(picoH264BufferReader bufferReader, size_t numB
             bufferReader->position++;
         }
     }
+}
+
+uint8_t* picoH264BufferReaderGetCurrentBytePointer(picoH264BufferReader bufferReader)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    if (bufferReader->position >= bufferReader->size) {
+        PICO_H264_LOG("picoH264BufferReaderGetCurrentBytePointer: Current position is past end of buffer\n");
+        return NULL;
+    }
+    return (uint8_t*)(bufferReader->buffer + bufferReader->position);
+}
+
+size_t picoH264BufferReaderGetBitsRemaining(picoH264BufferReader bufferReader)
+{
+    PICO_ASSERT(bufferReader != NULL);
+    size_t totalBitsRemaining = (bufferReader->size - bufferReader->position) * 8 - bufferReader->bitPosition;
+    return totalBitsRemaining;
 }
 
 bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut)
