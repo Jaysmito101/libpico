@@ -37,6 +37,7 @@ SOFTWARE.
 #ifndef PICO_H264_H
 #define PICO_H264_H
 
+#include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
