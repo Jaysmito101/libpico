@@ -3375,55 +3375,51 @@ static bool __picoH264ParseVUIParameters(picoH264BufferReader_t *br, picoH264Vid
     return true;
 }
 
-bool picoH264ParseSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet spsOut)
+static bool __picoH264ParseSequenceParameterSetData(picoH264BufferReader br, picoH264SequenceParameterSet spsOut)
 {
-    PICO_ASSERT(nalUnitPayloadBuffer != NULL);
-    PICO_ASSERT(nalUnitPayloadSize > 0);
+    PICO_ASSERT(br != NULL);
     PICO_ASSERT(spsOut != NULL);
 
     memset(spsOut, 0, sizeof(picoH264SequenceParameterSet_t));
 
-    picoH264BufferReader_t br = {0};
-    picoH264BufferReaderInit(&br, nalUnitPayloadBuffer, nalUnitPayloadSize);
-
-    spsOut->profileIdc         = (uint8_t)picoH264BufferReaderU(&br, 8);
-    spsOut->constraintSet0Flag = picoH264BufferReaderU(&br, 1) != 0;
-    spsOut->constraintSet1Flag = picoH264BufferReaderU(&br, 1) != 0;
-    spsOut->constraintSet2Flag = picoH264BufferReaderU(&br, 1) != 0;
-    spsOut->constraintSet3Flag = picoH264BufferReaderU(&br, 1) != 0;
-    spsOut->constraintSet4Flag = picoH264BufferReaderU(&br, 1) != 0;
-    spsOut->constraintSet5Flag = picoH264BufferReaderU(&br, 1) != 0;
+    spsOut->profileIdc         = (uint8_t)picoH264BufferReaderU(br, 8);
+    spsOut->constraintSet0Flag = picoH264BufferReaderU(br, 1) != 0;
+    spsOut->constraintSet1Flag = picoH264BufferReaderU(br, 1) != 0;
+    spsOut->constraintSet2Flag = picoH264BufferReaderU(br, 1) != 0;
+    spsOut->constraintSet3Flag = picoH264BufferReaderU(br, 1) != 0;
+    spsOut->constraintSet4Flag = picoH264BufferReaderU(br, 1) != 0;
+    spsOut->constraintSet5Flag = picoH264BufferReaderU(br, 1) != 0;
 
     // next 2 bits are reserved zero bits
-    if (picoH264BufferReaderU(&br, 2) != 0) {
+    if (picoH264BufferReaderU(br, 2) != 0) {
         PICO_H264_LOG("picoH264ParseSequenceParameterSet: Reserved bits are not zero\n");
         return false;
     }
 
-    spsOut->levelIdc          = (uint8_t)picoH264BufferReaderU(&br, 8);
-    spsOut->seqParameterSetId = (uint8_t)picoH264BufferReaderUE(&br);
+    spsOut->levelIdc          = (uint8_t)picoH264BufferReaderU(br, 8);
+    spsOut->seqParameterSetId = (uint8_t)picoH264BufferReaderUE(br);
 
     if (spsOut->profileIdc == 100 || spsOut->profileIdc == 110 ||
         spsOut->profileIdc == 122 || spsOut->profileIdc == 244 || spsOut->profileIdc == 44 ||
         spsOut->profileIdc == 83 || spsOut->profileIdc == 86 || spsOut->profileIdc == 118 ||
         spsOut->profileIdc == 128 || spsOut->profileIdc == 138 || spsOut->profileIdc == 139 ||
         spsOut->profileIdc == 134 || spsOut->profileIdc == 135) {
-        spsOut->chromaFormatIdc = (uint8_t)picoH264BufferReaderUE(&br);
+        spsOut->chromaFormatIdc = (uint8_t)picoH264BufferReaderUE(br);
         if (spsOut->chromaFormatIdc == 3) {
-            spsOut->seperateColourPlaneFlag = picoH264BufferReaderU(&br, 1) != 0;
+            spsOut->seperateColourPlaneFlag = picoH264BufferReaderU(br, 1) != 0;
         }
-        spsOut->bitDepthLumaMinus8   = (uint8_t)picoH264BufferReaderUE(&br);
-        spsOut->bitDepthChromaMinus8 = (uint8_t)picoH264BufferReaderUE(&br);
-        spsOut->qpprimeYZeroTransformBypassFlag = picoH264BufferReaderU(&br, 1) != 0;
-        spsOut->seqScalingMatrixPresentFlag = picoH264BufferReaderU(&br, 1) != 0;
+        spsOut->bitDepthLumaMinus8   = (uint8_t)picoH264BufferReaderUE(br);
+        spsOut->bitDepthChromaMinus8 = (uint8_t)picoH264BufferReaderUE(br);
+        spsOut->qpprimeYZeroTransformBypassFlag = picoH264BufferReaderU(br, 1) != 0;
+        spsOut->seqScalingMatrixPresentFlag = picoH264BufferReaderU(br, 1) != 0;
 
         if (spsOut->seqScalingMatrixPresentFlag) {
             for (int i = 0; i < ((spsOut->chromaFormatIdc != 3) ? 8 : 12); i++) {
-                spsOut->seqScalingListPresentFlag[i] = picoH264BufferReaderU(&br, 1) != 0;
+                spsOut->seqScalingListPresentFlag[i] = picoH264BufferReaderU(br, 1) != 0;
                 if (spsOut->seqScalingListPresentFlag[i]) {
                     if (i < 6) {
                         if(!__picoH264ParseScalingList(
-                            &br,
+                            br,
                             16,
                             spsOut->scalingList4x4[i],
                             &spsOut->useDefaultScalingMatrix4x4Flag[i]
@@ -3433,7 +3429,7 @@ bool picoH264ParseSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size
                         }
                     } else {
                         if(!__picoH264ParseScalingList(
-                            &br,
+                            br,
                             64,
                             spsOut->scalingList8x8[i - 6],
                             &spsOut->useDefaultScalingMatrix8x8Flag[i - 6]
@@ -3490,41 +3486,41 @@ bool picoH264ParseSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size
         }
     }
 
-    spsOut->log2MaxFrameNumMinus4       = (uint8_t)picoH264BufferReaderUE(&br);
-    spsOut->picOrderCntType             = (uint8_t)picoH264BufferReaderUE(&br);
+    spsOut->log2MaxFrameNumMinus4       = (uint8_t)picoH264BufferReaderUE(br);
+    spsOut->picOrderCntType             = (uint8_t)picoH264BufferReaderUE(br);
 
     if (spsOut->picOrderCntType == 0) {
-        spsOut->log2MaxPicOrderCntLsbMinus4 = (uint8_t)picoH264BufferReaderUE(&br);
+        spsOut->log2MaxPicOrderCntLsbMinus4 = (uint8_t)picoH264BufferReaderUE(br);
     } else if (spsOut->picOrderCntType == 1) {
-        spsOut->deltaPicOrderAlwaysZeroFlag = picoH264BufferReaderU(&br, 1) != 0;
-        spsOut->offsetForNonRefPic          = picoH264BufferReaderSE(&br);
-        spsOut->offsetForTopToBottomField   = picoH264BufferReaderSE(&br);
-        spsOut->numRefFramesInPicOrderCntCycle = (uint8_t)picoH264BufferReaderUE(&br);
+        spsOut->deltaPicOrderAlwaysZeroFlag = picoH264BufferReaderU(br, 1) != 0;
+        spsOut->offsetForNonRefPic          = picoH264BufferReaderSE(br);
+        spsOut->offsetForTopToBottomField   = picoH264BufferReaderSE(br);
+        spsOut->numRefFramesInPicOrderCntCycle = (uint8_t)picoH264BufferReaderUE(br);
         for (size_t i = 0; i < spsOut->numRefFramesInPicOrderCntCycle; i++) {
-            spsOut->offsetForRefFrame[i] = picoH264BufferReaderSE(&br);
+            spsOut->offsetForRefFrame[i] = picoH264BufferReaderSE(br);
         }
     }
 
-    spsOut->maxNumRefFrames       = (uint8_t)picoH264BufferReaderUE(&br);
-    spsOut->gapsInFrameNumValueAllowedFlag = picoH264BufferReaderU(&br, 1) != 0;
-    spsOut->picWidthInMbsMinus1  = (uint16_t)picoH264BufferReaderUE(&br);
-    spsOut->picHeightInMapUnitsMinus1 = (uint16_t)picoH264BufferReaderUE(&br);
+    spsOut->maxNumRefFrames       = (uint8_t)picoH264BufferReaderUE(br);
+    spsOut->gapsInFrameNumValueAllowedFlag = picoH264BufferReaderU(br, 1) != 0;
+    spsOut->picWidthInMbsMinus1  = (uint16_t)picoH264BufferReaderUE(br);
+    spsOut->picHeightInMapUnitsMinus1 = (uint16_t)picoH264BufferReaderUE(br);
 
-    spsOut->frameMbsOnlyFlag = picoH264BufferReaderU(&br, 1) != 0;
+    spsOut->frameMbsOnlyFlag = picoH264BufferReaderU(br, 1) != 0;
     if (!spsOut->frameMbsOnlyFlag) {
-        spsOut->mbAdaptiveFrameFieldFlag = picoH264BufferReaderU(&br, 1) != 0;
+        spsOut->mbAdaptiveFrameFieldFlag = picoH264BufferReaderU(br, 1) != 0;
     } else {
         spsOut->mbAdaptiveFrameFieldFlag = false;
     }
 
-    spsOut->direct8x8InferenceFlag = picoH264BufferReaderU(&br, 1) != 0;
-    spsOut->frameCroppingFlag     = picoH264BufferReaderU(&br, 1) != 0;
+    spsOut->direct8x8InferenceFlag = picoH264BufferReaderU(br, 1) != 0;
+    spsOut->frameCroppingFlag     = picoH264BufferReaderU(br, 1) != 0;
     
     if (spsOut->frameCroppingFlag) {
-        spsOut->frameCropLeftOffset   = (uint32_t)picoH264BufferReaderUE(&br);
-        spsOut->frameCropRightOffset  = (uint32_t)picoH264BufferReaderUE(&br);
-        spsOut->frameCropTopOffset    = (uint32_t)picoH264BufferReaderUE(&br);
-        spsOut->frameCropBottomOffset = (uint32_t)picoH264BufferReaderUE(&br);
+        spsOut->frameCropLeftOffset   = (uint32_t)picoH264BufferReaderUE(br);
+        spsOut->frameCropRightOffset  = (uint32_t)picoH264BufferReaderUE(br);
+        spsOut->frameCropTopOffset    = (uint32_t)picoH264BufferReaderUE(br);
+        spsOut->frameCropBottomOffset = (uint32_t)picoH264BufferReaderUE(br);
     } else {
         spsOut->frameCropLeftOffset   = 0;
         spsOut->frameCropRightOffset  = 0;
@@ -3532,18 +3528,306 @@ bool picoH264ParseSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size
         spsOut->frameCropBottomOffset = 0;
     }
 
-    spsOut->vuiParametersPresentFlag = picoH264BufferReaderU(&br, 1) != 0;
+    spsOut->vuiParametersPresentFlag = picoH264BufferReaderU(br, 1) != 0;
     if (spsOut->vuiParametersPresentFlag) {
-        if(!__picoH264ParseVUIParameters(&br, &spsOut->vui)) {
+        if(!__picoH264ParseVUIParameters(br, &spsOut->vui)) {
             PICO_H264_LOG("picoH264ParseSequenceParameterSet: Failed to parse VUI parameters\n");
             return false;
         }
+    }
+
+    return true;
+}
+
+bool picoH264ParseSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet spsOut)
+{
+    PICO_ASSERT(nalUnitPayloadBuffer != NULL);
+    PICO_ASSERT(nalUnitPayloadSize > 0);
+    PICO_ASSERT(spsOut != NULL);
+
+
+    picoH264BufferReader_t br = {0};
+    picoH264BufferReaderInit(&br, nalUnitPayloadBuffer, nalUnitPayloadSize);
+
+    if (!__picoH264ParseSequenceParameterSetData(&br, spsOut)) {
+        PICO_H264_LOG("picoH264ParseSequenceParameterSet: Failed to parse SPS data\n");
+        return false;
     }
 
     picoH264BufferReaderRBSPTrailingBits(&br);
 
     return true;
 }
+
+static bool __picoH264ParseSVCSequenceParameterSetExtension(picoH264BufferReader br, picoH264SequenceParameterSet sps, picoH264SPSSVCExtension svcSpsExtOut) {
+    PICO_ASSERT(br != NULL);
+    PICO_ASSERT(sps != NULL);
+    PICO_ASSERT(svcSpsExtOut != NULL);
+
+    memset(svcSpsExtOut, 0, sizeof(picoH264SPSSVCExtension_t));
+
+    uint32_t chromaArrayType = sps->seperateColourPlaneFlag ? 0 : sps->chromaFormatIdc;
+
+    svcSpsExtOut->interLayerDeblockingFilterControlPresentFlag = picoH264BufferReaderU(br, 1) != 0;
+    svcSpsExtOut->extendedSpatialScalabilityIDC                = (uint8_t)picoH264BufferReaderU(br, 2);
+
+    if (chromaArrayType == 1 || chromaArrayType == 2) {
+        svcSpsExtOut->chromaPhaseXPlus1Flag = picoH264BufferReaderU(br, 1) != 0;
+    }
+
+    if (chromaArrayType == 1) {
+        svcSpsExtOut->chromaPhaseYPlus1 = (uint8_t)picoH264BufferReaderU(br, 2);
+    }
+
+    if (svcSpsExtOut->extendedSpatialScalabilityIDC == 1) {
+        if (chromaArrayType > 0) {
+            svcSpsExtOut->seqRefLayerChromaPhaseXPlus1Flag = picoH264BufferReaderU(br, 1) != 0;
+            svcSpsExtOut->seqRefLayerChromaPhaseYPlus1 = (uint8_t)picoH264BufferReaderU(br, 2);
+        }
+        svcSpsExtOut->seqScaledRefLayerLeftOffset   = (int32_t)picoH264BufferReaderSE(br);
+        svcSpsExtOut->seqScaledRefLayerTopOffset    = (int32_t)picoH264BufferReaderSE(br);
+        svcSpsExtOut->seqScaledRefLayerRightOffset  = (int32_t)picoH264BufferReaderSE(br);
+        svcSpsExtOut->seqScaledRefLayerBottomOffset = (int32_t)picoH264BufferReaderSE(br);
+    }
+
+    svcSpsExtOut->seqTcoeffLevelPredictionFlag = picoH264BufferReaderU(br, 1) != 0;
+    if (svcSpsExtOut->seqTcoeffLevelPredictionFlag) {
+        svcSpsExtOut->adaptiveTcoeffLevelPredictionFlag = picoH264BufferReaderU(br, 1) != 0;
+    }
+    svcSpsExtOut->sliceHeaderRestrictionFlag = picoH264BufferReaderU(br, 1) != 0;
+    return true;
+}
+
+static bool __picoH264ParseSVCVUIParametersExtension(picoH264BufferReader br, picoH264SVCVUIParametersExtension svcVuiExtOut) {
+    PICO_ASSERT(br != NULL);
+    PICO_ASSERT(svcVuiExtOut != NULL);
+
+    memset(svcVuiExtOut, 0, sizeof(picoH264SVCVUIParametersExtension_t));
+
+    svcVuiExtOut->vuiExtNumEntriesMinus1 = (uint32_t)picoH264BufferReaderUE(br);
+    for (uint32_t i = 0; i <= svcVuiExtOut->vuiExtNumEntriesMinus1; i++) {
+        picoH264SVCVUIParametersExtensionEntry entry = &svcVuiExtOut->vuiExtEntries[i];
+
+        entry->vuiExtDependencyId = (uint8_t)picoH264BufferReaderU(br, 3);
+        entry->vuiExtQualityId    = (uint8_t)picoH264BufferReaderU(br, 4);
+        entry->vuiExtTemporalId   = (uint8_t)picoH264BufferReaderU(br, 3);
+        entry->vuiExtTimingInfoPresentFlag = picoH264BufferReaderU(br, 1) != 0;
+        if (entry->vuiExtTimingInfoPresentFlag) {
+            entry->vuiExtNumUnitsInTick = (uint32_t)picoH264BufferReaderU(br, 32);
+            entry->vuiExtTimeScale      = (uint32_t)picoH264BufferReaderU(br, 32);
+            entry->vuiExtFixedFrameRateFlag = picoH264BufferReaderU(br, 1) != 0;
+        }
+
+        entry->vuiExtNalHrdParametersPresentFlag = picoH264BufferReaderU(br, 1) != 0;
+        if (entry->vuiExtNalHrdParametersPresentFlag) {
+            if (!__picoH264ParseHRDParameters(br, &entry->nalHrdParameters)) {
+                PICO_H264_LOG("__picoH264ParseSVCVUIParametersExtension: Failed to parse SVC VUI NAL HRD parameters\n");
+                return false;
+            }
+        }
+
+        entry->vuiExtVclHrdParametersPresentFlag = picoH264BufferReaderU(br, 1) != 0;
+        if (entry->vuiExtVclHrdParametersPresentFlag) {
+            if (!__picoH264ParseHRDParameters(br, &entry->vclHrdParameters)) {
+                PICO_H264_LOG("__picoH264ParseSVCVUIParametersExtension: Failed to parse SVC VUI VCL HRD parameters\n");
+                return false;
+            }
+        }
+
+        if (entry->vuiExtNalHrdParametersPresentFlag || entry->vuiExtVclHrdParametersPresentFlag) {
+            entry->vuiExtLowDelayHrdFlag = picoH264BufferReaderU(br, 1) != 0;
+        }
+
+        entry->vuiExtPicStructPresentFlag = picoH264BufferReaderU(br, 1) != 0;        
+    }
+
+    return true;
+}
+
+static bool __picoH264ParseMVCSequenceParameterSetExtension(picoH264BufferReader br, picoH264SequenceParameterSet sps, picoH264SPSMVCExtension mvcSpsExtOut) {
+    PICO_ASSERT(br != NULL);
+    PICO_ASSERT(mvcSpsExtOut != NULL);
+
+    memset(mvcSpsExtOut, 0, sizeof(picoH264SPSMVCExtension_t));
+
+    mvcSpsExtOut->numViewsMinus1 = (uint32_t)picoH264BufferReaderUE(br);
+    for (uint32_t i = 1; i <= mvcSpsExtOut->numViewsMinus1; i++) {
+        mvcSpsExtOut->viewId[i] = (uint16_t)picoH264BufferReaderUE(br);
+    }
+
+    for (uint32_t i = 0; i <= mvcSpsExtOut->numViewsMinus1; i++) {
+        mvcSpsExtOut->numAnchorRefsL0[i] = (uint32_t)picoH264BufferReaderUE(br);
+        for (uint32_t j = 0; j < mvcSpsExtOut->numAnchorRefsL0[i]; j++) {
+            mvcSpsExtOut->anchorRefL0[i][j] = (uint16_t)picoH264BufferReaderUE(br);
+        }
+
+        mvcSpsExtOut->numAnchorRefsL1[i] = (uint32_t)picoH264BufferReaderUE(br);
+        for (uint32_t j = 0; j < mvcSpsExtOut->numAnchorRefsL1[i]; j++) {
+            mvcSpsExtOut->anchorRefL1[i][j] = (uint16_t)picoH264BufferReaderUE(br);
+        }
+    }
+
+    for (uint32_t i = 0; i <= mvcSpsExtOut->numViewsMinus1; i++) {
+        mvcSpsExtOut->numNonAnchorRefsL0[i] = (uint32_t)picoH264BufferReaderUE(br);
+        for (uint32_t j = 0; j < mvcSpsExtOut->numNonAnchorRefsL0[i]; j++) {
+            mvcSpsExtOut->nonAnchorRefL0[i][j] = (uint16_t)picoH264BufferReaderUE(br);
+        }
+
+        mvcSpsExtOut->numNonAnchorRefsL1[i] = (uint32_t)picoH264BufferReaderUE(br);
+        for (uint32_t j = 0; j < mvcSpsExtOut->numNonAnchorRefsL1[i]; j++) {
+            mvcSpsExtOut->nonAnchorRefL1[i][j] = (uint16_t)picoH264BufferReaderUE(br);
+        }
+    }
+
+    mvcSpsExtOut->numLevelValuesSignalledMinus1 = (uint8_t)picoH264BufferReaderUE(br);
+    for (uint32_t i = 0; i <= mvcSpsExtOut->numLevelValuesSignalledMinus1; i++) {
+        mvcSpsExtOut->levelIDC[i] = (uint8_t)picoH264BufferReaderU(br, 8);
+
+        mvcSpsExtOut->numApplicableOpsMinus1[i] = (uint16_t)picoH264BufferReaderUE(br);
+        for (uint32_t j = 0; j <= mvcSpsExtOut->numApplicableOpsMinus1[i]; j++) {
+            mvcSpsExtOut->applicableOpTemporalId[i][j] = (uint8_t)picoH264BufferReaderU(br, 3);
+            mvcSpsExtOut->applicableOpNumTargetViewsMinus1[i][j] = (uint16_t)picoH264BufferReaderUE(br);
+            for (uint32_t k = 0; k <= mvcSpsExtOut->applicableOpNumTargetViewsMinus1[i][j]; k++) {
+                mvcSpsExtOut->applicableOpTargetViewId[i][j][k] = (uint16_t)picoH264BufferReaderUE(br);
+            }
+            mvcSpsExtOut->applicableOpNumViewsMinus1[i][j] = (uint16_t)picoH264BufferReaderUE(br);
+        }
+    }
+
+    if (sps->profileIdc == 134) {
+        mvcSpsExtOut->mfcFormatIDC = (uint8_t)picoH264BufferReaderU(br, 6);
+        if (mvcSpsExtOut->mfcFormatIDC == 0 || mvcSpsExtOut->mfcFormatIDC == 1) {
+            mvcSpsExtOut->defaultGridPositionFlag = picoH264BufferReaderU(br, 1) != 0;
+            if (!mvcSpsExtOut->defaultGridPositionFlag) {
+                mvcSpsExtOut->view0GridPositionX = (uint8_t)picoH264BufferReaderU(br, 4);
+                mvcSpsExtOut->view0GridPositionY = (uint8_t)picoH264BufferReaderU(br, 4);
+                mvcSpsExtOut->view1GridPositionX = (uint8_t)picoH264BufferReaderU(br, 4);
+                mvcSpsExtOut->view1GridPositionY = (uint8_t)picoH264BufferReaderU(br, 4);
+            }
+        }
+        mvcSpsExtOut->rpuFilterEnabledFlag = picoH264BufferReaderU(br, 1) != 0;
+        if (!sps->frameMbsOnlyFlag) {
+            mvcSpsExtOut->rpuFieldProcessingFlag = picoH264BufferReaderU(br, 1) != 0;
+        }
+    }
+
+    return true;
+}
+
+static bool __picoH264ParseMVCVUIParametersExtension(picoH264BufferReader br, picoH264MVCVUIParametersExtension mvcVuiExtOut) {
+    PICO_ASSERT(br != NULL);
+    PICO_ASSERT(mvcVuiExtOut != NULL);
+
+    memset(mvcVuiExtOut, 0, sizeof(picoH264MVCVUIParametersExtension_t));
+
+    mvcVuiExtOut->vuiMVCNumOpsMinus1 = (uint32_t)picoH264BufferReaderUE(br);
+    for (uint32_t i = 0; i <= mvcVuiExtOut->vuiMVCNumOpsMinus1; i++) {
+        picoH264MVCVUIParametersExtensionOpsEntry entry = &mvcVuiExtOut->vuiMVCOpsEntries[i];
+        entry->vuiMVCOpsTemporalId = (uint8_t)picoH264BufferReaderU(br, 3);
+        entry->vuiMVCOpsNumTargetViewsMinus1 = (uint16_t)picoH264BufferReaderUE(br);
+        for (uint32_t j = 0; j <= entry->vuiMVCOpsNumTargetViewsMinus1; j++) {
+            entry->vuiMVCOpsTargetViewId[j] = (uint16_t)picoH264BufferReaderUE(br);
+        }
+        entry->vuiMVCTimingInfoPresentFlag = picoH264BufferReaderU(br, 1) != 0;
+        if (entry->vuiMVCTimingInfoPresentFlag) {
+            entry->vuiMVCNumUnitsInTick = (uint32_t)picoH264BufferReaderU(br, 32);
+            entry->vuiMVCTimeScale      = (uint32_t)picoH264BufferReaderU(br, 32);
+            entry->vuiMVCFixedFrameRateFlag = picoH264BufferReaderU(br, 1) != 0;
+        }
+        entry->vuiMVCNalHrdParametersPresentFlag = picoH264BufferReaderU(br, 1) != 0;
+        if (entry->vuiMVCNalHrdParametersPresentFlag) {
+            if (!__picoH264ParseHRDParameters(br, &entry->vuiMVCNalHrdParameters)) {
+                PICO_H264_LOG("__picoH264ParseMVCVUIParametersExtension: Failed to parse MVC VUI NAL HRD parameters\n");
+                return false;
+            }
+        }
+
+        entry->vuiMVCVclHrdParametersPresentFlag = picoH264BufferReaderU(br, 1) != 0;
+        if (entry->vuiMVCVclHrdParametersPresentFlag) {
+            if (!__picoH264ParseHRDParameters(br, &entry->vuiMVCVclHrdParameters)) {
+                PICO_H264_LOG("__picoH264ParseMVCVUIParametersExtension: Failed to parse MVC VUI VCL HRD parameters\n");
+                return false;
+            }
+        }
+
+        if (entry->vuiMVCNalHrdParametersPresentFlag || entry->vuiMVCVclHrdParametersPresentFlag) {
+            entry->vuiMVCLowDelayHrdFlag = picoH264BufferReaderU(br, 1) != 0;
+        }
+        entry->vuiMVCPicStructPresentFlag = picoH264BufferReaderU(br, 1) != 0;
+    }
+
+    return true;
+}
+
+bool picoH264ParseSubsetSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SubsetSequenceParameterSet subsetSpsOut) {
+    PICO_ASSERT(nalUnitPayloadBuffer != NULL);
+    PICO_ASSERT(nalUnitPayloadSize > 0);
+    PICO_ASSERT(subsetSpsOut != NULL);
+
+    picoH264BufferReader_t br = {0};
+    picoH264BufferReaderInit(&br, nalUnitPayloadBuffer, nalUnitPayloadSize);
+
+    memset(subsetSpsOut, 0, sizeof(picoH264SubsetSequenceParameterSet_t));
+
+    if (!__picoH264ParseSequenceParameterSetData(&br, &subsetSpsOut->spsData)) {
+        PICO_H264_LOG("picoH264ParseSubsetSequenceParameterSet: Failed to parse base SPS data\n");
+        return false;
+    }
+
+    subsetSpsOut->hasSvcExtension = false;
+    subsetSpsOut->hasMvcExtension = false;
+    subsetSpsOut->svcVuiParametersPresentFlag = false;
+    subsetSpsOut->mvcVuiParametersPresentFlag = false;
+
+    if (subsetSpsOut->spsData.profileIdc == 83 || subsetSpsOut->spsData.profileIdc == 86) {
+        subsetSpsOut->hasSvcExtension = true;
+        if (!__picoH264ParseSVCSequenceParameterSetExtension(&br, &subsetSpsOut->spsData, &subsetSpsOut->svcExtension)) {
+            PICO_H264_LOG("picoH264ParseSubsetSequenceParameterSet: Failed to parse SVC SPS extension\n");
+            return false;
+        }
+        subsetSpsOut->svcVuiParametersPresentFlag = picoH264BufferReaderU(&br, 1) != 0;
+        if (subsetSpsOut->svcVuiParametersPresentFlag) {
+            if (!__picoH264ParseSVCVUIParametersExtension(&br, &subsetSpsOut->svcVuiParametersExtension)) {
+                PICO_H264_LOG("picoH264ParseSubsetSequenceParameterSet: Failed to parse SVC VUI parameters\n");
+                return false;
+            }
+        }
+    }  else if (subsetSpsOut->spsData.profileIdc == 118 || subsetSpsOut->spsData.profileIdc == 128) {
+        subsetSpsOut->hasMvcExtension = true;
+        if (!__picoH264ParseMVCSequenceParameterSetExtension(&br, &subsetSpsOut->spsData, &subsetSpsOut->mvcExtension)) {
+            PICO_H264_LOG("picoH264ParseSubsetSequenceParameterSet: Failed to parse MVC SPS extension\n");
+            return false;
+        }
+        subsetSpsOut->mvcVuiParametersPresentFlag = picoH264BufferReaderU(&br, 1) != 0;
+        if (subsetSpsOut->mvcVuiParametersPresentFlag) {
+            if (!__picoH264ParseMVCVUIParametersExtension(&br, &subsetSpsOut->mvcVuiParametersExtension)) {
+                PICO_H264_LOG("picoH264ParseSubsetSequenceParameterSet: Failed to parse MVC VUI parameters\n");
+                return false;
+            }
+        }
+    } else if (subsetSpsOut->spsData.profileIdc == 138 || subsetSpsOut->spsData.profileIdc == 135) {
+        if (picoH264BufferReaderU(&br, 1) != 1) {
+            PICO_H264_LOG("picoH264ParseSubsetSequenceParameterSet: Bit must be 1 for these profiles\n");
+            return false;
+        }
+        // seq_parameter_set_mvcd_extension()
+        PICO_H264_LOG("picoH264ParseSubsetSequenceParameterSet: MVCD extension parsing not implemented\n");
+    } else if (subsetSpsOut->spsData.profileIdc == 139) {
+        if (picoH264BufferReaderU(&br, 1) != 1) {
+            PICO_H264_LOG("picoH264ParseSubsetSequenceParameterSet: Bit must be 1 for these profiles\n");
+            return false;
+        }
+        // seq_parameter_set_mvcd_extension()
+        // seq_parameter_set_3davc_extension()
+        PICO_H264_LOG("picoH264ParseSubsetSequenceParameterSet: MVCD extension parsing not implemented\n");
+        PICO_H264_LOG("picoH264ParseSubsetSequenceParameterSet: 3DAVC extension parsing not implemented\n");
+    }
+
+    // NOTE: we do not parse the additional data here for sps_subset
+
+    return true;
+}
+
 
 const char *picoH264NALRefIdcToString(picoH264NALRefIDC nalRefIdc)
 {
