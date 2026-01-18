@@ -2220,6 +2220,15 @@ bool picoH264ParseSEIMessages(const uint8_t *nalUnitPayloadBuffer, size_t nalUni
 
 bool picoH264ParseSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet spsOut);
 
+// get the default scaling list for the given index, returns true if successful, false if error (e.g. invalid index)
+// scalingListIndex is in the range of 0 to 11 inclusive
+// for scalingListIndex in the range of 0 to 5, scalingListOut should point to an array of 16 integers
+// for scalingListIndex in the range of 6 to 11, scalingListOut should point to an array of 64 integers
+bool picoH264GetScalingListDefault(size_t scalingListIndex, int* scalingListOut);
+
+// get the fallback rule set A scaling list for the given index, returns true if successful, false if error (e.g. invalid index)
+bool picoH265GetScalingListFallbackRuleSetA(size_t scalingListIndex, int* scalingListOut, int* scalingLists4x4[6], int* scalingLists8x8[6]);
+
 // the following functions print various structures to stdout for debugging purposes
 void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader);
 void picoH264SequenceParameterSetDebugPrint(picoH264SequenceParameterSet sps);
@@ -3122,6 +3131,250 @@ bool picoH264ParseSEIMessages(const uint8_t *nalUnitPayloadBuffer, size_t nalUni
     return true;
 }
 
+static bool __picoH264ParseScalingList(picoH264BufferReader br, size_t sizeOfScalingList, int *scalingListOut, bool *useDefaultScalingMatrixFlagOut)
+{
+    PICO_ASSERT(br != NULL);
+    PICO_ASSERT(scalingListOut != NULL);
+    PICO_ASSERT(useDefaultScalingMatrixFlagOut != NULL);
+
+    int32_t lastScale = 8;
+    int32_t nextScale = 8;
+    for (size_t j = 0; j < sizeOfScalingList; j++) {
+        if (nextScale != 0) {
+            int32_t deltaScale = (int32_t)picoH264BufferReaderSE(br);
+            nextScale          = (lastScale + deltaScale + 256) % 256;
+            *useDefaultScalingMatrixFlagOut = (j == 0 && nextScale == 0);
+        }
+        scalingListOut[j] = (nextScale == 0) ? lastScale : nextScale;
+        lastScale         = scalingListOut[j];
+    }
+
+    return true;
+}
+
+bool picoH264GetScalingListDefault(size_t scalingListIndex, int* scalingListOut)
+{
+    PICO_ASSERT(scalingListOut != NULL);
+    PICO_ASSERT(scalingListIndex < 12);
+
+    static const int default4x4Intra[16] = {
+        6, 13, 13, 20, 20, 20, 28, 28, 28, 28, 32, 32, 32, 37, 37, 42
+    };
+    static const int default4x4Inter[16] = {
+        10, 14, 14, 20, 20, 20, 24, 24, 24, 24, 27, 27, 27, 30, 30, 34
+    };
+    static const int default8x8Intra[64] = {
+        6, 10, 10, 13, 11, 13, 16, 16, 16, 16, 18, 18, 18, 18, 18, 23,
+        23, 23, 23, 23, 23, 25, 25, 25, 25, 25, 25, 25, 27, 27, 27, 27,
+        27, 27, 27, 27, 29, 29, 29, 29, 29, 29, 29, 31, 31, 31, 31, 31,
+        31, 33, 33, 33, 33, 33, 36, 36, 36, 36, 38, 38, 38, 40, 40, 42
+    };
+    static const int default8x8Inter[64] = {
+        9, 13, 13, 15, 13, 15, 17, 17, 17, 17, 19, 19, 19, 19, 19, 21,
+        21, 21, 21, 21, 21, 22, 22, 22, 22, 22, 22, 22, 24, 24, 24, 24,
+        24, 24, 24, 24, 25, 25, 25, 25, 25, 25, 25, 27, 27, 27, 27, 27,
+        27, 28, 28, 28, 28, 28, 30, 30, 30, 30, 32, 32, 32, 33, 33, 35
+    };
+
+    size_t sizeOfScalingList = ((scalingListIndex < 6) ? 16 : 64) * sizeof(int);
+
+    const int *defaultScalingList = NULL;
+    if (scalingListIndex < 6) {
+        if (scalingListIndex < 3) {
+            defaultScalingList = default4x4Intra;
+        } else {
+            defaultScalingList = default4x4Inter;
+        }
+    } else {
+        if (scalingListIndex == 6 || scalingListIndex == 8 || scalingListIndex == 10) {
+            defaultScalingList = default8x8Intra;
+        } else {
+            defaultScalingList = default8x8Inter;
+        }
+    }
+
+    memcpy(scalingListOut, defaultScalingList, sizeOfScalingList);
+
+    return true;
+}
+
+bool picoH265GetScalingListFallbackRuleSetA(size_t scalingListIndex, int* scalingListOut, int* scalingLists4x4[6], int* scalingLists8x8[6])
+{
+    PICO_ASSERT(scalingListOut != NULL);
+    PICO_ASSERT(scalingListIndex < 12);
+
+    size_t sizeOfScalingList = ((scalingListIndex < 6) ? 16 : 64) * sizeof(int);
+
+    switch (scalingListIndex) {
+        case 0:
+            return picoH264GetScalingListDefault(0, scalingListOut);
+        case 1:
+            // scaling list for i = 0
+            memcpy(scalingListOut, scalingLists4x4[0], sizeOfScalingList);
+            break;
+        case 2:
+            // scaling list for i = 1
+            memcpy(scalingListOut, scalingLists4x4[1], sizeOfScalingList);
+            break;
+        case 3:
+            return picoH264GetScalingListDefault(3, scalingListOut);
+        case 4:
+            // scaling list for i = 3
+            memcpy(scalingListOut, scalingLists4x4[3], sizeOfScalingList);
+            break;
+        case 5:
+            // scaling list for i = 4
+            memcpy(scalingListOut, scalingLists4x4[4], sizeOfScalingList);
+            break;
+        case 6:
+            return picoH264GetScalingListDefault(6, scalingListOut);
+        case 7:
+            return picoH264GetScalingListDefault(7, scalingListOut);
+        case 8:
+            // scaling list for i = 6
+            memcpy(scalingListOut, scalingLists8x8[0], sizeOfScalingList);
+            break;
+        case 9:
+            // scaling list for i = 7
+            memcpy(scalingListOut, scalingLists8x8[1], sizeOfScalingList);
+            break;
+        case 10:
+            // scaling list for i = 8
+            memcpy(scalingListOut, scalingLists8x8[2], sizeOfScalingList);
+            break;
+        case 11:
+            // scaling list for i = 9
+            memcpy(scalingListOut, scalingLists8x8[3], sizeOfScalingList);
+            break;
+        default:
+            return false;
+    }
+
+    return true;
+}
+
+static bool __picoH264ParseHRDParameters(picoH264BufferReader br, picoH264HypotheticalReferenceDecoder hrdOut) {
+    PICO_ASSERT(br != NULL);
+    PICO_ASSERT(hrdOut != NULL);
+
+    hrdOut->cpbCntMinus1 = (uint32_t)picoH264BufferReaderUE(br);
+    hrdOut->bitRateScale  = (uint8_t)picoH264BufferReaderU(br, 4);
+    hrdOut->cpbSizeScale  = (uint8_t)picoH264BufferReaderU(br, 4);
+
+    for (uint32_t i = 0; i <= hrdOut->cpbCntMinus1; i++) {
+        hrdOut->bitRateValueMinus1[i] = (uint32_t)picoH264BufferReaderUE(br);
+        hrdOut->cpbSizeValueMinus1[i] = (uint32_t)picoH264BufferReaderUE(br);
+        hrdOut->cbrFlag[i]            = picoH264BufferReaderU(br, 1) != 0;
+    }
+
+    hrdOut->initialCpbRemovalDelayLengthMinus1 = (uint8_t)picoH264BufferReaderU(br, 5);
+    hrdOut->cpbRemovalDelayLengthMinus1      = (uint8_t)picoH264BufferReaderU(br, 5);
+    hrdOut->dpbOutputDelayLengthMinus1         = (uint8_t)picoH264BufferReaderU(br, 5);
+    hrdOut->timeOffsetLength                   = (uint8_t)picoH264BufferReaderU(br, 5);
+
+    return true;
+}
+
+static bool __picoH264ParseVUIParameters(picoH264BufferReader_t *br, picoH264VideoUsabilityInformation vuiOut) {
+    PICO_ASSERT(br != NULL);
+    PICO_ASSERT(vuiOut != NULL);
+
+    memset(vuiOut, 0, sizeof(picoH264VideoUsabilityInformation_t));
+
+    vuiOut->aspectRatioInfoPresentFlag = picoH264BufferReaderU(br, 1) != 0;
+    if (vuiOut->aspectRatioInfoPresentFlag) {
+        vuiOut->aspectRatioIdc = (uint8_t)picoH264BufferReaderU(br, 8);
+        if (vuiOut->aspectRatioIdc == PICO_H264_ASPECT_RATIO_IDC_EXTENDED_SAR) { // Extended_SAR
+            vuiOut->sarWidth  = (uint16_t)picoH264BufferReaderU(br, 16);
+            vuiOut->sarHeight = (uint16_t)picoH264BufferReaderU(br, 16);
+        }
+    } else {
+        vuiOut->aspectRatioIdc = PICO_H264_ASPECT_RATIO_IDC_UNSPECIFIED;
+    }
+
+    vuiOut->overscanInfoPresentFlag = picoH264BufferReaderU(br, 1) != 0;
+    if (vuiOut->overscanInfoPresentFlag) {
+        vuiOut->overscanAppropriateFlag = picoH264BufferReaderU(br, 1) != 0;
+    }
+
+    vuiOut->videoSignalTypePresentFlag = picoH264BufferReaderU(br, 1) != 0;
+    if (vuiOut->videoSignalTypePresentFlag) {
+        vuiOut->videoFormat          = (uint8_t)picoH264BufferReaderU(br, 3);
+        vuiOut->videoFullRangeFlag   = picoH264BufferReaderU(br, 1) != 0;
+        vuiOut->colourDescriptionPresentFlag = picoH264BufferReaderU(br, 1) != 0;
+        if (vuiOut->colourDescriptionPresentFlag) {
+            vuiOut->colourPrimaries         = (uint8_t)picoH264BufferReaderU(br, 8);
+            vuiOut->transferCharacteristics = (uint8_t)picoH264BufferReaderU(br, 8);
+            vuiOut->matrixCoefficients      = (uint8_t)picoH264BufferReaderU(br, 8);
+        } else {
+            vuiOut->colourPrimaries         = 2;
+            vuiOut->transferCharacteristics = 2;
+            vuiOut->matrixCoefficients      = 0; // TODO: Might be wrong!
+        }
+    } else {
+        vuiOut->videoFormat = PICO_H264_VIDEO_FORMAT_UNSPECIFIED;
+        vuiOut->colourPrimaries         = 2;
+        vuiOut->transferCharacteristics = 2;
+        vuiOut->matrixCoefficients      = 0; // TODO: Might be wrong!
+    }
+
+    vuiOut->chromaLocInfoPresentFlag = picoH264BufferReaderU(br, 1) != 0;
+    if (vuiOut->chromaLocInfoPresentFlag) {
+        vuiOut->chromaSampleLocTypeTopField    = (uint32_t)picoH264BufferReaderUE(br);
+        vuiOut->chromaSampleLocTypeBottomField = (uint32_t)picoH264BufferReaderUE(br);
+    }
+
+    vuiOut->timingInfoPresentFlag = picoH264BufferReaderU(br, 1) != 0;
+    if (vuiOut->timingInfoPresentFlag) {
+        vuiOut->numUnitsInTick         = picoH264BufferReaderU(br, 32);
+        vuiOut->timeScale              = picoH264BufferReaderU(br, 32);
+        vuiOut->fixedFrameRateFlag     = picoH264BufferReaderU(br, 1) != 0;
+    }
+
+    vuiOut->nalHrdParametersPresentFlag = picoH264BufferReaderU(br, 1) != 0;
+    if (vuiOut->nalHrdParametersPresentFlag) {
+        if (!__picoH264ParseHRDParameters(br, &vuiOut->nalHrdParameters)) {
+            PICO_H264_LOG("__picoH264ParseVUIParameters: Failed to parse NAL HRD parameters\n");
+            return false;
+        }
+    }
+
+    vuiOut->vclHrdParametersPresentFlag = picoH264BufferReaderU(br, 1) != 0;
+    if (vuiOut->vclHrdParametersPresentFlag) {
+        if (!__picoH264ParseHRDParameters(br, &vuiOut->vclHrdParameters)) {
+            PICO_H264_LOG("__picoH264ParseVUIParameters: Failed to parse VCL HRD parameters\n");
+            return false;
+        }
+    }
+
+    if (vuiOut->nalHrdParametersPresentFlag || vuiOut->vclHrdParametersPresentFlag) {
+        vuiOut->lowDelayHrdFlag = picoH264BufferReaderU(br, 1) != 0;
+    }
+
+    vuiOut->picStructPresentFlag = picoH264BufferReaderU(br, 1) != 0;
+    vuiOut->bitstreamRestrictionFlag = picoH264BufferReaderU(br, 1) != 0;
+    if (vuiOut->bitstreamRestrictionFlag) {
+        vuiOut->motionVectorsOverPicBoundariesFlag = picoH264BufferReaderU(br, 1) != 0;
+        vuiOut->maxBytesPerPicDenom               = (uint32_t)picoH264BufferReaderUE(br);
+        vuiOut->maxBitsPerMbDenom                 = (uint32_t)picoH264BufferReaderUE(br);
+        vuiOut->log2MaxMvLengthHorizontal         = (uint32_t)picoH264BufferReaderUE(br);
+        vuiOut->log2MaxMvLengthVertical           = (uint32_t)picoH264BufferReaderUE(br);
+        vuiOut->numReorderFrames                  = (uint32_t)picoH264BufferReaderUE(br);
+        vuiOut->maxDecFrameBuffering              = (uint32_t)picoH264BufferReaderUE(br);
+    } else {
+        vuiOut->motionVectorsOverPicBoundariesFlag = true;
+        vuiOut->maxBytesPerPicDenom               = 2;
+        vuiOut->maxBitsPerMbDenom                 = 1;
+        vuiOut->log2MaxMvLengthHorizontal         = 15;
+        vuiOut->log2MaxMvLengthVertical           = 15;
+        vuiOut->numReorderFrames                  = 0;
+        vuiOut->maxDecFrameBuffering              = 0;
+    }
+
+
+    return true;
+}
+
 bool picoH264ParseSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet spsOut)
 {
     PICO_ASSERT(nalUnitPayloadBuffer != NULL);
@@ -3165,7 +3418,45 @@ bool picoH264ParseSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size
         spsOut->seqScalingMatrixPresentFlag = picoH264BufferReaderU(&br, 1) != 0;
 
         if (spsOut->seqScalingMatrixPresentFlag) {
-            
+            for (int i = 0; i < ((spsOut->chromaFormatIdc != 3) ? 8 : 12); i++) {
+                spsOut->seqScalingListPresentFlag[i] = picoH264BufferReaderU(&br, 1) != 0;
+                if (spsOut->seqScalingListPresentFlag[i]) {
+                    if (i < 6) {
+                        if(!__picoH264ParseScalingList(
+                            &br,
+                            16,
+                            spsOut->scalingList4x4[i],
+                            &spsOut->useDefaultScalingMatrix4x4Flag[i]
+                        )) {
+                            PICO_H264_LOG("picoH264ParseSequenceParameterSet: Failed to parse 4x4 scaling list %d\n", i);
+                            return false;
+                        }
+                    } else {
+                        if(!__picoH264ParseScalingList(
+                            &br,
+                            64,
+                            spsOut->scalingList8x8[i - 6],
+                            &spsOut->useDefaultScalingMatrix8x8Flag[i - 6]
+                        )) {
+                            PICO_H264_LOG("picoH264ParseSequenceParameterSet: Failed to parse 8x8 scaling list %d\n", i - 6);
+                            return false;
+                        }
+                    }
+                } else {
+                    // seq_scaling_list_present_flag[ i ] equal to 0 specifies that the syntax structure for scaling list i is not present 
+                    // in the sequence parameter set and the scaling list fall-back rule set A specified in Table 7-2 shall be used to infer the 
+                    // sequence-level scaling list for index i. 
+                    if (!picoH265GetScalingListFallbackRuleSetA(i,
+                                                            (i < 6) ? spsOut->scalingList4x4[i] : spsOut->scalingList8x8[i - 6],
+                                                            (int*[6]){spsOut->scalingList4x4[0], spsOut->scalingList4x4[1], spsOut->scalingList4x4[2],
+                                                                      spsOut->scalingList4x4[3], spsOut->scalingList4x4[4], spsOut->scalingList4x4[5]},
+                                                            (int*[6]){spsOut->scalingList8x8[0], spsOut->scalingList8x8[1], spsOut->scalingList8x8[2],
+                                                                      spsOut->scalingList8x8[3], spsOut->scalingList8x8[4], spsOut->scalingList8x8[5]})) {
+                        PICO_H264_LOG("picoH264ParseSequenceParameterSet: Failed to get scaling list fallback for index %d\n", i);
+                        return false;
+                    }
+                }              
+            }   
         }
     } else {
         // NOTE: some of these values will indeed be set to the default by the memset above,
@@ -3177,6 +3468,79 @@ bool picoH264ParseSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size
         spsOut->qpprimeYZeroTransformBypassFlag = false;
         spsOut->seqScalingMatrixPresentFlag = false;
     }
+
+    // seq_scaling_matrix_present_flag equal to 0 specifies that these flags are not present and the 
+    // sequence-level scaling list specified by Flat_4x4_16 shall be inferred for i = 0..5 and the sequence-level scaling list 
+    // specified by Flat_8x8_16 shall be inferred for i = 6..11.
+    if (!spsOut->seqScalingMatrixPresentFlag) {
+        for (int i = 0; i < 12; i++) {
+            spsOut->seqScalingListPresentFlag[i] = false;
+        }
+
+        for (int i = 0; i < 6; i++) {
+            for (int j = 0; j < 16; j++) {
+                spsOut->scalingList4x4[i][j] = 16;
+            }
+        }
+
+        for (int i = 0; i < 6; i++) {
+            for (int j = 0; j < 64; j++) {
+                spsOut->scalingList8x8[i][j] = 16;
+            }
+        }
+    }
+
+    spsOut->log2MaxFrameNumMinus4       = (uint8_t)picoH264BufferReaderUE(&br);
+    spsOut->picOrderCntType             = (uint8_t)picoH264BufferReaderUE(&br);
+
+    if (spsOut->picOrderCntType == 0) {
+        spsOut->log2MaxPicOrderCntLsbMinus4 = (uint8_t)picoH264BufferReaderUE(&br);
+    } else if (spsOut->picOrderCntType == 1) {
+        spsOut->deltaPicOrderAlwaysZeroFlag = picoH264BufferReaderU(&br, 1) != 0;
+        spsOut->offsetForNonRefPic          = picoH264BufferReaderSE(&br);
+        spsOut->offsetForTopToBottomField   = picoH264BufferReaderSE(&br);
+        spsOut->numRefFramesInPicOrderCntCycle = (uint8_t)picoH264BufferReaderUE(&br);
+        for (size_t i = 0; i < spsOut->numRefFramesInPicOrderCntCycle; i++) {
+            spsOut->offsetForRefFrame[i] = picoH264BufferReaderSE(&br);
+        }
+    }
+
+    spsOut->maxNumRefFrames       = (uint8_t)picoH264BufferReaderUE(&br);
+    spsOut->gapsInFrameNumValueAllowedFlag = picoH264BufferReaderU(&br, 1) != 0;
+    spsOut->picWidthInMbsMinus1  = (uint16_t)picoH264BufferReaderUE(&br);
+    spsOut->picHeightInMapUnitsMinus1 = (uint16_t)picoH264BufferReaderUE(&br);
+
+    spsOut->frameMbsOnlyFlag = picoH264BufferReaderU(&br, 1) != 0;
+    if (!spsOut->frameMbsOnlyFlag) {
+        spsOut->mbAdaptiveFrameFieldFlag = picoH264BufferReaderU(&br, 1) != 0;
+    } else {
+        spsOut->mbAdaptiveFrameFieldFlag = false;
+    }
+
+    spsOut->direct8x8InferenceFlag = picoH264BufferReaderU(&br, 1) != 0;
+    spsOut->frameCroppingFlag     = picoH264BufferReaderU(&br, 1) != 0;
+    
+    if (spsOut->frameCroppingFlag) {
+        spsOut->frameCropLeftOffset   = (uint32_t)picoH264BufferReaderUE(&br);
+        spsOut->frameCropRightOffset  = (uint32_t)picoH264BufferReaderUE(&br);
+        spsOut->frameCropTopOffset    = (uint32_t)picoH264BufferReaderUE(&br);
+        spsOut->frameCropBottomOffset = (uint32_t)picoH264BufferReaderUE(&br);
+    } else {
+        spsOut->frameCropLeftOffset   = 0;
+        spsOut->frameCropRightOffset  = 0;
+        spsOut->frameCropTopOffset    = 0;
+        spsOut->frameCropBottomOffset = 0;
+    }
+
+    spsOut->vuiParametersPresentFlag = picoH264BufferReaderU(&br, 1) != 0;
+    if (spsOut->vuiParametersPresentFlag) {
+        if(!__picoH264ParseVUIParameters(&br, &spsOut->vui)) {
+            PICO_H264_LOG("picoH264ParseSequenceParameterSet: Failed to parse VUI parameters\n");
+            return false;
+        }
+    }
+
+    picoH264BufferReaderRBSPTrailingBits(&br);
 
     return true;
 }
