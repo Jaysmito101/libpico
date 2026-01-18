@@ -888,7 +888,7 @@ typedef struct {
     // decoding process for picture order count as specified in clause 8.2.1 as follows:
     //     MaxPicOrderCntLsb = 2^( log2_max_pic_order_cnt_lsb_minus4 + 4 )
     // The value of log2_max_pic_order_cnt_lsb_minus4 shall be in the range of 0 to 12, inclusive.
-    uint16_t log2MaxPicOrderCntLsbMinus4;
+    uint8_t log2MaxPicOrderCntLsbMinus4;
 
     // delta_pic_order_always_zero_flag equal to 1 specifies that delta_pic_order_cnt[ 0 ] and delta_pic_order_cnt[ 1 ] are
     // not present in the slice headers of the sequence and shall be inferred to be equal to 0. delta_pic_order_always_zero_flag
