@@ -2243,6 +2243,7 @@ bool picoH264ParseSliceLayerWithoutPartitioning(const uint8_t *nalUnitPayloadBuf
 bool picoH264ParseSliceDataPartitionALayer(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264NALUnitHeader nalUnitHeader, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceDataPartitionALayer sliceDataPartitionALayerOut);
 bool picoH264ParseSliceDataPartitionBLayer(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceDataPartitionBLayer sliceDataPartitionBLayerOut);
 bool picoH264ParseSliceDataPartitionCLayer(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceDataPartitionCLayer sliceDataPartitionCLayerOut);
+bool picoH264SliceDataPartitionBCLayerParseSliceId(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, uint16_t *sliceIdOut);
 
 // get the default scaling list for the given index, returns true if successful, false if error (e.g. invalid index)
 // scalingListIndex is in the range of 0 to 11 inclusive
@@ -4407,6 +4408,20 @@ bool picoH264ParseSliceDataPartitionCLayer(const uint8_t *nalUnitPayloadBuffer, 
     }
     sliceDataPartitionCLayerOut->data.rawData     = picoH264BufferReaderGetCurrentBytePointer(&br);
     sliceDataPartitionCLayerOut->data.rawDataSize = picoH264BufferReaderGetBitsRemaining(&br) / 8;
+    return true;
+}
+
+bool picoH264SliceDataPartitionBCLayerParseSliceId(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, uint16_t *sliceIdOut)
+{
+    PICO_ASSERT(nalUnitPayloadBuffer != NULL);
+    PICO_ASSERT(nalUnitPayloadSize > 0);
+    PICO_ASSERT(sliceIdOut != NULL);
+
+    picoH264BufferReader_t br = {0};
+    picoH264BufferReaderInit(&br, nalUnitPayloadBuffer, nalUnitPayloadSize);
+
+    *sliceIdOut = (uint16_t)picoH264BufferReaderUE(&br);
+
     return true;
 }
 
