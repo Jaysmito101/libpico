@@ -1,4 +1,9 @@
 build
 build.linux
+build.msvc
+.vscode
+.vscode
+.stfolder
 .cache
 output
+sandbox

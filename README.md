@@ -17,3 +17,4 @@ headers you wanna use define `PICO_IMPLEMENTATION` before including the headers.
 | picoM3U8 | `include/pico/picoM3u8.h` | A library for parsing M3U8 playlists (HLS). (Full spec implementation) | [examples/picoM3U8](examples/picoM3U8/main.c) |
 | picoMpegTS | `include/pico/picoMpegTS.h` | A library for parsing/buffering MPEG-TS & DVB streams. | [examples/picoMpegTS](examples/picoMpegTS/main.c) |
 | picoTime | `include/pico/picoTime.h` | A cross-platform OS based time and timer utility library. | [examples/picoTime](examples/picoTime/main.c) |
+| picoH264 | `include/pico/picoH264.h` | A library for parsing H.264 bitstreams. | [examples/picoH264](examples/picoH264/main.c) |
