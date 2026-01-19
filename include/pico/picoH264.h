@@ -2790,7 +2790,7 @@ int64_t picoH264BufferReaderSE(picoH264BufferReader bufferReader)
             return -3;
         default: {
             int64_t value = (codeNum + 1) / 2;
-            if (((codeNum + 1) & 1) == 0) {
+            if (((codeNum + 1) & 1) != 0) {
                 value = -value;
             }
             return value;
