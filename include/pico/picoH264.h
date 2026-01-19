@@ -1674,7 +1674,7 @@ typedef struct {
     // absDiffViewIdxMinus1 plus 1 specifies the absolute difference between the reference view index to put to the current
     // index in the reference picture list and the prediction value of the reference view index
     // NOTE: only used for MVC
-    uint32_t abs_diff_view_idx_minus1;
+    uint32_t absDiffViewIdxMinus1;
 } picoH264RefPicListModificationEntry_t;
 typedef picoH264RefPicListModificationEntry_t *picoH264RefPicListModificationEntry;
 
@@ -4700,22 +4700,22 @@ static void __picoH264RefPicListModificationDebugPrint(const picoH264RefPicListM
     if (refPicListModification->refPicListModificationFlagL0) {
         PICO_H264_LOG("    numModificationsL0: %u\n", (unsigned)refPicListModification->numModificationsL0);
         for (uint32_t i = 0; i < refPicListModification->numModificationsL0; i++) {
-            PICO_H264_LOG("      modificationL0[%u]: modificationOfPicNumsIdc: %u, absDiffPicNumMinus1: %u, longTermPicNum: %u, abs_diff_view_idx_minus1: %u\n",
+            PICO_H264_LOG("      modificationL0[%u]: modificationOfPicNumsIdc: %u, absDiffPicNumMinus1: %u, longTermPicNum: %u, absDiffViewIdxMinus1: %u\n",
                           (unsigned)i, (unsigned)refPicListModification->modificationsL0[i].modificationOfPicNumsIdc,
                           (unsigned)refPicListModification->modificationsL0[i].absDiffPicNumMinus1,
                           (unsigned)refPicListModification->modificationsL0[i].longTermPicNum,
-                          (unsigned)refPicListModification->modificationsL0[i].abs_diff_view_idx_minus1);
+                          (unsigned)refPicListModification->modificationsL0[i].absDiffViewIdxMinus1);
         }
     }
     PICO_H264_LOG("    refPicListModificationFlagL1: %s\n", refPicListModification->refPicListModificationFlagL1 ? "true" : "false");
     if (refPicListModification->refPicListModificationFlagL1) {
         PICO_H264_LOG("    numModificationsL1: %u\n", (unsigned)refPicListModification->numModificationsL1);
         for (uint32_t i = 0; i < refPicListModification->numModificationsL1; i++) {
-            PICO_H264_LOG("      modificationL1[%u]: modificationOfPicNumsIdc: %u, absDiffPicNumMinus1: %u, longTermPicNum: %u, abs_diff_view_idx_minus1: %u\n",
+            PICO_H264_LOG("      modificationL1[%u]: modificationOfPicNumsIdc: %u, absDiffPicNumMinus1: %u, longTermPicNum: %u, absDiffViewIdxMinus1: %u\n",
                           (unsigned)i, (unsigned)refPicListModification->modificationsL1[i].modificationOfPicNumsIdc,
                           (unsigned)refPicListModification->modificationsL1[i].absDiffPicNumMinus1,
                           (unsigned)refPicListModification->modificationsL1[i].longTermPicNum,
-                          (unsigned)refPicListModification->modificationsL1[i].abs_diff_view_idx_minus1);
+                          (unsigned)refPicListModification->modificationsL1[i].absDiffViewIdxMinus1);
         }
     }
 }
