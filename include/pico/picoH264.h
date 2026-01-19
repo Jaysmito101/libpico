@@ -1671,7 +1671,7 @@ typedef struct {
     // long-term reference".
     uint32_t longTermPicNum;
 
-    // abs_diff_view_idx_minus1 plus 1 specifies the absolute difference between the reference view index to put to the current
+    // absDiffViewIdxMinus1 plus 1 specifies the absolute difference between the reference view index to put to the current
     // index in the reference picture list and the prediction value of the reference view index
     // NOTE: only used for MVC
     uint32_t abs_diff_view_idx_minus1;
