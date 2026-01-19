@@ -2278,9 +2278,6 @@ const char *picoH264VideoFormatToString(picoH264VideoFormat videoFormat);
 const char *picoH264SEIMessageTypeToString(picoH264SEIMessageType seiMessageType);
 const char *picoH264SliceTypeToString(picoH264SliceType sliceType);
 
-// for testing purposes only
-#define PICO_IMPLEMENTATION
-
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_H264_IMPLEMENTATION)
 #define PICO_H264_IMPLEMENTATION
 #endif
