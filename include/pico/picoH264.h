@@ -67,6 +67,9 @@ SOFTWARE.
     } while (0)
 #endif
 
+#define PICO_H264_MAX_SPS_COUNT 256
+#define PICO_H264_MAX_PPS_COUNT 256
+
 typedef size_t (*picoH264BitstreamReadFunc)(void *userData, uint8_t *buffer, size_t size);
 typedef bool (*picoH264BitstreamSeekFunc)(void *userData, int64_t offset, int origin);
 typedef size_t (*picoH264BitstreamTellFunc)(void *userData);
