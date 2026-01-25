@@ -2877,7 +2877,7 @@ bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut
     // if we did find a NAL unit, we are now positioned just before the start code
     // so now we can try to find the next start code to determine the size of this NAL unit
     size_t nalStartPos = bitstream->tell(bitstream->userData);
-    bitstream->read(bitstream->userData, NULL, 3); // skip the start code (at least 3 bytes)
+    bitstream->seek(bitstream->userData, 3, SEEK_CUR); // skip the start code (at least 3 bytes)
 
     // try to find the next NAL unit
     (void)__picoH264FindNextNALUnit(bitstream);
