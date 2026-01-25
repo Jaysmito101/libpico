@@ -70,6 +70,7 @@ SOFTWARE.
 typedef size_t (*picoH264BitstreamReadFunc)(void *userData, uint8_t *buffer, size_t size);
 typedef bool (*picoH264BitstreamSeekFunc)(void *userData, int64_t offset, int origin);
 typedef size_t (*picoH264BitstreamTellFunc)(void *userData);
+typedef void (*picoH264BitstreamDestroyFunc)(void *userData);
 
 // This is a interface for the user to provide a bitstream abstraction.
 // This is to be used for cases when reading huge H.264 bitstreams from files
@@ -80,6 +81,7 @@ typedef struct {
     picoH264BitstreamReadFunc read;
     picoH264BitstreamSeekFunc seek;
     picoH264BitstreamTellFunc tell;
+    picoH264BitstreamDestroyFunc destroy;
 } picoH264Bitsteam_t;
 typedef picoH264Bitsteam_t *picoH264Bitstream;
 
@@ -2103,6 +2105,12 @@ typedef struct {
 typedef picoH264SliceDataPartitionCLayer_t *picoH264SliceDataPartitionCLayer;
 
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size);
+picoH264Bitstream picoH264BitstreamCreate(void);
+
+#ifndef PICO_H264_SKIP_FILE_BITSTREAM
+picoH264Bitstream picoH264BitstreamFromFile(const char *filename);
+#endif
+
 void picoH264BitstreamDestroy(picoH264Bitstream bitstream);
 
 void picoH264BufferReaderInit(picoH264BufferReader bufferReader, const uint8_t *buffer, size_t size);
@@ -2343,6 +2351,51 @@ static bool __picoH264BitstreamBufferSeek(void *userData, int64_t offset, int or
     return true;
 }
 
+static void __picoH264BitstreamBufferDestroy(void *userData)
+{
+    __picoH264BitstreamBufferContext context = (__picoH264BitstreamBufferContext)userData;
+    PICO_ASSERT(context != NULL);
+
+    PICO_FREE(context);
+}
+
+#ifndef PICO_H264_SKIP_FILE_BITSTREAM
+
+static size_t __picoH264BitstreamFileRead(void *userData, uint8_t *buffer, size_t size)
+{
+    FILE *file = (FILE *)userData;
+    PICO_ASSERT(file != NULL);
+
+    return fread(buffer, 1, size, file);
+}
+
+static bool __picoH264BitstreamFileSeek(void *userData, int64_t offset, int origin)
+{
+    FILE *file = (FILE *)userData;
+    PICO_ASSERT(file != NULL);
+
+    return fseek(file, (long)offset, origin) == 0;
+}
+
+static size_t __picoH264BitstreamFileTell(void *userData)
+{
+    FILE *file = (FILE *)userData;
+    PICO_ASSERT(file != NULL);
+
+    return (size_t)ftell(file);
+}
+
+static void __picoH264BitstreamFileDestroy(void *userData)
+{
+    FILE *file = (FILE *)userData;
+    PICO_ASSERT(file != NULL);
+
+    fclose(file);
+}
+
+
+#endif 
+
 static size_t __picoH264BitstreamBufferTell(void *userData)
 {
     __picoH264BitstreamBufferContext context = (__picoH264BitstreamBufferContext)userData;
@@ -2532,19 +2585,31 @@ const char *picoH264SliceTypeToString(picoH264SliceType sliceType)
     }
 }
 
-picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size)
+picoH264Bitstream picoH264BitstreamCreate(void)
 {
-    PICO_ASSERT(buffer != NULL);
-    PICO_ASSERT(size > 0);
-
     picoH264Bitstream bitstream = (picoH264Bitstream)PICO_MALLOC(sizeof(picoH264Bitsteam_t));
     if (!bitstream) {
         PICO_H264_LOG("picoH264BitstreamFromBuffer: Failed to allocate memory for bitstream\n");
         return NULL;
     }
 
-    __picoH264BitstreamBufferContext context;
-    context = (__picoH264BitstreamBufferContext)PICO_MALLOC(sizeof(__picoH264BitstreamBufferContext_t));
+    memset(bitstream, 0, sizeof(picoH264Bitsteam_t));
+
+    return bitstream;
+}
+
+
+picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size)
+{
+    PICO_ASSERT(buffer != NULL);
+    PICO_ASSERT(size > 0);
+
+    picoH264Bitstream bitstream = picoH264BitstreamCreate();
+    if (!bitstream) {
+        return NULL;
+    }
+
+    __picoH264BitstreamBufferContext context = (__picoH264BitstreamBufferContext)PICO_MALLOC(sizeof(__picoH264BitstreamBufferContext_t));
     if (!context) {
         PICO_H264_LOG("picoH264BitstreamFromBuffer: Failed to allocate memory for bitstream context\n");
         PICO_FREE(bitstream);
@@ -2559,15 +2624,43 @@ picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size
     bitstream->read     = __picoH264BitstreamBufferRead;
     bitstream->seek     = __picoH264BitstreamBufferSeek;
     bitstream->tell     = __picoH264BitstreamBufferTell;
+    bitstream->destroy  = __picoH264BitstreamBufferDestroy;    
 
     return bitstream;
 }
 
+
+#ifndef PICO_H264_SKIP_FILE_BITSTREAM
+
+picoH264Bitstream picoH264BitstreamFromFile(const char *filename)
+{
+    PICO_ASSERT(filename != NULL);
+    FILE *file = fopen(filename, "rb");
+    if (!file) {
+        PICO_H264_LOG("picoH264BitstreamFromFile: Failed to open file: %s\n", filename);
+        return NULL;
+    }
+    picoH264Bitstream bitstream = picoH264BitstreamCreate();
+    if (!bitstream) {
+        fclose(file);
+        return NULL;
+    }
+    bitstream->userData = file;
+    bitstream->read     = __picoH264BitstreamFileRead;
+    bitstream->seek     = __picoH264BitstreamFileSeek;
+    bitstream->tell     = __picoH264BitstreamFileTell;
+    bitstream->destroy  = __picoH264BitstreamFileDestroy;
+
+    return bitstream;
+}
+
+#endif
+
 void picoH264BitstreamDestroy(picoH264Bitstream bitstream)
 {
     PICO_ASSERT(bitstream != NULL);
-    if (bitstream->userData) {
-        PICO_FREE(bitstream->userData);
+    if (bitstream->destroy) {
+        bitstream->destroy(bitstream->userData);
     }
     PICO_FREE(bitstream);
 }
