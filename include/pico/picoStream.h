@@ -30,11 +30,6 @@ SOFTWARE.
 #define PICO_FREE(ptr)  free(ptr)
 #endif
 
-// buffer size for file stream buffering (default 64KB)
-#ifndef PICO_STREAM_BUFFER_SIZE
-#define PICO_STREAM_BUFFER_SIZE 65536
-#endif
-
 #ifndef PICO_STREAM_ENABLE_MAPPED
 #if defined(_WIN32) || defined(__unix__) || defined(__APPLE__)
 #define PICO_STREAM_ENABLE_MAPPED 1
@@ -213,42 +208,7 @@ struct picoStream_t {
 
     bool ownsMemory;
     bool ownsFile;
-
-    uint8_t readBuffer[PICO_STREAM_BUFFER_SIZE];
-    size_t readBufferPos;
-    size_t readBufferFilled;
-    int64_t readBufferFilePos;
-
-    uint8_t writeBuffer[PICO_STREAM_BUFFER_SIZE];
-    size_t writeBufferUsed;
 };
-
-
-static void __picoStreamInitBuffers(picoStream stream)
-{
-    stream->readBufferPos     = 0;
-    stream->readBufferFilled  = 0;
-    stream->readBufferFilePos = 0;
-    stream->writeBufferUsed   = 0;
-}
-
-static void __picoStreamFlushWriteBuffer(picoStream stream)
-{
-    if (!stream || stream->type != PICO_STREAM_SOURCE_TYPE_FILE) return;
-    if (stream->writeBufferUsed == 0) return;
-    if (stream->source.file) {
-        fwrite(stream->writeBuffer, 1, stream->writeBufferUsed, stream->source.file);
-    }
-    stream->writeBufferUsed = 0;
-}
-
-static void __picoStreamInvalidateReadBuffer(picoStream stream)
-{
-    if (!stream) return;
-    stream->readBufferPos     = 0;
-    stream->readBufferFilled  = 0;
-    stream->readBufferFilePos = 0;
-}
 
 
 static void __picoStreamReadEndianess(picoStream stream, void *outValue, size_t size)
@@ -309,7 +269,6 @@ picoStream picoStreamFromCustom(picoStreamCustom customStream, bool canRead, boo
     stream->littleEndian  = true;
     stream->ownsMemory    = false;
     stream->ownsFile      = false;
-    __picoStreamInitBuffers(stream);
 
     return stream;
 }
@@ -332,7 +291,6 @@ picoStream picoStreamFromFile(FILE *file, bool canRead, bool canWrite, bool ownF
     stream->littleEndian = true;
     stream->ownsMemory   = false;
     stream->ownsFile     = ownFileHandle;
-    __picoStreamInitBuffers(stream);
 
     return stream;
 }
@@ -388,7 +346,6 @@ picoStream picoStreamFromMemory(void *buffer, size_t size, bool canRead, bool ca
     stream->littleEndian           = true;
     stream->ownsMemory             = ownMemory;
     stream->ownsFile               = false;
-    __picoStreamInitBuffers(stream);
 
     return stream;
 }
@@ -507,7 +464,6 @@ picoStream picoStreamFromFileMapped(const char *filePath)
     stream->littleEndian = true;
     stream->ownsMemory   = false;
     stream->ownsFile     = true;   // we own the mapping
-    __picoStreamInitBuffers(stream);
 
     return stream;
 }
@@ -517,10 +473,6 @@ void picoStreamDestroy(picoStream stream)
 {
     if (!stream) {
         return;
-    }
-
-    if (stream->type == PICO_STREAM_SOURCE_TYPE_FILE) {
-        __picoStreamFlushWriteBuffer(stream);
     }
 
     if (stream->type == PICO_STREAM_SOURCE_TYPE_FILE && stream->ownsFile && stream->source.file) {
@@ -574,30 +526,7 @@ size_t picoStreamRead(picoStream stream, void *buffer, size_t size)
 
         case PICO_STREAM_SOURCE_TYPE_FILE:
             if (stream->source.file) {
-                size_t totalRead = 0;
-                uint8_t *dest = (uint8_t *)buffer;
-
-                while (totalRead < size) {
-                    size_t bufferAvailable = stream->readBufferFilled - stream->readBufferPos;
-                    if (bufferAvailable > 0) {
-                        size_t toCopy = size - totalRead;
-                        if (toCopy > bufferAvailable) toCopy = bufferAvailable;
-                        memcpy(dest + totalRead, stream->readBuffer + stream->readBufferPos, toCopy);
-                        stream->readBufferPos += toCopy;
-                        totalRead += toCopy;
-                    } else {
-                        long filePos = ftell(stream->source.file);
-                        if (filePos < 0) break;
-                        stream->readBufferFilePos = filePos;
-
-                        size_t bytesRead = fread(stream->readBuffer, 1, PICO_STREAM_BUFFER_SIZE, stream->source.file);
-                        if (bytesRead == 0) break; 
-
-                        stream->readBufferFilled = bytesRead;
-                        stream->readBufferPos = 0;
-                    }
-                }
-                return totalRead;
+                return fread(buffer, 1, size, stream->source.file);
             }
             break;
 
@@ -649,26 +578,7 @@ size_t picoStreamWrite(picoStream stream, const void *buffer, size_t size)
 
         case PICO_STREAM_SOURCE_TYPE_FILE:
             if (stream->source.file) {
-                // use buffered writing for file streams
-                size_t totalWritten = 0;
-                const uint8_t *src = (const uint8_t *)buffer;
-
-                while (totalWritten < size) {
-                    size_t bufferSpace = PICO_STREAM_BUFFER_SIZE - stream->writeBufferUsed;
-                    size_t toBuffer = size - totalWritten;
-                    if (toBuffer > bufferSpace) toBuffer = bufferSpace;
-
-                    if (toBuffer > 0) {
-                        memcpy(stream->writeBuffer + stream->writeBufferUsed, src + totalWritten, toBuffer);
-                        stream->writeBufferUsed += toBuffer;
-                        totalWritten += toBuffer;
-                    }
-
-                    if (stream->writeBufferUsed >= PICO_STREAM_BUFFER_SIZE) {
-                        __picoStreamFlushWriteBuffer(stream);
-                    }
-                }
-                return totalWritten;
+                return fwrite(buffer, 1, size, stream->source.file);
             }
             break;
 
@@ -711,8 +621,6 @@ int picoStreamSeek(picoStream stream, int64_t offset, picoStreamSeekOrigin origi
 
         case PICO_STREAM_SOURCE_TYPE_FILE:
             if (stream->source.file) {
-                __picoStreamFlushWriteBuffer(stream);
-                __picoStreamInvalidateReadBuffer(stream);
                 return fseek(stream->source.file, (long)offset, origin == PICO_STREAM_SEEK_SET ? SEEK_SET : (origin == PICO_STREAM_SEEK_CUR ? SEEK_CUR : SEEK_END));
             }
             break;
@@ -805,15 +713,8 @@ int64_t picoStreamTell(picoStream stream)
 
         case PICO_STREAM_SOURCE_TYPE_FILE:
             if (stream->source.file) {
-                long filePos = ftell(stream->source.file);
-                if (filePos < 0) return -1;
-                if (stream->readBufferFilled > 0) {
-                    return stream->readBufferFilePos + (int64_t)stream->readBufferPos;
-                }
-                if (stream->writeBufferUsed > 0) {
-                    return filePos + (int64_t)stream->writeBufferUsed;
-                }
-                return (int64_t)filePos;
+                long pos = ftell(stream->source.file);
+                return (pos >= 0) ? (int64_t)pos : -1;
             }
             break;
 
@@ -868,7 +769,6 @@ void picoStreamFlush(picoStream stream)
             break;
 
         case PICO_STREAM_SOURCE_TYPE_FILE:
-            __picoStreamFlushWriteBuffer(stream);
             if (stream->source.file) {
                 fflush(stream->source.file);
             }
