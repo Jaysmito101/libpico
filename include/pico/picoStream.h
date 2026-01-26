@@ -30,9 +30,18 @@ SOFTWARE.
 #define PICO_FREE(ptr)  free(ptr)
 #endif
 
+#ifndef PICO_STREAM_ENABLE_MAPPED
+#if defined(_WIN32) || defined(__unix__) || defined(__APPLE__)
+#define PICO_STREAM_ENABLE_MAPPED 1
+#else
+#define PICO_STREAM_ENABLE_MAPPED 0
+#endif
+#endif
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 typedef struct picoStream_t picoStream_t;
 typedef picoStream_t *picoStream;
@@ -46,7 +55,10 @@ typedef enum {
 typedef enum picoStreamSourceType {
     PICO_STREAM_SOURCE_TYPE_CUSTOM,
     PICO_STREAM_SOURCE_TYPE_FILE,
-    PICO_STREAM_SOURCE_TYPE_MEMORY
+    PICO_STREAM_SOURCE_TYPE_MEMORY,
+#if PICO_STREAM_ENABLE_MAPPED
+    PICO_STREAM_SOURCE_TYPE_MAPPED
+#endif
 } picoStreamSourceType;
 
 typedef struct {
@@ -63,6 +75,10 @@ picoStream picoStreamFromCustom(picoStreamCustom customStream, bool canRead, boo
 picoStream picoStreamFromFile(FILE *file, bool canRead, bool canWrite, bool ownFileHandle);
 picoStream picoStreamFromFilePath(const char *filePath, bool canRead, bool canWrite);
 picoStream picoStreamFromMemory(void *buffer, size_t size, bool canRead, bool canWrite, bool ownMemory);
+#if PICO_STREAM_ENABLE_MAPPED
+// read only memory mapped file
+picoStream picoStreamFromFileMapped(const char *filePath);  
+#endif
 void picoStreamDestroy(picoStream stream);
 
 size_t picoStreamRead(picoStream stream, void *buffer, size_t size);
@@ -115,6 +131,20 @@ bool picoStreamIsSystemLittleEndian(void);
 
 #ifdef PICO_STREAM_IMPLEMENTATION
 
+#if PICO_STREAM_ENABLE_MAPPED
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#else
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#endif
+#endif // PICO_STREAM_ENABLE_MAPPED
+
 
 #define __PICO_STREAM_READ_IMPL(typeName, type)        \
     type picoStreamRead##typeName(picoStream stream)            \
@@ -139,6 +169,19 @@ typedef union {
         size_t size;
         size_t position;
     } memory;
+#if PICO_STREAM_ENABLE_MAPPED
+    struct {
+        void *base;
+        size_t size;
+        size_t position;
+#ifdef _WIN32
+        void *fileHandle;
+        void *mappingHandle;
+#else
+        int fd;
+#endif
+    } mapped;
+#endif
 } picoStreamSource_t;
 typedef picoStreamSource_t *picoStreamSource;
 
@@ -166,7 +209,6 @@ struct picoStream_t {
     bool ownsMemory;
     bool ownsFile;
 };
-
 
 
 static void __picoStreamReadEndianess(picoStream stream, void *outValue, size_t size)
@@ -308,6 +350,125 @@ picoStream picoStreamFromMemory(void *buffer, size_t size, bool canRead, bool ca
     return stream;
 }
 
+#if PICO_STREAM_ENABLE_MAPPED
+picoStream picoStreamFromFileMapped(const char *filePath)
+{
+    if (!filePath) {
+        return NULL;
+    }
+
+#ifdef _WIN32
+    HANDLE fileHandle = CreateFileA(
+        filePath,
+        GENERIC_READ,
+        FILE_SHARE_READ,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+    if (fileHandle == INVALID_HANDLE_VALUE) {
+        return NULL;
+    }
+
+    LARGE_INTEGER fileSize;
+    if (!GetFileSizeEx(fileHandle, &fileSize)) {
+        CloseHandle(fileHandle);
+        return NULL;
+    }
+
+    if (fileSize.QuadPart == 0) {
+        CloseHandle(fileHandle);
+        return NULL;
+    }
+
+    HANDLE mappingHandle = CreateFileMappingA(
+        fileHandle,
+        NULL,
+        PAGE_READONLY,
+        0,
+        0,
+        NULL
+    );
+    if (!mappingHandle) {
+        CloseHandle(fileHandle);
+        return NULL;
+    }
+
+    void *mappedBase = MapViewOfFile(
+        mappingHandle,
+        FILE_MAP_READ,
+        0,
+        0,
+        0
+    );
+    if (!mappedBase) {
+        CloseHandle(mappingHandle);
+        CloseHandle(fileHandle);
+        return NULL;
+    }
+
+    picoStream stream = (picoStream)PICO_MALLOC(sizeof(picoStream_t));
+    if (!stream) {
+        UnmapViewOfFile(mappedBase);
+        CloseHandle(mappingHandle);
+        CloseHandle(fileHandle);
+        return NULL;
+    }
+
+    stream->source.mapped.base          = mappedBase;
+    stream->source.mapped.size          = (size_t)fileSize.QuadPart;
+    stream->source.mapped.position      = 0;
+    stream->source.mapped.fileHandle    = fileHandle;
+    stream->source.mapped.mappingHandle = mappingHandle;
+
+#else
+    int fd = open(filePath, O_RDONLY);
+    if (fd < 0) {
+        return NULL;
+    }
+
+    struct stat st;
+    if (fstat(fd, &st) < 0) {
+        close(fd);
+        return NULL;
+    }
+
+    if (st.st_size == 0) {
+        close(fd);
+        return NULL;
+    }
+
+    void *mappedBase = mmap(NULL, (size_t)st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (mappedBase == MAP_FAILED) {
+        close(fd);
+        return NULL;
+    }
+
+    picoStream stream = (picoStream)PICO_MALLOC(sizeof(picoStream_t));
+    if (!stream) {
+        munmap(mappedBase, (size_t)st.st_size);
+        close(fd);
+        return NULL;
+    }
+
+    stream->source.mapped.base     = mappedBase;
+    stream->source.mapped.size     = (size_t)st.st_size;
+    stream->source.mapped.position = 0;
+    stream->source.mapped.fd       = fd;
+#endif
+
+    stream->type         = PICO_STREAM_SOURCE_TYPE_MAPPED;
+    stream->canRead      = true;
+    stream->canWrite     = false;  // mapped files are read-only
+    stream->littleEndian = true;
+    stream->ownsMemory   = false;
+    stream->ownsFile     = true;   // we own the mapping
+
+    return stream;
+}
+#endif // PICO_STREAM_ENABLE_MAPPED
+
 void picoStreamDestroy(picoStream stream)
 {
     if (!stream) {
@@ -323,6 +484,29 @@ void picoStreamDestroy(picoStream stream)
         PICO_FREE(stream->source.memory.buffer);
         stream->source.memory.buffer = NULL;
     }
+
+#if PICO_STREAM_ENABLE_MAPPED
+    if (stream->type == PICO_STREAM_SOURCE_TYPE_MAPPED && stream->ownsFile) {
+#ifdef _WIN32
+        if (stream->source.mapped.base) {
+            UnmapViewOfFile(stream->source.mapped.base);
+        }
+        if (stream->source.mapped.mappingHandle) {
+            CloseHandle(stream->source.mapped.mappingHandle);
+        }
+        if (stream->source.mapped.fileHandle) {
+            CloseHandle(stream->source.mapped.fileHandle);
+        }
+#else
+        if (stream->source.mapped.base && stream->source.mapped.size > 0) {
+            munmap(stream->source.mapped.base, stream->source.mapped.size);
+        }
+        if (stream->source.mapped.fd >= 0) {
+            close(stream->source.mapped.fd);
+        }
+#endif
+    }
+#endif // PICO_STREAM_ENABLE_MAPPED
 
     PICO_FREE(stream);
 }
@@ -357,6 +541,20 @@ size_t picoStreamRead(picoStream stream, void *buffer, size_t size)
                 }
             }
             break;
+
+#if PICO_STREAM_ENABLE_MAPPED
+        case PICO_STREAM_SOURCE_TYPE_MAPPED:
+            if (stream->source.mapped.base) {
+                size_t available = stream->source.mapped.size - stream->source.mapped.position;
+                size_t toRead = (size < available) ? size : available;
+                if (toRead > 0) {
+                    memcpy(buffer, (uint8_t *)stream->source.mapped.base + stream->source.mapped.position, toRead);
+                    stream->source.mapped.position += toRead;
+                    return toRead;
+                }
+            }
+            break;
+#endif
 
         default:
             break;
@@ -395,6 +593,11 @@ size_t picoStreamWrite(picoStream stream, const void *buffer, size_t size)
                 }
             }
             break;
+
+#if PICO_STREAM_ENABLE_MAPPED
+        case PICO_STREAM_SOURCE_TYPE_MAPPED:
+            break;
+#endif
 
         default:
             break;
@@ -454,6 +657,40 @@ int picoStreamSeek(picoStream stream, int64_t offset, picoStreamSeekOrigin origi
             }
             break;
 
+#if PICO_STREAM_ENABLE_MAPPED
+        case PICO_STREAM_SOURCE_TYPE_MAPPED:
+            if (stream->source.mapped.base) {
+                size_t newPos = 0;
+                switch (origin) {
+                    case PICO_STREAM_SEEK_SET:
+                        newPos = (offset >= 0) ? (size_t)offset : 0;
+                        break;
+                    case PICO_STREAM_SEEK_CUR:
+                        if (offset < 0 && (size_t)(-offset) > stream->source.mapped.position) {
+                            newPos = 0;
+                        } else {
+                            newPos = stream->source.mapped.position + offset;
+                        }
+                        break;
+                    case PICO_STREAM_SEEK_END:
+                        if (offset < 0 && (size_t)(-offset) > stream->source.mapped.size) {
+                            newPos = 0;
+                        } else {
+                            newPos = stream->source.mapped.size + offset;
+                        }
+                        break;
+                    default:
+                        return -1;
+                }
+                if (newPos > stream->source.mapped.size) {
+                    return -1;
+                }
+                stream->source.mapped.position = newPos;
+                return 0;
+            }
+            break;
+#endif
+
         default:
             break;
     }
@@ -486,6 +723,14 @@ int64_t picoStreamTell(picoStream stream)
                 return (int64_t)stream->source.memory.position;
             }
             break;
+
+#if PICO_STREAM_ENABLE_MAPPED
+        case PICO_STREAM_SOURCE_TYPE_MAPPED:
+            if (stream->source.mapped.base) {
+                return (int64_t)stream->source.mapped.position;
+            }
+            break;
+#endif
 
         default:
             break;
@@ -532,6 +777,12 @@ void picoStreamFlush(picoStream stream)
         case PICO_STREAM_SOURCE_TYPE_MEMORY:
             // No-op for memory streams
             break;
+
+#if PICO_STREAM_ENABLE_MAPPED
+        case PICO_STREAM_SOURCE_TYPE_MAPPED:
+            // No-op for mapped files (read-only)
+            break;
+#endif
 
         default:
             break;
