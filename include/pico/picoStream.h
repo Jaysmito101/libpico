@@ -68,6 +68,7 @@ typedef struct {
     int (*seek)(void *userData, int64_t offset, picoStreamSeekOrigin origin);
     int64_t (*tell)(void *userData);
     void (*flush)(void *userData);
+    void (*destroy)(void *userData);
 } picoStreamCustom_t;
 typedef picoStreamCustom_t *picoStreamCustom;
 
@@ -473,6 +474,12 @@ void picoStreamDestroy(picoStream stream)
 {
     if (!stream) {
         return;
+    }
+
+    if (stream->type == PICO_STREAM_SOURCE_TYPE_CUSTOM) {
+        if (stream->source.custom && stream->source.custom->destroy) {
+            stream->source.custom->destroy(stream->source.custom->userData);
+        }
     }
 
     if (stream->type == PICO_STREAM_SOURCE_TYPE_FILE && stream->ownsFile && stream->source.file) {
