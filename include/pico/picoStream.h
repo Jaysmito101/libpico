@@ -94,6 +94,8 @@ void picoStreamSetEndianess(picoStream stream, bool littleEndian);
 
 void picoStreamReset(picoStream stream);
 
+void* picoStreamGetUserData(picoStream stream);
+
 uint8_t picoStreamReadU8(picoStream stream);
 uint16_t picoStreamReadU16(picoStream stream);
 uint32_t picoStreamReadU32(picoStream stream);
@@ -810,6 +812,17 @@ void picoStreamReset(picoStream stream)
         return;
     }
     picoStreamSeek(stream, 0, PICO_STREAM_SEEK_SET);
+}
+
+void* picoStreamGetUserData(picoStream stream)
+{
+    if (!stream || stream->type != PICO_STREAM_SOURCE_TYPE_CUSTOM) {
+        return NULL;
+    }
+    if (stream->source.custom) {
+        return stream->source.custom->userData;
+    }
+    return NULL;
 }
 
 
