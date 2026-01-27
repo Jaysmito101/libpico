@@ -72,7 +72,7 @@ typedef struct {
 } picoStreamCustom_t;
 typedef picoStreamCustom_t *picoStreamCustom;
 
-picoStream picoStreamFromCustom(picoStreamCustom customStream, bool canRead, bool canWrite);
+picoStream picoStreamFromCustom(picoStreamCustom_t customStream, bool canRead, bool canWrite);
 picoStream picoStreamFromFile(FILE *file, bool canRead, bool canWrite, bool ownFileHandle);
 picoStream picoStreamFromFilePath(const char *filePath, bool canRead, bool canWrite);
 picoStream picoStreamFromMemory(void *buffer, size_t size, bool canRead, bool canWrite, bool ownMemory);
@@ -165,7 +165,7 @@ bool picoStreamIsSystemLittleEndian(void);
 
 
 typedef union {
-    picoStreamCustom custom;
+    picoStreamCustom_t custom;
     FILE *file;
     struct {
         uint8_t *buffer;
@@ -254,9 +254,9 @@ static void __picoStreamWriteEndianess(picoStream stream, const void *value, siz
     picoStreamWrite(stream, buffer, size);
 }
 
-picoStream picoStreamFromCustom(picoStreamCustom customStream, bool canRead, bool canWrite)
+picoStream picoStreamFromCustom(picoStreamCustom_t customStream, bool canRead, bool canWrite)
 {
-    if (!customStream || (!canRead && !canWrite)) {
+    if (!canRead && !canWrite) {
         return NULL;
     }
 
@@ -479,8 +479,8 @@ void picoStreamDestroy(picoStream stream)
     }
 
     if (stream->type == PICO_STREAM_SOURCE_TYPE_CUSTOM) {
-        if (stream->source.custom && stream->source.custom->destroy) {
-            stream->source.custom->destroy(stream->source.custom->userData);
+        if (stream->source.custom.destroy) {
+            stream->source.custom.destroy(stream->source.custom.userData);
         }
     }
 
@@ -528,8 +528,8 @@ size_t picoStreamRead(picoStream stream, void *buffer, size_t size)
 
     switch (stream->type) {
         case PICO_STREAM_SOURCE_TYPE_CUSTOM:
-            if (stream->source.custom && stream->source.custom->read) {
-                return stream->source.custom->read(stream->source.custom->userData, buffer, size);
+            if (stream->source.custom.read) {
+                return stream->source.custom.read(stream->source.custom.userData, buffer, size);
             }
             break;
 
@@ -580,8 +580,8 @@ size_t picoStreamWrite(picoStream stream, const void *buffer, size_t size)
 
     switch (stream->type) {
         case PICO_STREAM_SOURCE_TYPE_CUSTOM:
-            if (stream->source.custom && stream->source.custom->write) {
-                return stream->source.custom->write(stream->source.custom->userData, buffer, size);
+            if (stream->source.custom.write) {
+                return stream->source.custom.write(stream->source.custom.userData, buffer, size);
             }
             break;
 
@@ -623,8 +623,8 @@ int picoStreamSeek(picoStream stream, int64_t offset, picoStreamSeekOrigin origi
 
     switch (stream->type) {
         case PICO_STREAM_SOURCE_TYPE_CUSTOM:
-            if (stream->source.custom && stream->source.custom->seek) {
-                return stream->source.custom->seek(stream->source.custom->userData, offset, origin);
+            if (stream->source.custom.seek) {
+                return stream->source.custom.seek(stream->source.custom.userData, offset, origin);
             }
             break;
 
@@ -715,8 +715,8 @@ int64_t picoStreamTell(picoStream stream)
 
     switch (stream->type) {
         case PICO_STREAM_SOURCE_TYPE_CUSTOM:
-            if (stream->source.custom && stream->source.custom->tell) {
-                return stream->source.custom->tell(stream->source.custom->userData);
+            if (stream->source.custom.tell) {
+                return stream->source.custom.tell(stream->source.custom.userData);
             }
             break;
 
@@ -772,8 +772,8 @@ void picoStreamFlush(picoStream stream)
 
     switch (stream->type) {
         case PICO_STREAM_SOURCE_TYPE_CUSTOM:
-            if (stream->source.custom && stream->source.custom->flush) {
-                stream->source.custom->flush(stream->source.custom->userData);
+            if (stream->source.custom.flush) {
+                stream->source.custom.flush(stream->source.custom.userData);
             }
             break;
 
@@ -819,10 +819,7 @@ void* picoStreamGetUserData(picoStream stream)
     if (!stream || stream->type != PICO_STREAM_SOURCE_TYPE_CUSTOM) {
         return NULL;
     }
-    if (stream->source.custom) {
-        return stream->source.custom->userData;
-    }
-    return NULL;
+    return stream->source.custom.userData;
 }
 
 
