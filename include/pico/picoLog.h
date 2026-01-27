@@ -441,17 +441,19 @@ static const char *__picoLogFormatMessage(picoLogEntry entry)
     picoLogFormat format                                          = __picoLogGetCurrentFormat();
     switch (format) {
         case PICO_LOG_FORMAT_DEFAULT:
-            snprintf(formattedMessage, sizeof(formattedMessage), "[%04u-%02u-%02u %02u:%02u:%02u.%03u] [%s] [%s]: %s",
+            snprintf(formattedMessage, sizeof(formattedMessage), "[%04u-%02u-%02u %02u:%02u:%02u.%03u] [%s] [%s:%u]: %s",
                      entry->timestamp->year, entry->timestamp->month, entry->timestamp->day,
                      entry->timestamp->hour, entry->timestamp->minute, entry->timestamp->second, entry->timestamp->millisecond,
                      picoLogLevelToString(entry->level),
                      entry->tag ? entry->tag : "NO_TAG",
+                     entry->location ? entry->location->line : 0,
                      entry->message);
             break;
         case PICO_LOG_FORMAT_SHORT:
-            snprintf(formattedMessage, sizeof(formattedMessage), "[%s] [%s]: %s",
+            snprintf(formattedMessage, sizeof(formattedMessage), "[%s] [%s:%u]: %s",
                      picoLogLevelToString(entry->level),
                      entry->tag ? entry->tag : "NO_TAG",
+                     entry->location ? entry->location->line : 0,
                      entry->message);
             break;
         case PICO_LOG_FORMAT_MESSAGE_ONLY:
