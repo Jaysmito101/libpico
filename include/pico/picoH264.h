@@ -2250,6 +2250,7 @@ bool picoH264ParsePictureParameterSet(const uint8_t *nalUnitPayloadBuffer, size_
 bool picoH264ParseAccessUnitDelimiter(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264AccessUnitDelimiter audOut);
 
 bool picoH264SliceHeaderParsePPSId(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, uint8_t *ppsIdOut);
+bool picoH264SliceHeaderParseSliceType(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, uint8_t *sliceTypeOut);
 bool picoH264ParseSliceLayerWithoutPartitioning(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264NALUnitHeader nalUnitHeader, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceLayerWithoutPartitioning sliceLayerOut);
 bool picoH264ParseSliceDataPartitionALayer(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264NALUnitHeader nalUnitHeader, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceDataPartitionALayer sliceDataPartitionALayerOut);
 bool picoH264ParseSliceDataPartitionBLayer(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceDataPartitionBLayer sliceDataPartitionBLayerOut);
@@ -4117,6 +4118,23 @@ bool picoH264SliceHeaderParsePPSId(const uint8_t *nalUnitPayloadBuffer, size_t n
     (void)picoH264BufferReaderUE(&br);
     // pic_parameter_set_id
     *ppsIdOut = (uint8_t)picoH264BufferReaderUE(&br);
+
+    return true;
+}
+
+bool picoH264SliceHeaderParseSliceType(const uint8_t *nalUnitPayloadBuffer, size_t nalUnitPayloadSize, uint8_t *sliceTypeOut)
+{
+    PICO_ASSERT(nalUnitPayloadBuffer != NULL);
+    PICO_ASSERT(nalUnitPayloadSize > 0);
+    PICO_ASSERT(sliceTypeOut != NULL);
+
+    picoH264BufferReader_t br = {0};
+    picoH264BufferReaderInit(&br, nalUnitPayloadBuffer, nalUnitPayloadSize);
+
+    // first_mb_in_slice
+    (void)picoH264BufferReaderUE(&br);
+    // slice_type
+    *sliceTypeOut = (uint8_t)picoH264BufferReaderUE(&br);
 
     return true;
 }
