@@ -1953,6 +1953,7 @@ const char *picoMpegTSPESStreamIDToString(uint8_t streamId);
 const char *picoMpegTSPESTrickModeControlToString(uint8_t trickModeControl);
 const char *picoMpegTSPESTrickModeFieldIdToString(picoMpegTSPESTrickModeFieldId fieldId);
 const char *picoMpegTSPESTrickModeFrequencyTruncationToString(picoMpegTSPESTrickModeFrequencyTruncation frequencyTruncation);
+const char *picoMpegTSStreamTypeToString(uint8_t streamType);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_MPEGTS_IMPLEMENTATION)
 #define PICO_MPEGTS_IMPLEMENTATION
