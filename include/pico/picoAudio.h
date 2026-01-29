@@ -49,8 +49,8 @@ SOFTWARE.
 
 #ifndef PICO_AUDIO_LOG
 #define PICO_AUDIO_LOG(...) \
-    do {                  \
-        (void)0;          \
+    do {                    \
+        (void)0;            \
     } while (0)
 #endif
 
@@ -72,19 +72,19 @@ typedef enum {
 
 typedef struct {
     // sample rate in Hertz
-    uint32_t sampleRate;    
+    uint32_t sampleRate;
 
     // number of audio channels, 1 for mono, 2 for stereo
-    uint16_t channelCount;  
+    uint16_t channelCount;
 
     // bits per sample in output PCM data
-    uint16_t bitsPerSample; 
+    uint16_t bitsPerSample;
 
     // sample count
-    uint64_t totalSamples;  
+    uint64_t totalSamples;
 
     // duration in seconds (can also be inferred from totalSamples / sampleRate)
-    double durationSeconds; 
+    double durationSeconds;
 } picoAudioInfo_t;
 typedef picoAudioInfo_t *picoAudioInfo;
 
@@ -103,10 +103,7 @@ bool picoAudioDecoderIsEOF(picoAudioDecoder decoder);
 
 const char *picoAudioResultToString(picoAudioResult result);
 
-
 #ifdef PICO_IMPLEMENTATION
-
-
 
 // ----------- MFC based windows implementation -----------------
 
@@ -128,6 +125,9 @@ const char *picoAudioResultToString(picoAudioResult result);
 #pragma comment(lib, "mfreadwrite.lib")
 #pragma comment(lib, "mfuuid.lib")
 #pragma comment(lib, "propsys.lib")
+#pragma comment(lib, "shlwapi.lib")
+
+#include <shlwapi.h>
 
 struct picoAudioDecoder_t {
     IMFSourceReader *sourceReader;
@@ -238,7 +238,7 @@ picoAudioResult picoAudioDecoderOpenFile(picoAudioDecoder decoder, const char *f
 
     if (SUCCEEDED(hr)) {
         hr = decoder->sourceReader->lpVtbl->SetCurrentMediaType(
-            decoder->sourceReader, 
+            decoder->sourceReader,
             (DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM,
             NULL,
             partialType);
@@ -294,11 +294,112 @@ picoAudioResult picoAudioDecoderOpenFile(picoAudioDecoder decoder, const char *f
 
 picoAudioResult picoAudioDecoderOpenBuffer(picoAudioDecoder decoder, const uint8_t *buffer, size_t size)
 {
-    (void)decoder;
-    (void)buffer;
-    (void)size;
-    PICO_AUDIO_LOG("Buffer-based decoding not implemented on Windows\n");
-    return PICO_AUDIO_RESULT_ERROR_UNSUPPORTED_FORMAT;
+    if (!decoder || !buffer || size == 0) {
+        return PICO_AUDIO_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (decoder->isOpened) {
+        if (decoder->sourceReader) {
+            decoder->sourceReader->lpVtbl->Release(decoder->sourceReader);
+            decoder->sourceReader = NULL;
+        }
+        decoder->isOpened = false;
+        decoder->isEOF    = false;
+    }
+
+    IStream *memStream = SHCreateMemStream(buffer, (UINT)size);
+    if (!memStream) {
+        PICO_AUDIO_LOG("Failed to create memory stream\n");
+        return PICO_AUDIO_RESULT_ERROR_MEMORY;
+    }
+
+    IMFByteStream *byteStream = NULL;
+    HRESULT hr                = MFCreateMFByteStreamOnStream(memStream, &byteStream);
+    memStream->lpVtbl->Release(memStream);
+
+    if (FAILED(hr)) {
+        PICO_AUDIO_LOG("Failed to create MF byte stream: 0x%08lx\n", hr);
+        return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
+    }
+
+    IMFAttributes *attributes = NULL;
+    hr                        = MFCreateAttributes(&attributes, 1);
+    if (FAILED(hr)) {
+        byteStream->lpVtbl->Release(byteStream);
+        return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
+    }
+
+    hr = MFCreateSourceReaderFromByteStream(byteStream, attributes, &decoder->sourceReader);
+    attributes->lpVtbl->Release(attributes);
+    byteStream->lpVtbl->Release(byteStream);
+
+    if (FAILED(hr)) {
+        PICO_AUDIO_LOG("Failed to create source reader from byte stream: 0x%08lx\n", hr);
+        return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
+    }
+
+    IMFMediaType *partialType = NULL;
+    hr                        = MFCreateMediaType(&partialType);
+    if (FAILED(hr)) {
+        decoder->sourceReader->lpVtbl->Release(decoder->sourceReader);
+        decoder->sourceReader = NULL;
+        return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
+    }
+
+    hr = partialType->lpVtbl->SetGUID(partialType, &MF_MT_MAJOR_TYPE, &MFMediaType_Audio);
+    if (SUCCEEDED(hr)) {
+        hr = partialType->lpVtbl->SetGUID(partialType, &MF_MT_SUBTYPE, &MFAudioFormat_PCM);
+    }
+
+    if (SUCCEEDED(hr)) {
+        hr = decoder->sourceReader->lpVtbl->SetCurrentMediaType(
+            decoder->sourceReader, (DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, NULL, partialType);
+    }
+
+    partialType->lpVtbl->Release(partialType);
+
+    if (FAILED(hr)) {
+        PICO_AUDIO_LOG("Failed to set PCM output format: 0x%08lx\n", hr);
+        decoder->sourceReader->lpVtbl->Release(decoder->sourceReader);
+        decoder->sourceReader = NULL;
+        return PICO_AUDIO_RESULT_ERROR_UNSUPPORTED_FORMAT;
+    }
+
+    IMFMediaType *outputType = NULL;
+    hr                       = decoder->sourceReader->lpVtbl->GetCurrentMediaType(
+        decoder->sourceReader, (DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, &outputType);
+
+    if (FAILED(hr)) {
+        decoder->sourceReader->lpVtbl->Release(decoder->sourceReader);
+        decoder->sourceReader = NULL;
+        return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
+    }
+
+    UINT32 sampleRate = 0, channelCount = 0, bitsPerSample = 0;
+    outputType->lpVtbl->GetUINT32(outputType, &MF_MT_AUDIO_SAMPLES_PER_SECOND, &sampleRate);
+    outputType->lpVtbl->GetUINT32(outputType, &MF_MT_AUDIO_NUM_CHANNELS, &channelCount);
+    outputType->lpVtbl->GetUINT32(outputType, &MF_MT_AUDIO_BITS_PER_SAMPLE, &bitsPerSample);
+    outputType->lpVtbl->Release(outputType);
+
+    decoder->audioInfo.sampleRate    = sampleRate;
+    decoder->audioInfo.channelCount  = (uint16_t)channelCount;
+    decoder->audioInfo.bitsPerSample = (uint16_t)bitsPerSample;
+
+    PROPVARIANT duration;
+    PropVariantInit(&duration);
+    hr = decoder->sourceReader->lpVtbl->GetPresentationAttribute(
+        decoder->sourceReader, (DWORD)MF_SOURCE_READER_MEDIASOURCE, &MF_PD_DURATION, &duration);
+
+    if (SUCCEEDED(hr) && duration.vt == VT_UI8) {
+        decoder->audioInfo.durationSeconds = (double)duration.uhVal.QuadPart / 10000000.0;
+        decoder->audioInfo.totalSamples    = (uint64_t)(decoder->audioInfo.durationSeconds * sampleRate);
+    }
+    PropVariantClear(&duration);
+
+    decoder->isOpened = true;
+    decoder->isEOF    = false;
+
+    return PICO_AUDIO_RESULT_SUCCESS;
 }
 
 picoAudioResult picoAudioDecoderGetAudioInfo(picoAudioDecoder decoder, picoAudioInfo info)
@@ -445,10 +546,16 @@ bool picoAudioDecoderIsEOF(picoAudioDecoder decoder)
 
 struct picoAudioDecoder_t {
     ExtAudioFileRef audioFile;
+    AudioFileID audioFileID; 
     picoAudioInfo_t audioInfo;
     AudioStreamBasicDescription outputFormat;
     bool isOpened;
     bool isEOF;
+    bool fromBuffer;
+    
+    const uint8_t *bufferData;
+    size_t bufferSize;
+    size_t bufferPosition;
 };
 
 picoAudioDecoder picoAudioDecoderCreate(void)
@@ -470,6 +577,11 @@ void picoAudioDecoderDestroy(picoAudioDecoder decoder)
     if (decoder->audioFile) {
         ExtAudioFileDispose(decoder->audioFile);
         decoder->audioFile = NULL;
+    }
+
+    if (decoder->audioFileID) {
+        AudioFileClose(decoder->audioFileID);
+        decoder->audioFileID = NULL;
     }
 
     PICO_FREE(decoder);
@@ -547,7 +659,7 @@ picoAudioResult picoAudioDecoderOpenFile(picoAudioDecoder decoder, const char *f
     status             = ExtAudioFileGetProperty(decoder->audioFile, kExtAudioFileProperty_FileLengthFrames, &size, &totalFrames);
 
     if (status != noErr) {
-        totalFrames = 0; 
+        totalFrames = 0;
     }
 
     decoder->audioInfo.sampleRate      = (uint32_t)decoder->outputFormat.mSampleRate;
@@ -559,22 +671,172 @@ picoAudioResult picoAudioDecoderOpenFile(picoAudioDecoder decoder, const char *f
     decoder->isOpened = true;
     decoder->isEOF    = false;
 
-    PICO_AUDIO_LOG("Opened Audio file: %s\n", filePath);
-    PICO_AUDIO_LOG("  Sample rate: %u Hz\n", decoder->audioInfo.sampleRate);
-    PICO_AUDIO_LOG("  Channels: %u\n", decoder->audioInfo.channelCount);
-    PICO_AUDIO_LOG("  Bits per sample: %u\n", decoder->audioInfo.bitsPerSample);
-    PICO_AUDIO_LOG("  Duration: %.2f seconds\n", decoder->audioInfo.durationSeconds);
-
     return PICO_AUDIO_RESULT_SUCCESS;
+}
+
+static OSStatus picoAudioReadProc(void *inClientData, SInt64 inPosition, UInt32 requestCount,
+                                  void *buffer, UInt32 *actualCount)
+{
+    picoAudioDecoder decoder = (picoAudioDecoder)inClientData;
+    if (!decoder || !decoder->bufferData) {
+        return kAudioFileUnspecifiedError;
+    }
+
+    if (inPosition < 0 || (size_t)inPosition >= decoder->bufferSize) {
+        *actualCount = 0;
+        return kAudioFileEndOfFileError;
+    }
+
+    size_t available = decoder->bufferSize - (size_t)inPosition;
+    size_t toRead    = (requestCount < available) ? requestCount : available;
+
+    memcpy(buffer, decoder->bufferData + inPosition, toRead);
+    *actualCount = (UInt32)toRead;
+
+    return noErr;
+}
+
+static SInt64 picoAudioGetSizeProc(void *inClientData)
+{
+    picoAudioDecoder decoder = (picoAudioDecoder)inClientData;
+    if (!decoder) {
+        return 0;
+    }
+    return (SInt64)decoder->bufferSize;
 }
 
 picoAudioResult picoAudioDecoderOpenBuffer(picoAudioDecoder decoder, const uint8_t *buffer, size_t size)
 {
-    (void)decoder;
-    (void)buffer;
-    (void)size;
-    PICO_AUDIO_LOG("Buffer-based decoding not implemented on macOS\n");
-    return PICO_AUDIO_RESULT_ERROR_UNSUPPORTED_FORMAT;
+    if (!decoder || !buffer || size == 0) {
+        return PICO_AUDIO_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (decoder->isOpened) {
+        if (decoder->audioFile) {
+            ExtAudioFileDispose(decoder->audioFile);
+            decoder->audioFile = NULL;
+        }
+        if (decoder->audioFileID) {
+            AudioFileClose(decoder->audioFileID);
+            decoder->audioFileID = NULL;
+        }
+        decoder->isOpened = false;
+        decoder->isEOF    = false;
+    }
+
+    decoder->bufferData     = buffer;
+    decoder->bufferSize     = size;
+    decoder->bufferPosition = 0;
+    decoder->fromBuffer     = true;
+
+    AudioFileTypeID typeHints[] = {
+        kAudioFileAAC_ADTSType,
+        kAudioFileM4AType,     
+        kAudioFileMP3Type,     
+        kAudioFileCAFType,     
+        kAudioFileWAVEType,    
+        kAudioFileAIFFType,    
+        0                      
+    };
+
+    OSStatus status = -1;
+    for (int i = 0; typeHints[i] != 0 && status != noErr; i++) {
+        status = AudioFileOpenWithCallbacks(
+            decoder,
+            picoAudioReadProc,
+            NULL, 
+            picoAudioGetSizeProc,
+            NULL,
+            typeHints[i],
+            &decoder->audioFileID);
+    }
+
+    if (status != noErr) {
+        status = AudioFileOpenWithCallbacks(
+            decoder,
+            picoAudioReadProc,
+            NULL,
+            picoAudioGetSizeProc,
+            NULL,
+            0,
+            &decoder->audioFileID);
+    }
+
+    if (status != noErr) {
+        PICO_AUDIO_LOG("Failed to open audio from buffer: %d\n", (int)status);
+        decoder->bufferData = NULL;
+        decoder->bufferSize = 0;
+        decoder->fromBuffer = false;
+        return PICO_AUDIO_RESULT_ERROR_UNSUPPORTED_FORMAT;
+    }
+
+    status = ExtAudioFileWrapAudioFileID(decoder->audioFileID, false, &decoder->audioFile);
+    if (status != noErr) {
+        PICO_AUDIO_LOG("Failed to wrap AudioFileID: %d\n", (int)status);
+        AudioFileClose(decoder->audioFileID);
+        decoder->audioFileID = NULL;
+        decoder->bufferData  = NULL;
+        decoder->bufferSize  = 0;
+        decoder->fromBuffer  = false;
+        return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
+    }
+
+    AudioStreamBasicDescription inputFormat;
+    UInt32 propSize = sizeof(inputFormat);
+    status          = ExtAudioFileGetProperty(decoder->audioFile, kExtAudioFileProperty_FileDataFormat,
+                                              &propSize, &inputFormat);
+    if (status != noErr) {
+        ExtAudioFileDispose(decoder->audioFile);
+        AudioFileClose(decoder->audioFileID);
+        decoder->audioFile   = NULL;
+        decoder->audioFileID = NULL;
+        decoder->bufferData  = NULL;
+        decoder->bufferSize  = 0;
+        decoder->fromBuffer  = false;
+        return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
+    }
+
+    decoder->outputFormat.mSampleRate       = inputFormat.mSampleRate;
+    decoder->outputFormat.mFormatID         = kAudioFormatLinearPCM;
+    decoder->outputFormat.mFormatFlags      = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked;
+    decoder->outputFormat.mBitsPerChannel   = 16;
+    decoder->outputFormat.mChannelsPerFrame = inputFormat.mChannelsPerFrame;
+    decoder->outputFormat.mBytesPerFrame    = 2 * inputFormat.mChannelsPerFrame;
+    decoder->outputFormat.mFramesPerPacket  = 1;
+    decoder->outputFormat.mBytesPerPacket   = decoder->outputFormat.mBytesPerFrame;
+
+    status = ExtAudioFileSetProperty(decoder->audioFile, kExtAudioFileProperty_ClientDataFormat,
+                                     sizeof(decoder->outputFormat), &decoder->outputFormat);
+    if (status != noErr) {
+        PICO_AUDIO_LOG("Failed to set output format: %d\n", (int)status);
+        ExtAudioFileDispose(decoder->audioFile);
+        AudioFileClose(decoder->audioFileID);
+        decoder->audioFile   = NULL;
+        decoder->audioFileID = NULL;
+        decoder->bufferData  = NULL;
+        decoder->bufferSize  = 0;
+        decoder->fromBuffer  = false;
+        return PICO_AUDIO_RESULT_ERROR_UNSUPPORTED_FORMAT;
+    }
+
+    SInt64 totalFrames = 0;
+    propSize           = sizeof(totalFrames);
+    status             = ExtAudioFileGetProperty(decoder->audioFile, kExtAudioFileProperty_FileLengthFrames,
+                                                 &propSize, &totalFrames);
+    if (status != noErr) {
+        totalFrames = 0;
+    }
+
+    decoder->audioInfo.sampleRate      = (uint32_t)decoder->outputFormat.mSampleRate;
+    decoder->audioInfo.channelCount    = (uint16_t)decoder->outputFormat.mChannelsPerFrame;
+    decoder->audioInfo.bitsPerSample   = 16;
+    decoder->audioInfo.totalSamples    = (uint64_t)totalFrames * decoder->audioInfo.channelCount;
+    decoder->audioInfo.durationSeconds = (double)totalFrames / decoder->audioInfo.sampleRate;
+
+    decoder->isOpened = true;
+    decoder->isEOF    = false;
+
+    return PICO_AUDIO_RESULT_SUCCESS;
 }
 
 picoAudioResult picoAudioDecoderGetAudioInfo(picoAudioDecoder decoder, picoAudioInfo info)
@@ -592,7 +854,7 @@ picoAudioResult picoAudioDecoderGetAudioInfo(picoAudioDecoder decoder, picoAudio
 }
 
 picoAudioResult picoAudioDecoderDecode(picoAudioDecoder decoder, int16_t *pcmBuffer,
-                                   size_t maxSamples, size_t *samplesDecoded)
+                                       size_t maxSamples, size_t *samplesDecoded)
 {
     if (!decoder || !pcmBuffer || !samplesDecoded) {
         return PICO_AUDIO_RESULT_ERROR_INVALID_ARGUMENT;
@@ -668,7 +930,7 @@ bool picoAudioDecoderIsEOF(picoAudioDecoder decoder)
 
 #else
 
-// for now this is just a place holder, I do plan to 
+// for now this is just a place holder, I do plan to
 // later implement this via libfaad2 in the future
 
 struct picoAudioDecoder_t {
@@ -718,7 +980,7 @@ picoAudioResult picoAudioDecoderGetAudioInfo(picoAudioDecoder decoder, picoAudio
 }
 
 picoAudioResult picoAudioDecoderDecode(picoAudioDecoder decoder, int16_t *pcmBuffer,
-                                   size_t maxSamples, size_t *samplesDecoded)
+                                       size_t maxSamples, size_t *samplesDecoded)
 {
     (void)decoder;
     (void)pcmBuffer;
@@ -740,30 +1002,40 @@ bool picoAudioDecoderIsEOF(picoAudioDecoder decoder)
     return true;
 }
 
-#endif // Platform selection
-
+#endif
 
 const char *picoAudioResultToString(picoAudioResult result)
 {
     switch (result) {
-        case PICO_AUDIO_RESULT_SUCCESS: return "PICO_AUDIO_RESULT_SUCCESS";
-        case PICO_AUDIO_RESULT_ERROR_INVALID_ARGUMENT: return "PICO_AUDIO_RESULT_ERROR_INVALID_ARGUMENT";
-        case PICO_AUDIO_RESULT_ERROR_FILE_NOT_FOUND: return "PICO_AUDIO_RESULT_ERROR_FILE_NOT_FOUND";
-        case PICO_AUDIO_RESULT_ERROR_UNSUPPORTED_FORMAT: return "PICO_AUDIO_RESULT_ERROR_UNSUPPORTED_FORMAT";
-        case PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED: return "PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED";
-        case PICO_AUDIO_RESULT_ERROR_DECODE_FAILED: return "PICO_AUDIO_RESULT_ERROR_DECODE_FAILED";
-        case PICO_AUDIO_RESULT_ERROR_END_OF_FILE: return "PICO_AUDIO_RESULT_ERROR_END_OF_FILE";
-        case PICO_AUDIO_RESULT_ERROR_MEMORY: return "PICO_AUDIO_RESULT_ERROR_MEMORY";
-        case PICO_AUDIO_RESULT_ERROR_UNSUPPORTED_PLATFORM: return "PICO_AUDIO_RESULT_ERROR_UNSUPPORTED_PLATFORM";
-        case PICO_AUDIO_RESULT_ERROR_NOT_OPENED: return "PICO_AUDIO_RESULT_ERROR_NOT_OPENED";
-        case PICO_AUDIO_RESULT_ERROR_SEEK_FAILED: return "PICO_AUDIO_RESULT_ERROR_SEEK_FAILED";
-        case PICO_AUDIO_RESULT_ERROR_UNKNOWN: return "PICO_AUDIO_RESULT_ERROR_UNKNOWN";
-        default: return "PICO_AUDIO_RESULT_UNKNOWN";
+        case PICO_AUDIO_RESULT_SUCCESS:
+            return "PICO_AUDIO_RESULT_SUCCESS";
+        case PICO_AUDIO_RESULT_ERROR_INVALID_ARGUMENT:
+            return "PICO_AUDIO_RESULT_ERROR_INVALID_ARGUMENT";
+        case PICO_AUDIO_RESULT_ERROR_FILE_NOT_FOUND:
+            return "PICO_AUDIO_RESULT_ERROR_FILE_NOT_FOUND";
+        case PICO_AUDIO_RESULT_ERROR_UNSUPPORTED_FORMAT:
+            return "PICO_AUDIO_RESULT_ERROR_UNSUPPORTED_FORMAT";
+        case PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED:
+            return "PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED";
+        case PICO_AUDIO_RESULT_ERROR_DECODE_FAILED:
+            return "PICO_AUDIO_RESULT_ERROR_DECODE_FAILED";
+        case PICO_AUDIO_RESULT_ERROR_END_OF_FILE:
+            return "PICO_AUDIO_RESULT_ERROR_END_OF_FILE";
+        case PICO_AUDIO_RESULT_ERROR_MEMORY:
+            return "PICO_AUDIO_RESULT_ERROR_MEMORY";
+        case PICO_AUDIO_RESULT_ERROR_UNSUPPORTED_PLATFORM:
+            return "PICO_AUDIO_RESULT_ERROR_UNSUPPORTED_PLATFORM";
+        case PICO_AUDIO_RESULT_ERROR_NOT_OPENED:
+            return "PICO_AUDIO_RESULT_ERROR_NOT_OPENED";
+        case PICO_AUDIO_RESULT_ERROR_SEEK_FAILED:
+            return "PICO_AUDIO_RESULT_ERROR_SEEK_FAILED";
+        case PICO_AUDIO_RESULT_ERROR_UNKNOWN:
+            return "PICO_AUDIO_RESULT_ERROR_UNKNOWN";
+        default:
+            return "PICO_AUDIO_RESULT_UNKNOWN";
     }
 }
 
 #endif // PICO_IMPLEMENTATION
 
 #endif // PICO_AUDIO_H
-
-
