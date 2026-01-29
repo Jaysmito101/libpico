@@ -174,57 +174,10 @@ void picoAudioDecoderDestroy(picoAudioDecoder decoder)
     PICO_FREE(decoder);
 }
 
-picoAudioResult picoAudioDecoderOpenFile(picoAudioDecoder decoder, const char *filePath)
+static picoAudioResult __picoAudioConfigureSourceReader(picoAudioDecoder decoder)
 {
-    if (!decoder || !filePath) {
-        return PICO_AUDIO_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    if (decoder->isOpened) {
-        if (decoder->sourceReader) {
-            decoder->sourceReader->lpVtbl->Release(decoder->sourceReader);
-            decoder->sourceReader = NULL;
-        }
-        decoder->isOpened = false;
-        decoder->isEOF    = false;
-    }
-
-    int wideLen = MultiByteToWideChar(CP_UTF8, 0, filePath, -1, NULL, 0);
-    if (wideLen <= 0) {
-        PICO_AUDIO_LOG("Failed to convert file path to wide string\n");
-        return PICO_AUDIO_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    WCHAR *wideFilePath = (WCHAR *)PICO_MALLOC(wideLen * sizeof(WCHAR));
-    if (!wideFilePath) {
-        return PICO_AUDIO_RESULT_ERROR_MEMORY;
-    }
-    MultiByteToWideChar(CP_UTF8, 0, filePath, -1, wideFilePath, wideLen);
-
-    DWORD fileAttribs = GetFileAttributesW(wideFilePath);
-    if (fileAttribs == INVALID_FILE_ATTRIBUTES) {
-        PICO_FREE(wideFilePath);
-        return PICO_AUDIO_RESULT_ERROR_FILE_NOT_FOUND;
-    }
-
-    IMFAttributes *attributes = NULL;
-    HRESULT hr                = MFCreateAttributes(&attributes, 1);
-    if (FAILED(hr)) {
-        PICO_FREE(wideFilePath);
-        return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
-    }
-
-    hr = MFCreateSourceReaderFromURL(wideFilePath, attributes, &decoder->sourceReader);
-    attributes->lpVtbl->Release(attributes);
-    PICO_FREE(wideFilePath);
-
-    if (FAILED(hr)) {
-        PICO_AUDIO_LOG("Failed to create source reader: 0x%08lx\n", hr);
-        return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
-    }
-
     IMFMediaType *partialType = NULL;
-    hr                        = MFCreateMediaType(&partialType);
+    HRESULT hr                = MFCreateMediaType(&partialType);
     if (FAILED(hr)) {
         decoder->sourceReader->lpVtbl->Release(decoder->sourceReader);
         decoder->sourceReader = NULL;
@@ -292,6 +245,58 @@ picoAudioResult picoAudioDecoderOpenFile(picoAudioDecoder decoder, const char *f
     return PICO_AUDIO_RESULT_SUCCESS;
 }
 
+picoAudioResult picoAudioDecoderOpenFile(picoAudioDecoder decoder, const char *filePath)
+{
+    if (!decoder || !filePath) {
+        return PICO_AUDIO_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (decoder->isOpened) {
+        if (decoder->sourceReader) {
+            decoder->sourceReader->lpVtbl->Release(decoder->sourceReader);
+            decoder->sourceReader = NULL;
+        }
+        decoder->isOpened = false;
+        decoder->isEOF    = false;
+    }
+
+    int wideLen = MultiByteToWideChar(CP_UTF8, 0, filePath, -1, NULL, 0);
+    if (wideLen <= 0) {
+        PICO_AUDIO_LOG("Failed to convert file path to wide string\n");
+        return PICO_AUDIO_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    WCHAR *wideFilePath = (WCHAR *)PICO_MALLOC(wideLen * sizeof(WCHAR));
+    if (!wideFilePath) {
+        return PICO_AUDIO_RESULT_ERROR_MEMORY;
+    }
+    MultiByteToWideChar(CP_UTF8, 0, filePath, -1, wideFilePath, wideLen);
+
+    DWORD fileAttribs = GetFileAttributesW(wideFilePath);
+    if (fileAttribs == INVALID_FILE_ATTRIBUTES) {
+        PICO_FREE(wideFilePath);
+        return PICO_AUDIO_RESULT_ERROR_FILE_NOT_FOUND;
+    }
+
+    IMFAttributes *attributes = NULL;
+    HRESULT hr                = MFCreateAttributes(&attributes, 1);
+    if (FAILED(hr)) {
+        PICO_FREE(wideFilePath);
+        return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
+    }
+
+    hr = MFCreateSourceReaderFromURL(wideFilePath, attributes, &decoder->sourceReader);
+    attributes->lpVtbl->Release(attributes);
+    PICO_FREE(wideFilePath);
+
+    if (FAILED(hr)) {
+        PICO_AUDIO_LOG("Failed to create source reader: 0x%08lx\n", hr);
+        return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
+    }
+
+    return __picoAudioConfigureSourceReader(decoder);
+}
+
 picoAudioResult picoAudioDecoderOpenBuffer(picoAudioDecoder decoder, const uint8_t *buffer, size_t size)
 {
     if (!decoder || !buffer || size == 0) {
@@ -338,68 +343,7 @@ picoAudioResult picoAudioDecoderOpenBuffer(picoAudioDecoder decoder, const uint8
         return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
     }
 
-    IMFMediaType *partialType = NULL;
-    hr                        = MFCreateMediaType(&partialType);
-    if (FAILED(hr)) {
-        decoder->sourceReader->lpVtbl->Release(decoder->sourceReader);
-        decoder->sourceReader = NULL;
-        return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
-    }
-
-    hr = partialType->lpVtbl->SetGUID(partialType, &MF_MT_MAJOR_TYPE, &MFMediaType_Audio);
-    if (SUCCEEDED(hr)) {
-        hr = partialType->lpVtbl->SetGUID(partialType, &MF_MT_SUBTYPE, &MFAudioFormat_PCM);
-    }
-
-    if (SUCCEEDED(hr)) {
-        hr = decoder->sourceReader->lpVtbl->SetCurrentMediaType(
-            decoder->sourceReader, (DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, NULL, partialType);
-    }
-
-    partialType->lpVtbl->Release(partialType);
-
-    if (FAILED(hr)) {
-        PICO_AUDIO_LOG("Failed to set PCM output format: 0x%08lx\n", hr);
-        decoder->sourceReader->lpVtbl->Release(decoder->sourceReader);
-        decoder->sourceReader = NULL;
-        return PICO_AUDIO_RESULT_ERROR_UNSUPPORTED_FORMAT;
-    }
-
-    IMFMediaType *outputType = NULL;
-    hr                       = decoder->sourceReader->lpVtbl->GetCurrentMediaType(
-        decoder->sourceReader, (DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, &outputType);
-
-    if (FAILED(hr)) {
-        decoder->sourceReader->lpVtbl->Release(decoder->sourceReader);
-        decoder->sourceReader = NULL;
-        return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
-    }
-
-    UINT32 sampleRate = 0, channelCount = 0, bitsPerSample = 0;
-    outputType->lpVtbl->GetUINT32(outputType, &MF_MT_AUDIO_SAMPLES_PER_SECOND, &sampleRate);
-    outputType->lpVtbl->GetUINT32(outputType, &MF_MT_AUDIO_NUM_CHANNELS, &channelCount);
-    outputType->lpVtbl->GetUINT32(outputType, &MF_MT_AUDIO_BITS_PER_SAMPLE, &bitsPerSample);
-    outputType->lpVtbl->Release(outputType);
-
-    decoder->audioInfo.sampleRate    = sampleRate;
-    decoder->audioInfo.channelCount  = (uint16_t)channelCount;
-    decoder->audioInfo.bitsPerSample = (uint16_t)bitsPerSample;
-
-    PROPVARIANT duration;
-    PropVariantInit(&duration);
-    hr = decoder->sourceReader->lpVtbl->GetPresentationAttribute(
-        decoder->sourceReader, (DWORD)MF_SOURCE_READER_MEDIASOURCE, &MF_PD_DURATION, &duration);
-
-    if (SUCCEEDED(hr) && duration.vt == VT_UI8) {
-        decoder->audioInfo.durationSeconds = (double)duration.uhVal.QuadPart / 10000000.0;
-        decoder->audioInfo.totalSamples    = (uint64_t)(decoder->audioInfo.durationSeconds * sampleRate);
-    }
-    PropVariantClear(&duration);
-
-    decoder->isOpened = true;
-    decoder->isEOF    = false;
-
-    return PICO_AUDIO_RESULT_SUCCESS;
+    return __picoAudioConfigureSourceReader(decoder);
 }
 
 picoAudioResult picoAudioDecoderGetAudioInfo(picoAudioDecoder decoder, picoAudioInfo info)
@@ -546,13 +490,13 @@ bool picoAudioDecoderIsEOF(picoAudioDecoder decoder)
 
 struct picoAudioDecoder_t {
     ExtAudioFileRef audioFile;
-    AudioFileID audioFileID; 
+    AudioFileID audioFileID;
     picoAudioInfo_t audioInfo;
     AudioStreamBasicDescription outputFormat;
     bool isOpened;
     bool isEOF;
     bool fromBuffer;
-    
+
     const uint8_t *bufferData;
     size_t bufferSize;
     size_t bufferPosition;
@@ -731,11 +675,11 @@ picoAudioResult picoAudioDecoderOpenBuffer(picoAudioDecoder decoder, const uint8
 
     AudioFileTypeID typeHints[] = {
         kAudioFileAAC_ADTSType,
-        kAudioFileM4AType,     
-        kAudioFileMP3Type,     
-        kAudioFileCAFType,     
-        kAudioFileWAVEType,    
-        kAudioFileAIFFType,    
+        kAudioFileM4AType,
+        kAudioFileMP3Type,
+        kAudioFileCAFType,
+        kAudioFileWAVEType,
+        kAudioFileAIFFType,
         0                      
     };
 
@@ -744,7 +688,7 @@ picoAudioResult picoAudioDecoderOpenBuffer(picoAudioDecoder decoder, const uint8
         status = AudioFileOpenWithCallbacks(
             decoder,
             picoAudioReadProc,
-            NULL, 
+            NULL,
             picoAudioGetSizeProc,
             NULL,
             typeHints[i],
