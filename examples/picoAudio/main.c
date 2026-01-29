@@ -136,8 +136,9 @@ int main(int argc, char *argv[])
             fwrite(placeholder, 1, 44, wavFile);
         }
 
-        size_t bufferSize  = audioInfo.sampleRate * audioInfo.channelCount;
-        int16_t *pcmBuffer = (int16_t *)malloc(bufferSize * sizeof(int16_t));
+        size_t bytesPerSample = audioInfo.bitsPerSample / 8;
+        size_t bufferSize     = audioInfo.sampleRate * audioInfo.channelCount;
+        uint8_t *pcmBuffer    = (uint8_t *)malloc(bufferSize * bytesPerSample);
         if (!pcmBuffer) {
             printf("fatal: Failed to allocate buffer!\n");
             if (wavFile)
@@ -167,12 +168,13 @@ int main(int argc, char *argv[])
             }
 
             if (samplesDecoded > 0) {
+                size_t bytesDecoded = samplesDecoded * bytesPerSample;
                 if (wavFile)
-                    fwrite(pcmBuffer, sizeof(int16_t), samplesDecoded, wavFile);
+                    fwrite(pcmBuffer, 1, bytesDecoded, wavFile);
                 if (pcmFile)
-                    fwrite(pcmBuffer, sizeof(int16_t), samplesDecoded, pcmFile);
+                    fwrite(pcmBuffer, 1, bytesDecoded, pcmFile);
                 totalSamples += samplesDecoded;
-                totalBytes += (uint32_t)(samplesDecoded * sizeof(int16_t));
+                totalBytes += (uint32_t)bytesDecoded;
             }
         }
 

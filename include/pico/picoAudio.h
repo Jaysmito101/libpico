@@ -97,7 +97,7 @@ void picoAudioDecoderDestroy(picoAudioDecoder decoder);
 picoAudioResult picoAudioDecoderOpenFile(picoAudioDecoder decoder, const char *filePath);
 picoAudioResult picoAudioDecoderOpenBuffer(picoAudioDecoder decoder, const uint8_t *buffer, size_t size);
 picoAudioResult picoAudioDecoderGetAudioInfo(picoAudioDecoder decoder, picoAudioInfo info);
-picoAudioResult picoAudioDecoderDecode(picoAudioDecoder decoder, int16_t *pcmBuffer, size_t maxSamples, size_t *samplesDecoded);
+picoAudioResult picoAudioDecoderDecode(picoAudioDecoder decoder, void *pcmBuffer, size_t maxSamples, size_t *samplesDecoded);
 picoAudioResult picoAudioDecoderSeek(picoAudioDecoder decoder, uint64_t samplePosition);
 bool picoAudioDecoderIsEOF(picoAudioDecoder decoder);
 
@@ -135,6 +135,9 @@ struct picoAudioDecoder_t {
     bool isOpened;
     bool isEOF;
     bool mfInitialized;
+    uint8_t *residualBuffer;
+    size_t residualSize;
+    size_t residualCapacity;
 };
 
 picoAudioDecoder picoAudioDecoderCreate(void)
@@ -165,6 +168,11 @@ void picoAudioDecoderDestroy(picoAudioDecoder decoder)
     if (decoder->sourceReader) {
         decoder->sourceReader->lpVtbl->Release(decoder->sourceReader);
         decoder->sourceReader = NULL;
+    }
+
+    if (decoder->residualBuffer) {
+        PICO_FREE(decoder->residualBuffer);
+        decoder->residualBuffer = NULL;
     }
 
     if (decoder->mfInitialized) {
@@ -358,7 +366,7 @@ picoAudioResult picoAudioDecoderGetAudioInfo(picoAudioDecoder decoder, picoAudio
     return PICO_AUDIO_RESULT_SUCCESS;
 }
 
-picoAudioResult picoAudioDecoderDecode(picoAudioDecoder decoder, int16_t *pcmBuffer, size_t maxSamples, size_t *samplesDecoded)
+picoAudioResult picoAudioDecoderDecode(picoAudioDecoder decoder, void *pcmBuffer, size_t maxSamples, size_t *samplesDecoded)
 {
     if (!decoder || !pcmBuffer || !samplesDecoded) {
         return PICO_AUDIO_RESULT_ERROR_INVALID_ARGUMENT;
@@ -368,16 +376,33 @@ picoAudioResult picoAudioDecoderDecode(picoAudioDecoder decoder, int16_t *pcmBuf
         return PICO_AUDIO_RESULT_ERROR_NOT_OPENED;
     }
 
-    if (decoder->isEOF) {
+    if (decoder->isEOF && decoder->residualSize == 0) {
         *samplesDecoded = 0;
         return PICO_AUDIO_RESULT_ERROR_END_OF_FILE;
     }
 
-    *samplesDecoded     = 0;
-    size_t bytesNeeded  = maxSamples * sizeof(int16_t);
-    size_t bytesWritten = 0;
+    *samplesDecoded       = 0;
+    size_t bytesPerSample = decoder->audioInfo.bitsPerSample / 8;
+    size_t bytesNeeded    = maxSamples * bytesPerSample;
+    size_t bytesWritten   = 0;
 
-    while (bytesWritten < bytesNeeded) {
+    if (decoder->residualSize > 0) {
+        size_t bytesToCopy = decoder->residualSize;
+        if (bytesToCopy > bytesNeeded) {
+            bytesToCopy = bytesNeeded;
+        }
+
+        memcpy(pcmBuffer, decoder->residualBuffer, bytesToCopy);
+        bytesWritten = bytesToCopy;
+
+        if (bytesToCopy < decoder->residualSize) {
+            memmove(decoder->residualBuffer, decoder->residualBuffer + bytesToCopy,
+                    decoder->residualSize - bytesToCopy);
+        }
+        decoder->residualSize -= bytesToCopy;
+    }
+
+    while (bytesWritten < bytesNeeded && !decoder->isEOF) {
         DWORD flags       = 0;
         IMFSample *sample = NULL;
 
@@ -416,13 +441,34 @@ picoAudioResult picoAudioDecoderDecode(picoAudioDecoder decoder, int16_t *pcmBuf
 
             hr = mediaBuffer->lpVtbl->Lock(mediaBuffer, &audioData, NULL, &audioDataLength);
             if (SUCCEEDED(hr)) {
-                size_t bytesToCopy = audioDataLength;
-                if (bytesWritten + bytesToCopy > bytesNeeded) {
-                    bytesToCopy = bytesNeeded - bytesWritten;
-                }
+                size_t spaceRemaining = bytesNeeded - bytesWritten;
+                size_t bytesToCopy    = audioDataLength;
 
-                memcpy((uint8_t *)pcmBuffer + bytesWritten, audioData, bytesToCopy);
-                bytesWritten += bytesToCopy;
+                if (bytesToCopy <= spaceRemaining) {
+                    memcpy((uint8_t *)pcmBuffer + bytesWritten, audioData, bytesToCopy);
+                    bytesWritten += bytesToCopy;
+                } else {
+                    memcpy((uint8_t *)pcmBuffer + bytesWritten, audioData, spaceRemaining);
+                    bytesWritten += spaceRemaining;
+
+                    size_t leftover = audioDataLength - spaceRemaining;
+                    if (leftover > decoder->residualCapacity) {
+                        size_t newCapacity = leftover + 8192;
+                        uint8_t *newBuffer = (uint8_t *)PICO_MALLOC(newCapacity);
+                        if (newBuffer) {
+                            if (decoder->residualBuffer) {
+                                PICO_FREE(decoder->residualBuffer);
+                            }
+                            decoder->residualBuffer   = newBuffer;
+                            decoder->residualCapacity = newCapacity;
+                        }
+                    }
+
+                    if (decoder->residualBuffer && leftover <= decoder->residualCapacity) {
+                        memcpy(decoder->residualBuffer, audioData + spaceRemaining, leftover);
+                        decoder->residualSize = leftover;
+                    }
+                }
 
                 mediaBuffer->lpVtbl->Unlock(mediaBuffer);
             }
@@ -433,7 +479,7 @@ picoAudioResult picoAudioDecoderDecode(picoAudioDecoder decoder, int16_t *pcmBuf
         sample->lpVtbl->Release(sample);
     }
 
-    *samplesDecoded = bytesWritten / sizeof(int16_t);
+    *samplesDecoded = bytesWritten / bytesPerSample;
 
     if (*samplesDecoded == 0 && decoder->isEOF) {
         return PICO_AUDIO_RESULT_ERROR_END_OF_FILE;
@@ -468,7 +514,8 @@ picoAudioResult picoAudioDecoderSeek(picoAudioDecoder decoder, uint64_t samplePo
         return PICO_AUDIO_RESULT_ERROR_SEEK_FAILED;
     }
 
-    decoder->isEOF = false;
+    decoder->isEOF        = false;
+    decoder->residualSize = 0;
     return PICO_AUDIO_RESULT_SUCCESS;
 }
 
@@ -693,8 +740,7 @@ picoAudioResult picoAudioDecoderOpenBuffer(picoAudioDecoder decoder, const uint8
         kAudioFileCAFType,
         kAudioFileWAVEType,
         kAudioFileAIFFType,
-        0                      
-    };
+        0};
 
     OSStatus status = -1;
     for (int i = 0; typeHints[i] != 0 && status != noErr; i++) {
@@ -755,7 +801,7 @@ picoAudioResult picoAudioDecoderGetAudioInfo(picoAudioDecoder decoder, picoAudio
     return PICO_AUDIO_RESULT_SUCCESS;
 }
 
-picoAudioResult picoAudioDecoderDecode(picoAudioDecoder decoder, int16_t *pcmBuffer,
+picoAudioResult picoAudioDecoderDecode(picoAudioDecoder decoder, void *pcmBuffer,
                                        size_t maxSamples, size_t *samplesDecoded)
 {
     if (!decoder || !pcmBuffer || !samplesDecoded) {
@@ -881,7 +927,7 @@ picoAudioResult picoAudioDecoderGetAudioInfo(picoAudioDecoder decoder, picoAudio
     return PICO_AUDIO_RESULT_ERROR_UNSUPPORTED_PLATFORM;
 }
 
-picoAudioResult picoAudioDecoderDecode(picoAudioDecoder decoder, int16_t *pcmBuffer,
+picoAudioResult picoAudioDecoderDecode(picoAudioDecoder decoder, void *pcmBuffer,
                                        size_t maxSamples, size_t *samplesDecoded)
 {
     (void)decoder;
