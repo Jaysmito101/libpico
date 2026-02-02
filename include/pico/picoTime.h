@@ -154,7 +154,6 @@ bool picoTimeFormatISO(const picoTime_t *time, picoTimeISOFormat format, char *b
 // if the string is not a valid ISO formatted string, the function will return false.
 bool picoTimeParseISO(const char *isoString, picoTime_t *outTime, picoTimeISOFormat *format);
 
-#define PICO_IMPLEMENTATION
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_TIME_IMPLEMENTATION)
 #define PICO_TIME_IMPLEMENTATION
