@@ -441,6 +441,9 @@ typedef struct {
     // Master Playlist.
     bool independentSegments;
 
+    // extra fields common to both master and media playlists
+    bool allowCache;
+
     // The EXT-X-START tag indicates a preferred point at which to start
     // playing a Playlist.  By default, clients SHOULD start playback at
     // this point when beginning a playback session.  This tag is OPTIONAL.
@@ -941,6 +944,7 @@ typedef enum {
     PICO_M3U8_TAG_EXT_X_DISCONTINUITY_SEQUENCE,
     PICO_M3U8_TAG_EXT_X_PLAYLIST_TYPE,
     PICO_M3U8_TAG_EXT_X_I_FRAMES_ONLY,
+    PICO_M3U8_TAG_EXT_X_ALLOW_CACHE,
     // Master Playlist Tags
     PICO_M3U8_TAG_EXT_X_MEDIA,
     PICO_M3U8_TAG_EXT_X_STREAM_INF,
@@ -950,6 +954,7 @@ typedef enum {
     // Common Tags
     PICO_M3U8_TAG_EXT_X_INDEPENDENT_SEGMENTS,
     PICO_M3U8_TAG_EXT_X_START,
+    // Other tags
     // Unknown Tag
     PICO_M3U8_TAG_UNKNOWN,
     PICO_M3U8_TAG_COUNT
@@ -1297,6 +1302,7 @@ picoM3U8Result __picoM3U8ParseTagFromLine(__picoM3U8ParserContext context)
     __PICO_M3U8_MATCH("#EXT-X-DISCONTINUITY-SEQUENCE", PICO_M3U8_TAG_EXT_X_DISCONTINUITY_SEQUENCE);
     __PICO_M3U8_MATCH("#EXT-X-PLAYLIST-TYPE", PICO_M3U8_TAG_EXT_X_PLAYLIST_TYPE);
     __PICO_M3U8_MATCH("#EXT-X-I-FRAMES-ONLY", PICO_M3U8_TAG_EXT_X_I_FRAMES_ONLY);
+    __PICO_M3U8_MATCH("#EXT-X-ALLOW-CACHE", PICO_M3U8_TAG_EXT_X_ALLOW_CACHE);
     // Master Playlist Tags
     __PICO_M3U8_MATCH("#EXT-X-MEDIA", PICO_M3U8_TAG_EXT_X_MEDIA);
     __PICO_M3U8_MATCH("#EXT-X-STREAM-INF", PICO_M3U8_TAG_EXT_X_STREAM_INF);
@@ -2136,6 +2142,11 @@ picoM3U8Result __picoM3U8MasterPlaylistParse(__picoM3U8ParserContext context, pi
                         }
                         break;
                     }
+                    case PICO_M3U8_TAG_EXT_X_ALLOW_CACHE: {
+                        sprintf(buffer, "%.*s", (int)(context->lineEndPtr - context->tagPayloadPtr - 1), context->tagPayloadPtr + 1);
+                        playlistOut->commonInfo.allowCache = __picoM3U8ParseYesNo(buffer, buffer + strlen(buffer));
+                        break;
+                    }
                     // a error case for media playlist & media segment tags in master playlist
                     case PICO_M3U8_TAG_EXTINF:
                     case PICO_M3U8_TAG_EXT_X_BYTERANGE:
@@ -2513,6 +2524,11 @@ picoM3U8Result __picoM3U8MediaPlaylistParse(__picoM3U8ParserContext context, pic
                         if (__picoM3U8ParseAttribute(context->tagPayloadPtr + 1, context->lineEndPtr, "PRECISE", (const char **)&start, (const char **)&end)) {
                             playlistOut->commonInfo.startAttributes.precise = __picoM3U8ParseYesNo(start, end);
                         }
+                        break;
+                    }
+                    case PICO_M3U8_TAG_EXT_X_ALLOW_CACHE: {
+                        sprintf(buffer, "%.*s", (int)(context->lineEndPtr - context->tagPayloadPtr - 1), context->tagPayloadPtr + 1);
+                        playlistOut->commonInfo.allowCache = __picoM3U8ParseYesNo(buffer, buffer + strlen(buffer));
                         break;
                     }
                     // a error case for master playlist tags in media playlist
