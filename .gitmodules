@@ -1,0 +1,6 @@
+[submodule "examples/common/vendor/glfw"]
+	path = examples/common/vendor/glfw
+	url = https://github.com/glfw/glfw
+[submodule "examples/common/vendor/glut"]
+	path = examples/common/vendor/glut
+	url = https://github.com/freeglut/freeglut
