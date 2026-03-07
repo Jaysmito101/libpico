@@ -1,8 +1,6 @@
 #include "glapp.h"
-#include <GLFW/glfw3.h>
 #include <stdio.h>
 #include <stdlib.h>
-
 
 struct picoCommonGlApp_t {
     GLFWwindow *window;
@@ -38,6 +36,13 @@ picoCommonGlApp picoCommonGlAppCreate(const char *title, int width, int height)
 
     app->window   = window;
     app->userData = NULL;
+
+    glfwMakeContextCurrent(app->window);
+    if (!gladLoadGL((GLADloadfunc)glfwGetProcAddress)) {
+        fprintf(stderr, "Failed to initialize GLAD\n");
+        picoCommonGlAppDestroy(app);
+        return NULL;
+    }
 
     return app;
 }
