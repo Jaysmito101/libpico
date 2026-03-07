@@ -2300,12 +2300,12 @@ typedef struct {
     const uint8_t *buffer;
     size_t size;
     size_t position;
-} __picoH264BitstreamBufferContext_t;
-typedef __picoH264BitstreamBufferContext_t *__picoH264BitstreamBufferContext;
+} PRIV__picoH264BitstreamBufferContext_t;
+typedef PRIV__picoH264BitstreamBufferContext_t *PRIV__picoH264BitstreamBufferContext;
 
-static size_t __picoH264BitstreamBufferRead(void *userData, uint8_t *buffer, size_t size)
+static size_t PRIV__picoH264BitstreamBufferRead(void *userData, uint8_t *buffer, size_t size)
 {
-    __picoH264BitstreamBufferContext context = (__picoH264BitstreamBufferContext)userData;
+    PRIV__picoH264BitstreamBufferContext context = (PRIV__picoH264BitstreamBufferContext)userData;
     PICO_ASSERT(context != NULL);
 
     size_t bytesAvailable = context->size - context->position;
@@ -2320,9 +2320,9 @@ static size_t __picoH264BitstreamBufferRead(void *userData, uint8_t *buffer, siz
     return bytesToRead;
 }
 
-static bool __picoH264BitstreamBufferSeek(void *userData, int64_t offset, int origin)
+static bool PRIV__picoH264BitstreamBufferSeek(void *userData, int64_t offset, int origin)
 {
-    __picoH264BitstreamBufferContext context = (__picoH264BitstreamBufferContext)userData;
+    PRIV__picoH264BitstreamBufferContext context = (PRIV__picoH264BitstreamBufferContext)userData;
     PICO_ASSERT(context != NULL);
 
     size_t newPosition = 0;
@@ -2355,9 +2355,9 @@ static bool __picoH264BitstreamBufferSeek(void *userData, int64_t offset, int or
     return true;
 }
 
-static void __picoH264BitstreamBufferDestroy(void *userData)
+static void PRIV__picoH264BitstreamBufferDestroy(void *userData)
 {
-    __picoH264BitstreamBufferContext context = (__picoH264BitstreamBufferContext)userData;
+    PRIV__picoH264BitstreamBufferContext context = (PRIV__picoH264BitstreamBufferContext)userData;
     PICO_ASSERT(context != NULL);
 
     PICO_FREE(context);
@@ -2365,7 +2365,7 @@ static void __picoH264BitstreamBufferDestroy(void *userData)
 
 #ifndef PICO_H264_SKIP_FILE_BITSTREAM
 
-static size_t __picoH264BitstreamFileRead(void *userData, uint8_t *buffer, size_t size)
+static size_t PRIV__picoH264BitstreamFileRead(void *userData, uint8_t *buffer, size_t size)
 {
     FILE *file = (FILE *)userData;
     PICO_ASSERT(file != NULL);
@@ -2373,7 +2373,7 @@ static size_t __picoH264BitstreamFileRead(void *userData, uint8_t *buffer, size_
     return fread(buffer, 1, size, file);
 }
 
-static bool __picoH264BitstreamFileSeek(void *userData, int64_t offset, int origin)
+static bool PRIV__picoH264BitstreamFileSeek(void *userData, int64_t offset, int origin)
 {
     FILE *file = (FILE *)userData;
     PICO_ASSERT(file != NULL);
@@ -2381,7 +2381,7 @@ static bool __picoH264BitstreamFileSeek(void *userData, int64_t offset, int orig
     return fseek(file, (long)offset, origin) == 0;
 }
 
-static size_t __picoH264BitstreamFileTell(void *userData)
+static size_t PRIV__picoH264BitstreamFileTell(void *userData)
 {
     FILE *file = (FILE *)userData;
     PICO_ASSERT(file != NULL);
@@ -2389,7 +2389,7 @@ static size_t __picoH264BitstreamFileTell(void *userData)
     return (size_t)ftell(file);
 }
 
-static void __picoH264BitstreamFileDestroy(void *userData)
+static void PRIV__picoH264BitstreamFileDestroy(void *userData)
 {
     FILE *file = (FILE *)userData;
     PICO_ASSERT(file != NULL);
@@ -2400,15 +2400,15 @@ static void __picoH264BitstreamFileDestroy(void *userData)
 
 #endif 
 
-static size_t __picoH264BitstreamBufferTell(void *userData)
+static size_t PRIV__picoH264BitstreamBufferTell(void *userData)
 {
-    __picoH264BitstreamBufferContext context = (__picoH264BitstreamBufferContext)userData;
+    PRIV__picoH264BitstreamBufferContext context = (PRIV__picoH264BitstreamBufferContext)userData;
     PICO_ASSERT(context != NULL);
 
     return context->position;
 }
 
-static bool __picoH264FindNextNALUnit(picoH264Bitstream bitstream)
+static bool PRIV__picoH264FindNextNALUnit(picoH264Bitstream bitstream)
 {
     PICO_ASSERT(bitstream != NULL);
     PICO_ASSERT(bitstream->read != NULL);
@@ -2613,7 +2613,7 @@ picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size
         return NULL;
     }
 
-    __picoH264BitstreamBufferContext context = (__picoH264BitstreamBufferContext)PICO_MALLOC(sizeof(__picoH264BitstreamBufferContext_t));
+    PRIV__picoH264BitstreamBufferContext context = (PRIV__picoH264BitstreamBufferContext)PICO_MALLOC(sizeof(PRIV__picoH264BitstreamBufferContext_t));
     if (!context) {
         PICO_H264_LOG("picoH264BitstreamFromBuffer: Failed to allocate memory for bitstream context\n");
         PICO_FREE(bitstream);
@@ -2625,10 +2625,10 @@ picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size
     context->position = 0;
 
     bitstream->userData = context;
-    bitstream->read     = __picoH264BitstreamBufferRead;
-    bitstream->seek     = __picoH264BitstreamBufferSeek;
-    bitstream->tell     = __picoH264BitstreamBufferTell;
-    bitstream->destroy  = __picoH264BitstreamBufferDestroy;    
+    bitstream->read     = PRIV__picoH264BitstreamBufferRead;
+    bitstream->seek     = PRIV__picoH264BitstreamBufferSeek;
+    bitstream->tell     = PRIV__picoH264BitstreamBufferTell;
+    bitstream->destroy  = PRIV__picoH264BitstreamBufferDestroy;    
 
     return bitstream;
 }
@@ -2650,10 +2650,10 @@ picoH264Bitstream picoH264BitstreamFromFile(const char *filename)
         return NULL;
     }
     bitstream->userData = file;
-    bitstream->read     = __picoH264BitstreamFileRead;
-    bitstream->seek     = __picoH264BitstreamFileSeek;
-    bitstream->tell     = __picoH264BitstreamFileTell;
-    bitstream->destroy  = __picoH264BitstreamFileDestroy;
+    bitstream->read     = PRIV__picoH264BitstreamFileRead;
+    bitstream->seek     = PRIV__picoH264BitstreamFileSeek;
+    bitstream->tell     = PRIV__picoH264BitstreamFileTell;
+    bitstream->destroy  = PRIV__picoH264BitstreamFileDestroy;
 
     return bitstream;
 }
@@ -2966,7 +2966,7 @@ bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut
 {
     PICO_ASSERT(bitstream != NULL);
 
-    if (!__picoH264FindNextNALUnit(bitstream)) {
+    if (!PRIV__picoH264FindNextNALUnit(bitstream)) {
         // no more NAL units found
         return false;
     }
@@ -2977,7 +2977,7 @@ bool picoH264FindNextNALUnit(picoH264Bitstream bitstream, size_t *nalUnitSizeOut
     bitstream->seek(bitstream->userData, 3, SEEK_CUR); // skip the start code (at least 3 bytes)
 
     // try to find the next NAL unit
-    (void)__picoH264FindNextNALUnit(bitstream);
+    (void)PRIV__picoH264FindNextNALUnit(bitstream);
 
     size_t nalEndPos   = bitstream->tell(bitstream->userData);
     size_t nalUnitSize = nalEndPos - nalStartPos;
@@ -3005,7 +3005,7 @@ bool picoH264ReadNALUnit(picoH264Bitstream bitstream, uint8_t *nalUnitBuffer, si
     return true;
 }
 
-static bool __picoH264ParseNALUnitHeaderSVCExtension(picoH264BufferReader br, picoH264NALUnitHeaderSVCExtension nalUnitHeaderSVCExtensionOut)
+static bool PRIV__picoH264ParseNALUnitHeaderSVCExtension(picoH264BufferReader br, picoH264NALUnitHeaderSVCExtension nalUnitHeaderSVCExtensionOut)
 {
     PICO_ASSERT(br != NULL);
     PICO_ASSERT(nalUnitHeaderSVCExtensionOut != NULL);
@@ -3028,7 +3028,7 @@ static bool __picoH264ParseNALUnitHeaderSVCExtension(picoH264BufferReader br, pi
     return true;
 }
 
-static bool __picoH264ParseNALUnitHeader3DAVCExtension(picoH264BufferReader br, picoH264NALUnitHeader3DAVCExtension nalUnitHeader3DAVCExtensionOut)
+static bool PRIV__picoH264ParseNALUnitHeader3DAVCExtension(picoH264BufferReader br, picoH264NALUnitHeader3DAVCExtension nalUnitHeader3DAVCExtensionOut)
 {
     PICO_ASSERT(br != NULL);
     PICO_ASSERT(nalUnitHeader3DAVCExtensionOut != NULL);
@@ -3048,7 +3048,7 @@ static bool __picoH264ParseNALUnitHeader3DAVCExtension(picoH264BufferReader br, 
     return true;
 }
 
-static bool __picoH264ParseNALUnitHeaderMVCCExtension(picoH264BufferReader br, picoH264NALUnitHeaderMVCExtension nalUnitHeaderMVCExtensionOut)
+static bool PRIV__picoH264ParseNALUnitHeaderMVCCExtension(picoH264BufferReader br, picoH264NALUnitHeaderMVCExtension nalUnitHeaderMVCExtensionOut)
 {
     PICO_ASSERT(br != NULL);
     PICO_ASSERT(nalUnitHeaderMVCExtensionOut != NULL);
@@ -3142,19 +3142,19 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
         }
 
         if (nalUnitHeaderOut->svcExtensionFlag) {
-            if (!__picoH264ParseNALUnitHeaderSVCExtension(&br, &nalUnitHeaderOut->svcExtension)) {
+            if (!PRIV__picoH264ParseNALUnitHeaderSVCExtension(&br, &nalUnitHeaderOut->svcExtension)) {
                 PICO_H264_LOG("picoH264ParseNALUnitHeader: Failed to parse SVC extension\n");
                 return false;
             }
             nalUnitHeaderOut->numBytesInNALHeader += 3;
         } else if (nalUnitHeaderOut->avc3DExtensionFlag) {
-            if (!__picoH264ParseNALUnitHeader3DAVCExtension(&br, &nalUnitHeaderOut->avc3DExtension)) {
+            if (!PRIV__picoH264ParseNALUnitHeader3DAVCExtension(&br, &nalUnitHeaderOut->avc3DExtension)) {
                 PICO_H264_LOG("picoH264ParseNALUnitHeader: Failed to parse 3D AVC extension\n");
                 return false;
             }
             nalUnitHeaderOut->numBytesInNALHeader += 2;
         } else {
-            if (!__picoH264ParseNALUnitHeaderMVCCExtension(&br, &nalUnitHeaderOut->mvcExtension)) {
+            if (!PRIV__picoH264ParseNALUnitHeaderMVCCExtension(&br, &nalUnitHeaderOut->mvcExtension)) {
                 PICO_H264_LOG("picoH264ParseNALUnitHeader: Failed to parse MVC extension\n");
                 return false;
             }
@@ -3191,7 +3191,7 @@ bool picoH264ParseNALUnit(const uint8_t *nalUnitBuffer, size_t nalUnitSize, pico
     return true;
 }
 
-bool __picoH264ParseSEIMessage(picoH264BufferReader br, picoH264SEIMessage seiMessageOut)
+bool PRIV__picoH264ParseSEIMessage(picoH264BufferReader br, picoH264SEIMessage seiMessageOut)
 {
     PICO_ASSERT(br != NULL);
     PICO_ASSERT(seiMessageOut != NULL);
@@ -3200,7 +3200,7 @@ bool __picoH264ParseSEIMessage(picoH264BufferReader br, picoH264SEIMessage seiMe
     uint32_t payloadSize = 0;
 
     if (!picoH264BufferReaderMoreDataInByteStream(br) || (size_t)(br->size - br->position) < payloadSize) {
-        PICO_H264_LOG("__picoH264ParseSEIMessage: Not enough data for SEI message payload\n");
+        PICO_H264_LOG("PRIV__picoH264ParseSEIMessage: Not enough data for SEI message payload\n");
         return false;
     }
 
@@ -3211,7 +3211,7 @@ bool __picoH264ParseSEIMessage(picoH264BufferReader br, picoH264SEIMessage seiMe
     payloadType += (uint8_t)picoH264BufferReaderU(br, 8);
 
     if (!picoH264BufferReaderMoreDataInByteStream(br) || (size_t)(br->size - br->position) < payloadSize) {
-        PICO_H264_LOG("__picoH264ParseSEIMessage: Not enough data for SEI message payload\n");
+        PICO_H264_LOG("PRIV__picoH264ParseSEIMessage: Not enough data for SEI message payload\n");
         return false;
     }
 
@@ -3255,7 +3255,7 @@ bool picoH264ParseSEIMessages(const uint8_t *nalUnitPayloadBuffer, size_t nalUni
             return false;
         }
 
-        if (!__picoH264ParseSEIMessage(&br, seiMessageOut ? &seiMessageOut[seiMessageCount] : NULL)) {
+        if (!PRIV__picoH264ParseSEIMessage(&br, seiMessageOut ? &seiMessageOut[seiMessageCount] : NULL)) {
             PICO_H264_LOG("picoH264ParseSEIMessages: Failed to parse SEI message %zu\n", seiMessageCount);
             return false;
         }
@@ -3269,7 +3269,7 @@ bool picoH264ParseSEIMessages(const uint8_t *nalUnitPayloadBuffer, size_t nalUni
     return true;
 }
 
-static bool __picoH264ParseScalingList(picoH264BufferReader br, size_t sizeOfScalingList, int *scalingListOut, bool *useDefaultScalingMatrixFlagOut)
+static bool PRIV__picoH264ParseScalingList(picoH264BufferReader br, size_t sizeOfScalingList, int *scalingListOut, bool *useDefaultScalingMatrixFlagOut)
 {
     PICO_ASSERT(br != NULL);
     PICO_ASSERT(scalingListOut != NULL);
@@ -3387,7 +3387,7 @@ bool picoH265GetScalingListFallbackRuleSetA(size_t scalingListIndex, int *scalin
     return true;
 }
 
-static bool __picoH264ParseHRDParameters(picoH264BufferReader br, picoH264HypotheticalReferenceDecoder hrdOut)
+static bool PRIV__picoH264ParseHRDParameters(picoH264BufferReader br, picoH264HypotheticalReferenceDecoder hrdOut)
 {
     PICO_ASSERT(br != NULL);
     PICO_ASSERT(hrdOut != NULL);
@@ -3410,7 +3410,7 @@ static bool __picoH264ParseHRDParameters(picoH264BufferReader br, picoH264Hypoth
     return true;
 }
 
-static bool __picoH264ParseVUIParameters(picoH264BufferReader_t *br, picoH264VideoUsabilityInformation vuiOut)
+static bool PRIV__picoH264ParseVUIParameters(picoH264BufferReader_t *br, picoH264VideoUsabilityInformation vuiOut)
 {
     PICO_ASSERT(br != NULL);
     PICO_ASSERT(vuiOut != NULL);
@@ -3469,16 +3469,16 @@ static bool __picoH264ParseVUIParameters(picoH264BufferReader_t *br, picoH264Vid
 
     vuiOut->nalHrdParametersPresentFlag = picoH264BufferReaderU(br, 1) != 0;
     if (vuiOut->nalHrdParametersPresentFlag) {
-        if (!__picoH264ParseHRDParameters(br, &vuiOut->nalHrdParameters)) {
-            PICO_H264_LOG("__picoH264ParseVUIParameters: Failed to parse NAL HRD parameters\n");
+        if (!PRIV__picoH264ParseHRDParameters(br, &vuiOut->nalHrdParameters)) {
+            PICO_H264_LOG("PRIV__picoH264ParseVUIParameters: Failed to parse NAL HRD parameters\n");
             return false;
         }
     }
 
     vuiOut->vclHrdParametersPresentFlag = picoH264BufferReaderU(br, 1) != 0;
     if (vuiOut->vclHrdParametersPresentFlag) {
-        if (!__picoH264ParseHRDParameters(br, &vuiOut->vclHrdParameters)) {
-            PICO_H264_LOG("__picoH264ParseVUIParameters: Failed to parse VCL HRD parameters\n");
+        if (!PRIV__picoH264ParseHRDParameters(br, &vuiOut->vclHrdParameters)) {
+            PICO_H264_LOG("PRIV__picoH264ParseVUIParameters: Failed to parse VCL HRD parameters\n");
             return false;
         }
     }
@@ -3510,7 +3510,7 @@ static bool __picoH264ParseVUIParameters(picoH264BufferReader_t *br, picoH264Vid
     return true;
 }
 
-static bool __picoH264ParseSequenceParameterSetData(picoH264BufferReader br, picoH264SequenceParameterSet spsOut)
+static bool PRIV__picoH264ParseSequenceParameterSetData(picoH264BufferReader br, picoH264SequenceParameterSet spsOut)
 {
     PICO_ASSERT(br != NULL);
     PICO_ASSERT(spsOut != NULL);
@@ -3553,7 +3553,7 @@ static bool __picoH264ParseSequenceParameterSetData(picoH264BufferReader br, pic
                 spsOut->seqScalingListPresentFlag[i] = picoH264BufferReaderU(br, 1) != 0;
                 if (spsOut->seqScalingListPresentFlag[i]) {
                     if (i < 6) {
-                        if (!__picoH264ParseScalingList(
+                        if (!PRIV__picoH264ParseScalingList(
                                 br,
                                 16,
                                 spsOut->scalingList4x4[i],
@@ -3562,7 +3562,7 @@ static bool __picoH264ParseSequenceParameterSetData(picoH264BufferReader br, pic
                             return false;
                         }
                     } else {
-                        if (!__picoH264ParseScalingList(
+                        if (!PRIV__picoH264ParseScalingList(
                                 br,
                                 64,
                                 spsOut->scalingList8x8[i - 6],
@@ -3663,7 +3663,7 @@ static bool __picoH264ParseSequenceParameterSetData(picoH264BufferReader br, pic
 
     spsOut->vuiParametersPresentFlag = picoH264BufferReaderU(br, 1) != 0;
     if (spsOut->vuiParametersPresentFlag) {
-        if (!__picoH264ParseVUIParameters(br, &spsOut->vui)) {
+        if (!PRIV__picoH264ParseVUIParameters(br, &spsOut->vui)) {
             PICO_H264_LOG("picoH264ParseSequenceParameterSet: Failed to parse VUI parameters\n");
             return false;
         }
@@ -3681,7 +3681,7 @@ bool picoH264ParseSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size
     picoH264BufferReader_t br = {0};
     picoH264BufferReaderInit(&br, nalUnitPayloadBuffer, nalUnitPayloadSize);
 
-    if (!__picoH264ParseSequenceParameterSetData(&br, spsOut)) {
+    if (!PRIV__picoH264ParseSequenceParameterSetData(&br, spsOut)) {
         PICO_H264_LOG("picoH264ParseSequenceParameterSet: Failed to parse SPS data\n");
         return false;
     }
@@ -3691,7 +3691,7 @@ bool picoH264ParseSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer, size
     return true;
 }
 
-static bool __picoH264ParseSVCSequenceParameterSetExtension(picoH264BufferReader br, picoH264SequenceParameterSet sps, picoH264SPSSVCExtension svcSpsExtOut)
+static bool PRIV__picoH264ParseSVCSequenceParameterSetExtension(picoH264BufferReader br, picoH264SequenceParameterSet sps, picoH264SPSSVCExtension svcSpsExtOut)
 {
     PICO_ASSERT(br != NULL);
     PICO_ASSERT(sps != NULL);
@@ -3731,7 +3731,7 @@ static bool __picoH264ParseSVCSequenceParameterSetExtension(picoH264BufferReader
     return true;
 }
 
-static bool __picoH264ParseSVCVUIParametersExtension(picoH264BufferReader br, picoH264SVCVUIParametersExtension svcVuiExtOut)
+static bool PRIV__picoH264ParseSVCVUIParametersExtension(picoH264BufferReader br, picoH264SVCVUIParametersExtension svcVuiExtOut)
 {
     PICO_ASSERT(br != NULL);
     PICO_ASSERT(svcVuiExtOut != NULL);
@@ -3754,16 +3754,16 @@ static bool __picoH264ParseSVCVUIParametersExtension(picoH264BufferReader br, pi
 
         entry->vuiExtNalHrdParametersPresentFlag = picoH264BufferReaderU(br, 1) != 0;
         if (entry->vuiExtNalHrdParametersPresentFlag) {
-            if (!__picoH264ParseHRDParameters(br, &entry->nalHrdParameters)) {
-                PICO_H264_LOG("__picoH264ParseSVCVUIParametersExtension: Failed to parse SVC VUI NAL HRD parameters\n");
+            if (!PRIV__picoH264ParseHRDParameters(br, &entry->nalHrdParameters)) {
+                PICO_H264_LOG("PRIV__picoH264ParseSVCVUIParametersExtension: Failed to parse SVC VUI NAL HRD parameters\n");
                 return false;
             }
         }
 
         entry->vuiExtVclHrdParametersPresentFlag = picoH264BufferReaderU(br, 1) != 0;
         if (entry->vuiExtVclHrdParametersPresentFlag) {
-            if (!__picoH264ParseHRDParameters(br, &entry->vclHrdParameters)) {
-                PICO_H264_LOG("__picoH264ParseSVCVUIParametersExtension: Failed to parse SVC VUI VCL HRD parameters\n");
+            if (!PRIV__picoH264ParseHRDParameters(br, &entry->vclHrdParameters)) {
+                PICO_H264_LOG("PRIV__picoH264ParseSVCVUIParametersExtension: Failed to parse SVC VUI VCL HRD parameters\n");
                 return false;
             }
         }
@@ -3778,7 +3778,7 @@ static bool __picoH264ParseSVCVUIParametersExtension(picoH264BufferReader br, pi
     return true;
 }
 
-static bool __picoH264ParseMVCSequenceParameterSetExtension(picoH264BufferReader br, picoH264SequenceParameterSet sps, picoH264SPSMVCExtension mvcSpsExtOut)
+static bool PRIV__picoH264ParseMVCSequenceParameterSetExtension(picoH264BufferReader br, picoH264SequenceParameterSet sps, picoH264SPSMVCExtension mvcSpsExtOut)
 {
     PICO_ASSERT(br != NULL);
     PICO_ASSERT(mvcSpsExtOut != NULL);
@@ -3849,7 +3849,7 @@ static bool __picoH264ParseMVCSequenceParameterSetExtension(picoH264BufferReader
     return true;
 }
 
-static bool __picoH264ParseMVCVUIParametersExtension(picoH264BufferReader br, picoH264MVCVUIParametersExtension mvcVuiExtOut)
+static bool PRIV__picoH264ParseMVCVUIParametersExtension(picoH264BufferReader br, picoH264MVCVUIParametersExtension mvcVuiExtOut)
 {
     PICO_ASSERT(br != NULL);
     PICO_ASSERT(mvcVuiExtOut != NULL);
@@ -3872,16 +3872,16 @@ static bool __picoH264ParseMVCVUIParametersExtension(picoH264BufferReader br, pi
         }
         entry->vuiMVCNalHrdParametersPresentFlag = picoH264BufferReaderU(br, 1) != 0;
         if (entry->vuiMVCNalHrdParametersPresentFlag) {
-            if (!__picoH264ParseHRDParameters(br, &entry->vuiMVCNalHrdParameters)) {
-                PICO_H264_LOG("__picoH264ParseMVCVUIParametersExtension: Failed to parse MVC VUI NAL HRD parameters\n");
+            if (!PRIV__picoH264ParseHRDParameters(br, &entry->vuiMVCNalHrdParameters)) {
+                PICO_H264_LOG("PRIV__picoH264ParseMVCVUIParametersExtension: Failed to parse MVC VUI NAL HRD parameters\n");
                 return false;
             }
         }
 
         entry->vuiMVCVclHrdParametersPresentFlag = picoH264BufferReaderU(br, 1) != 0;
         if (entry->vuiMVCVclHrdParametersPresentFlag) {
-            if (!__picoH264ParseHRDParameters(br, &entry->vuiMVCVclHrdParameters)) {
-                PICO_H264_LOG("__picoH264ParseMVCVUIParametersExtension: Failed to parse MVC VUI VCL HRD parameters\n");
+            if (!PRIV__picoH264ParseHRDParameters(br, &entry->vuiMVCVclHrdParameters)) {
+                PICO_H264_LOG("PRIV__picoH264ParseMVCVUIParametersExtension: Failed to parse MVC VUI VCL HRD parameters\n");
                 return false;
             }
         }
@@ -3906,7 +3906,7 @@ bool picoH264ParseSubsetSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer
 
     memset(subsetSpsOut, 0, sizeof(picoH264SubsetSequenceParameterSet_t));
 
-    if (!__picoH264ParseSequenceParameterSetData(&br, &subsetSpsOut->spsData)) {
+    if (!PRIV__picoH264ParseSequenceParameterSetData(&br, &subsetSpsOut->spsData)) {
         PICO_H264_LOG("picoH264ParseSubsetSequenceParameterSet: Failed to parse base SPS data\n");
         return false;
     }
@@ -3918,26 +3918,26 @@ bool picoH264ParseSubsetSequenceParameterSet(const uint8_t *nalUnitPayloadBuffer
 
     if (subsetSpsOut->spsData.profileIdc == 83 || subsetSpsOut->spsData.profileIdc == 86) {
         subsetSpsOut->hasSvcExtension = true;
-        if (!__picoH264ParseSVCSequenceParameterSetExtension(&br, &subsetSpsOut->spsData, &subsetSpsOut->svcExtension)) {
+        if (!PRIV__picoH264ParseSVCSequenceParameterSetExtension(&br, &subsetSpsOut->spsData, &subsetSpsOut->svcExtension)) {
             PICO_H264_LOG("picoH264ParseSubsetSequenceParameterSet: Failed to parse SVC SPS extension\n");
             return false;
         }
         subsetSpsOut->svcVuiParametersPresentFlag = picoH264BufferReaderU(&br, 1) != 0;
         if (subsetSpsOut->svcVuiParametersPresentFlag) {
-            if (!__picoH264ParseSVCVUIParametersExtension(&br, &subsetSpsOut->svcVuiParametersExtension)) {
+            if (!PRIV__picoH264ParseSVCVUIParametersExtension(&br, &subsetSpsOut->svcVuiParametersExtension)) {
                 PICO_H264_LOG("picoH264ParseSubsetSequenceParameterSet: Failed to parse SVC VUI parameters\n");
                 return false;
             }
         }
     } else if (subsetSpsOut->spsData.profileIdc == 118 || subsetSpsOut->spsData.profileIdc == 128) {
         subsetSpsOut->hasMvcExtension = true;
-        if (!__picoH264ParseMVCSequenceParameterSetExtension(&br, &subsetSpsOut->spsData, &subsetSpsOut->mvcExtension)) {
+        if (!PRIV__picoH264ParseMVCSequenceParameterSetExtension(&br, &subsetSpsOut->spsData, &subsetSpsOut->mvcExtension)) {
             PICO_H264_LOG("picoH264ParseSubsetSequenceParameterSet: Failed to parse MVC SPS extension\n");
             return false;
         }
         subsetSpsOut->mvcVuiParametersPresentFlag = picoH264BufferReaderU(&br, 1) != 0;
         if (subsetSpsOut->mvcVuiParametersPresentFlag) {
-            if (!__picoH264ParseMVCVUIParametersExtension(&br, &subsetSpsOut->mvcVuiParametersExtension)) {
+            if (!PRIV__picoH264ParseMVCVUIParametersExtension(&br, &subsetSpsOut->mvcVuiParametersExtension)) {
                 PICO_H264_LOG("picoH264ParseSubsetSequenceParameterSet: Failed to parse MVC VUI parameters\n");
                 return false;
             }
@@ -4072,9 +4072,9 @@ bool picoH264ParsePictureParameterSet(const uint8_t *nalUnitPayloadBuffer, size_
                 ppsOut->picScalingListPresentFlag[i] = picoH264BufferReaderU(&br, 1) != 0;
                 if (ppsOut->picScalingListPresentFlag[i]) {
                     if (i < 6) {
-                        __picoH264ParseScalingList(&br, 16, ppsOut->scalingList4x4[i], &ppsOut->useDefaultScalingMatrix4x4Flag[i]);
+                        PRIV__picoH264ParseScalingList(&br, 16, ppsOut->scalingList4x4[i], &ppsOut->useDefaultScalingMatrix4x4Flag[i]);
                     } else {
-                        __picoH264ParseScalingList(&br, 64, ppsOut->scalingList8x8[i - 6], &ppsOut->useDefaultScalingMatrix8x8Flag[i - 6]);
+                        PRIV__picoH264ParseScalingList(&br, 64, ppsOut->scalingList8x8[i - 6], &ppsOut->useDefaultScalingMatrix8x8Flag[i - 6]);
                     }
                 }
             }
@@ -4139,7 +4139,7 @@ bool picoH264SliceHeaderParseSliceType(const uint8_t *nalUnitPayloadBuffer, size
     return true;
 }
 
-static bool __picoH264ParseRefPicListModification(picoH264BufferReader br, picoH264SliceType sliceType, bool mvc, picoH264RefPicListModification refPicListModOut)
+static bool PRIV__picoH264ParseRefPicListModification(picoH264BufferReader br, picoH264SliceType sliceType, bool mvc, picoH264RefPicListModification refPicListModOut)
 {
     PICO_ASSERT(br != NULL);
     PICO_ASSERT(refPicListModOut != NULL);
@@ -4185,7 +4185,7 @@ static bool __picoH264ParseRefPicListModification(picoH264BufferReader br, picoH
     return true;
 }
 
-static bool __picoH264ParsePredWeightTable(picoH264BufferReader br, picoH264SequenceParameterSet sps, picoH264SliceHeader sliceHeader, picoH264PredWeightTable predWeightTableOut)
+static bool PRIV__picoH264ParsePredWeightTable(picoH264BufferReader br, picoH264SequenceParameterSet sps, picoH264SliceHeader sliceHeader, picoH264PredWeightTable predWeightTableOut)
 {
     PICO_ASSERT(br != NULL);
     PICO_ASSERT(sps != NULL);
@@ -4257,7 +4257,7 @@ static bool __picoH264ParsePredWeightTable(picoH264BufferReader br, picoH264Sequ
     return true;
 }
 
-static bool __picoH264ParseDecRefPicMarking(picoH264BufferReader br, picoH264NALUnitType nalUnitType, picoH264DecRefPicMarking decRefPicMarkingOut)
+static bool PRIV__picoH264ParseDecRefPicMarking(picoH264BufferReader br, picoH264NALUnitType nalUnitType, picoH264DecRefPicMarking decRefPicMarkingOut)
 {
     PICO_ASSERT(br != NULL);
     PICO_ASSERT(decRefPicMarkingOut != NULL);
@@ -4295,7 +4295,7 @@ static bool __picoH264ParseDecRefPicMarking(picoH264BufferReader br, picoH264NAL
     return true;
 }
 
-static bool __picoH264ParseSliceHeader(picoH264BufferReader br, picoH264NALUnitHeader nalUnitHeader, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceHeader sliceHeaderOut)
+static bool PRIV__picoH264ParseSliceHeader(picoH264BufferReader br, picoH264NALUnitHeader nalUnitHeader, picoH264SequenceParameterSet sps, picoH264PictureParameterSet pps, picoH264SliceHeader sliceHeaderOut)
 {
     PICO_ASSERT(br != NULL);
     PICO_ASSERT(sps != NULL);
@@ -4365,13 +4365,13 @@ static bool __picoH264ParseSliceHeader(picoH264BufferReader br, picoH264NALUnitH
     }
 
     if (nalUnitHeader->nalUnitType == PICO_H264_NAL_UNIT_TYPE_SLICE_EXTENSION || nalUnitHeader->nalUnitType == PICO_H264_NAL_UNIT_TYPE_DEPTH_SLICE_EXTENSION) {
-        if (!__picoH264ParseRefPicListModification(br, sliceHeaderOut->sliceType, true, &sliceHeaderOut->refPicListMvcModification)) {
-            PICO_H264_LOG("__picoH264ParseSliceHeader: Failed to parse ref pic list MVC modification\n");
+        if (!PRIV__picoH264ParseRefPicListModification(br, sliceHeaderOut->sliceType, true, &sliceHeaderOut->refPicListMvcModification)) {
+            PICO_H264_LOG("PRIV__picoH264ParseSliceHeader: Failed to parse ref pic list MVC modification\n");
             return false;
         }
     } else {
-        if (!__picoH264ParseRefPicListModification(br, sliceHeaderOut->sliceType, false, &sliceHeaderOut->refPicListModification)) {
-            PICO_H264_LOG("__picoH264ParseSliceHeader: Failed to parse ref pic list modification\n");
+        if (!PRIV__picoH264ParseRefPicListModification(br, sliceHeaderOut->sliceType, false, &sliceHeaderOut->refPicListModification)) {
+            PICO_H264_LOG("PRIV__picoH264ParseSliceHeader: Failed to parse ref pic list modification\n");
             return false;
         }
     }
@@ -4381,15 +4381,15 @@ static bool __picoH264ParseSliceHeader(picoH264BufferReader br, picoH264NALUnitH
           sliceHeaderOut->sliceType == PICO_H264_SLICE_TYPE_SP || sliceHeaderOut->sliceType == PICO_H264_SLICE_TYPE_SP_ONLY)) ||
         (pps->weightedBipredIdc == 1 &&
          (sliceHeaderOut->sliceType == PICO_H264_SLICE_TYPE_B || sliceHeaderOut->sliceType == PICO_H264_SLICE_TYPE_B_ONLY))) {
-        if (!__picoH264ParsePredWeightTable(br, sps, sliceHeaderOut, &sliceHeaderOut->predWeightTable)) {
-            PICO_H264_LOG("__picoH264ParseSliceHeader: Failed to parse pred weight table\n");
+        if (!PRIV__picoH264ParsePredWeightTable(br, sps, sliceHeaderOut, &sliceHeaderOut->predWeightTable)) {
+            PICO_H264_LOG("PRIV__picoH264ParseSliceHeader: Failed to parse pred weight table\n");
             return false;
         }
     }
 
     if (nalUnitHeader->nalRefIDC != 0) {
-        if (!__picoH264ParseDecRefPicMarking(br, nalUnitHeader->nalUnitType, &sliceHeaderOut->decRefPicMarking)) {
-            PICO_H264_LOG("__picoH264ParseSliceHeader: Failed to parse dec ref pic marking\n");
+        if (!PRIV__picoH264ParseDecRefPicMarking(br, nalUnitHeader->nalUnitType, &sliceHeaderOut->decRefPicMarking)) {
+            PICO_H264_LOG("PRIV__picoH264ParseSliceHeader: Failed to parse dec ref pic marking\n");
             return false;
         }
     }
@@ -4436,7 +4436,7 @@ bool picoH264ParseSliceLayerWithoutPartitioning(const uint8_t *nalUnitPayloadBuf
 
     memset(sliceLayerOut, 0, sizeof(picoH264SliceLayerWithoutPartitioning_t));
 
-    if (!__picoH264ParseSliceHeader(&br, nalUnitHeader, sps, pps, &sliceLayerOut->header)) {
+    if (!PRIV__picoH264ParseSliceHeader(&br, nalUnitHeader, sps, pps, &sliceLayerOut->header)) {
         PICO_H264_LOG("picoH264ParseSliceLayerWithoutPartitioning: Failed to parse slice header\n");
         return false;
     }
@@ -4460,7 +4460,7 @@ bool picoH264ParseSliceDataPartitionALayer(const uint8_t *nalUnitPayloadBuffer, 
 
     memset(sliceDataPartitionALayerOut, 0, sizeof(picoH264SliceDataPartitionALayer_t));
 
-    if (!__picoH264ParseSliceHeader(&br, nalUnitHeader, sps, pps, &sliceDataPartitionALayerOut->header)) {
+    if (!PRIV__picoH264ParseSliceHeader(&br, nalUnitHeader, sps, pps, &sliceDataPartitionALayerOut->header)) {
         PICO_H264_LOG("picoH264ParseSliceDataPartitionALayer: Failed to parse slice header\n");
         return false;
     }
@@ -4624,7 +4624,7 @@ const char *picoH264NALUnitTypeToString(picoH264NALUnitType nalUnitType)
     }
 }
 
-static void __picoH264PrintSVCExtension(const picoH264NALUnitHeaderSVCExtension_t *svc)
+static void PRIV__picoH264PrintSVCExtension(const picoH264NALUnitHeaderSVCExtension_t *svc)
 {
     if (!svc)
         return;
@@ -4641,7 +4641,7 @@ static void __picoH264PrintSVCExtension(const picoH264NALUnitHeaderSVCExtension_
     PICO_H264_LOG("    outputFlag: %s\n", svc->outputFlag ? "true" : "false");
 }
 
-static void __picoH264Print3DAVCExtension(const picoH264NALUnitHeader3DAVCExtension_t *ext)
+static void PRIV__picoH264Print3DAVCExtension(const picoH264NALUnitHeader3DAVCExtension_t *ext)
 {
     if (!ext)
         return;
@@ -4655,7 +4655,7 @@ static void __picoH264Print3DAVCExtension(const picoH264NALUnitHeader3DAVCExtens
     PICO_H264_LOG("    interViewFlag: %s\n", ext->interViewFlag ? "true" : "false");
 }
 
-static void __picoH264PrintMVCExtension(const picoH264NALUnitHeaderMVCExtension_t *ext)
+static void PRIV__picoH264PrintMVCExtension(const picoH264NALUnitHeaderMVCExtension_t *ext)
 {
     if (!ext)
         return;
@@ -4669,7 +4669,7 @@ static void __picoH264PrintMVCExtension(const picoH264NALUnitHeaderMVCExtension_
     PICO_H264_LOG("    interViewFlag: %s\n", ext->interViewFlag ? "true" : "false");
 }
 
-static void __picoH264VideoUsabilityInformationDebugPrint(const picoH264VideoUsabilityInformation_t *vui)
+static void PRIV__picoH264VideoUsabilityInformationDebugPrint(const picoH264VideoUsabilityInformation_t *vui)
 {
     if (!vui)
         return;
@@ -4785,7 +4785,7 @@ void picoH264SequenceParameterSetDebugPrint(picoH264SequenceParameterSet sps)
     }
     PICO_H264_LOG("  vuiParametersPresentFlag: %llu\n", (unsigned long long)sps->vuiParametersPresentFlag);
     if (sps->vuiParametersPresentFlag) {
-        __picoH264VideoUsabilityInformationDebugPrint(&sps->vui);
+        PRIV__picoH264VideoUsabilityInformationDebugPrint(&sps->vui);
     }
 }
 
@@ -4821,19 +4821,19 @@ void picoH264NALUnitHeaderDebugPrint(picoH264NALUnitHeader nalUnitHeader)
     PICO_H264_LOG("  mvcExtensionFlag: %s\n", nalUnitHeader->mvcExtensionFlag ? "true" : "false");
 
     if (nalUnitHeader->svcExtensionFlag) {
-        __picoH264PrintSVCExtension(&nalUnitHeader->svcExtension);
+        PRIV__picoH264PrintSVCExtension(&nalUnitHeader->svcExtension);
     }
 
     if (nalUnitHeader->avc3DExtensionFlag) {
-        __picoH264Print3DAVCExtension(&nalUnitHeader->avc3DExtension);
+        PRIV__picoH264Print3DAVCExtension(&nalUnitHeader->avc3DExtension);
     }
 
     if (nalUnitHeader->mvcExtensionFlag) {
-        __picoH264PrintMVCExtension(&nalUnitHeader->mvcExtension);
+        PRIV__picoH264PrintMVCExtension(&nalUnitHeader->mvcExtension);
     }
 }
 
-static void __picoH264SPSSVCExtensionDebugPrint(const picoH264SPSSVCExtension_t *svcExt)
+static void PRIV__picoH264SPSSVCExtensionDebugPrint(const picoH264SPSSVCExtension_t *svcExt)
 {
     if (!svcExt)
         return;
@@ -4854,7 +4854,7 @@ static void __picoH264SPSSVCExtensionDebugPrint(const picoH264SPSSVCExtension_t 
     PICO_H264_LOG("    sliceHeaderRestrictionFlag: %s\n", svcExt->sliceHeaderRestrictionFlag ? "true" : "false");
 }
 
-static void __picoH264SVCVUIParametersExtensionDebugPrint(const picoH264SVCVUIParametersExtension_t *svcVui)
+static void PRIV__picoH264SVCVUIParametersExtensionDebugPrint(const picoH264SVCVUIParametersExtension_t *svcVui)
 {
     if (!svcVui)
         return;
@@ -4885,7 +4885,7 @@ static void __picoH264SVCVUIParametersExtensionDebugPrint(const picoH264SVCVUIPa
     }
 }
 
-static void __picoH264SPSMVCExtensionDebugPrint(const picoH264SPSMVCExtension_t *mvcExt)
+static void PRIV__picoH264SPSMVCExtensionDebugPrint(const picoH264SPSMVCExtension_t *mvcExt)
 {
     if (!mvcExt)
         return;
@@ -4931,7 +4931,7 @@ static void __picoH264SPSMVCExtensionDebugPrint(const picoH264SPSMVCExtension_t 
     PICO_H264_LOG("    rpuFieldProcessingFlag: %s\n", mvcExt->rpuFieldProcessingFlag ? "true" : "false");
 }
 
-static void __picoH264MVCVUIParametersExtensionDebugPrint(const picoH264MVCVUIParametersExtension_t *mvcVui)
+static void PRIV__picoH264MVCVUIParametersExtensionDebugPrint(const picoH264MVCVUIParametersExtension_t *mvcVui)
 {
     if (!mvcVui)
         return;
@@ -4981,21 +4981,21 @@ void picoH264SubsetSequenceParameterSetDebugPrint(picoH264SubsetSequenceParamete
 
     PICO_H264_LOG("\n  hasSvcExtension: %s\n", spsSubset->hasSvcExtension ? "true" : "false");
     if (spsSubset->hasSvcExtension) {
-        __picoH264SPSSVCExtensionDebugPrint(&spsSubset->svcExtension);
+        PRIV__picoH264SPSSVCExtensionDebugPrint(&spsSubset->svcExtension);
 
         PICO_H264_LOG("  svcVuiParametersPresentFlag: %s\n", spsSubset->svcVuiParametersPresentFlag ? "true" : "false");
         if (spsSubset->svcVuiParametersPresentFlag) {
-            __picoH264SVCVUIParametersExtensionDebugPrint(&spsSubset->svcVuiParametersExtension);
+            PRIV__picoH264SVCVUIParametersExtensionDebugPrint(&spsSubset->svcVuiParametersExtension);
         }
     }
 
     PICO_H264_LOG("\n  hasMvcExtension: %s\n", spsSubset->hasMvcExtension ? "true" : "false");
     if (spsSubset->hasMvcExtension) {
-        __picoH264SPSMVCExtensionDebugPrint(&spsSubset->mvcExtension);
+        PRIV__picoH264SPSMVCExtensionDebugPrint(&spsSubset->mvcExtension);
 
         PICO_H264_LOG("  mvcVuiParametersPresentFlag: %s\n", spsSubset->mvcVuiParametersPresentFlag ? "true" : "false");
         if (spsSubset->mvcVuiParametersPresentFlag) {
-            __picoH264MVCVUIParametersExtensionDebugPrint(&spsSubset->mvcVuiParametersExtension);
+            PRIV__picoH264MVCVUIParametersExtensionDebugPrint(&spsSubset->mvcVuiParametersExtension);
         }
     }
 }
@@ -5087,7 +5087,7 @@ void picoH264AccessUnitDelimiterDebugPrint(picoH264AccessUnitDelimiter aud)
     PICO_H264_LOG("  primaryPicType: %u\n", aud->primaryPicType);
 }
 
-static void __picoH264RefPicListModificationDebugPrint(const picoH264RefPicListModification_t *refPicListModification)
+static void PRIV__picoH264RefPicListModificationDebugPrint(const picoH264RefPicListModification_t *refPicListModification)
 {
     if (!refPicListModification)
         return;
@@ -5117,7 +5117,7 @@ static void __picoH264RefPicListModificationDebugPrint(const picoH264RefPicListM
     }
 }
 
-static void __picoH264PredWeightTableDebugPrint(const picoH264PredWeightTable_t *predWeightTable)
+static void PRIV__picoH264PredWeightTableDebugPrint(const picoH264PredWeightTable_t *predWeightTable)
 {
     if (!predWeightTable)
         return;
@@ -5143,7 +5143,7 @@ static void __picoH264PredWeightTableDebugPrint(const picoH264PredWeightTable_t 
     }
 }
 
-static void __picoH264DecRefPicMarkingDebugPrint(const picoH264DecRefPicMarking_t *decRefPicMarking)
+static void PRIV__picoH264DecRefPicMarkingDebugPrint(const picoH264DecRefPicMarking_t *decRefPicMarking)
 {
     if (!decRefPicMarking)
         return;
@@ -5192,10 +5192,10 @@ void picoH264SliceHeaderDebugPrint(picoH264SliceHeader sliceHeader)
         PICO_H264_LOG("  numRefIdxL1ActiveMinus1: %u\n", (unsigned)sliceHeader->numRefIdxL1ActiveMinus1);
     }
 
-    __picoH264RefPicListModificationDebugPrint(&sliceHeader->refPicListModification);
-    __picoH264RefPicListModificationDebugPrint(&sliceHeader->refPicListMvcModification);
-    __picoH264PredWeightTableDebugPrint(&sliceHeader->predWeightTable);
-    __picoH264DecRefPicMarkingDebugPrint(&sliceHeader->decRefPicMarking);
+    PRIV__picoH264RefPicListModificationDebugPrint(&sliceHeader->refPicListModification);
+    PRIV__picoH264RefPicListModificationDebugPrint(&sliceHeader->refPicListMvcModification);
+    PRIV__picoH264PredWeightTableDebugPrint(&sliceHeader->predWeightTable);
+    PRIV__picoH264DecRefPicMarkingDebugPrint(&sliceHeader->decRefPicMarking);
 
     PICO_H264_LOG("  cabacInitIdc: %u\n", (unsigned)sliceHeader->cabacInitIdc);
     PICO_H264_LOG("  sliceQpDelta: %d\n", (int)sliceHeader->sliceQpDelta);

@@ -2012,7 +2012,7 @@ struct picoMpegTS_t {
     size_t packetCount;
 };
 
-static picoMpegTSResult __picoMpegTSDescriptorSetAdd(picoMpegTSDescriptorSet set, const picoMpegTSDescriptor descriptor)
+static picoMpegTSResult PRIV__picoMpegTSDescriptorSetAdd(picoMpegTSDescriptorSet set, const picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(set != NULL);
     PICO_ASSERT(descriptor != NULL);
@@ -2032,18 +2032,18 @@ static picoMpegTSResult __picoMpegTSDescriptorSetAdd(picoMpegTSDescriptorSet set
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static void __picoMpegTSDescriptorSetClear(picoMpegTSDescriptorSet set)
+static void PRIV__picoMpegTSDescriptorSetClear(picoMpegTSDescriptorSet set)
 {
     PICO_ASSERT(set != NULL);
     set->count = 0;
 }
 
-static void __picoMpegTSFilterContextFlushPayloadAccumulator(picoMpegTSFilterContext filterContext, size_t byteCount);
-static picoMpegTSResult __picoMpegTSReplaceOrRegisterPSIFilter(picoMpegTS mpegts, uint16_t pid);
-static picoMpegTSResult __picoMpegTSReplaceOrRegisterPESFilter(picoMpegTS mpegts, uint16_t pid);
-static void __picoMpegTSDestroyFilterContext(picoMpegTS mpegts, picoMpegTSFilterContext context);
+static void PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(picoMpegTSFilterContext filterContext, size_t byteCount);
+static picoMpegTSResult PRIV__picoMpegTSReplaceOrRegisterPSIFilter(picoMpegTS mpegts, uint16_t pid);
+static picoMpegTSResult PRIV__picoMpegTSReplaceOrRegisterPESFilter(picoMpegTS mpegts, uint16_t pid);
+static void PRIV__picoMpegTSDestroyFilterContext(picoMpegTS mpegts, picoMpegTSFilterContext context);
 
-static void __picoMpegTSPesPacketDestroy(picoMpegTSPESPacket packet)
+static void PRIV__picoMpegTSPesPacketDestroy(picoMpegTSPESPacket packet)
 {
     PICO_ASSERT(packet != NULL);
     if (packet->data) {
@@ -2052,7 +2052,7 @@ static void __picoMpegTSPesPacketDestroy(picoMpegTSPESPacket packet)
     PICO_FREE(packet);
 }
 
-static picoMpegTSPESPacket __picoMpegTSPesPacketCreate(void)
+static picoMpegTSPESPacket PRIV__picoMpegTSPesPacketCreate(void)
 {
     picoMpegTSPESPacket packet = (picoMpegTSPESPacket)PICO_MALLOC(sizeof(picoMpegTSPESPacket_t));
     if (!packet) {
@@ -2062,7 +2062,7 @@ static picoMpegTSPESPacket __picoMpegTSPesPacketCreate(void)
     return packet;
 }
 
-static bool __picoMpegTSDescriptorPayloadParseISO639Language(picoMpegTSDescriptor descriptor)
+static bool PRIV__picoMpegTSDescriptorPayloadParseISO639Language(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
     PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_ISO_639_LANGUAGE);
@@ -2087,7 +2087,7 @@ static bool __picoMpegTSDescriptorPayloadParseISO639Language(picoMpegTSDescripto
     return true;
 }
 
-static bool __picoMpegTSDescriptorPayloadParseService(picoMpegTSDescriptor descriptor)
+static bool PRIV__picoMpegTSDescriptorPayloadParseService(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
     PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE);
@@ -2126,7 +2126,7 @@ static bool __picoMpegTSDescriptorPayloadParseService(picoMpegTSDescriptor descr
     return true;
 }
 
-static bool __picoMpegTSDescriptorPayloadParseStreamIdentifier(picoMpegTSDescriptor descriptor)
+static bool PRIV__picoMpegTSDescriptorPayloadParseStreamIdentifier(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
     PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_STREAM_IDENTIFIER);
@@ -2139,7 +2139,7 @@ static bool __picoMpegTSDescriptorPayloadParseStreamIdentifier(picoMpegTSDescrip
     return true;
 }
 
-static bool __picoMpegTSDescriptorPayloadParseCA(picoMpegTSDescriptor descriptor)
+static bool PRIV__picoMpegTSDescriptorPayloadParseCA(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
     PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_CA);
@@ -2163,7 +2163,7 @@ static bool __picoMpegTSDescriptorPayloadParseCA(picoMpegTSDescriptor descriptor
     return true;
 }
 
-static bool __picoMpegTSDescriptorPayloadParseContent(picoMpegTSDescriptor descriptor)
+static bool PRIV__picoMpegTSDescriptorPayloadParseContent(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
     PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_CONTENT);
@@ -2186,7 +2186,7 @@ static bool __picoMpegTSDescriptorPayloadParseContent(picoMpegTSDescriptor descr
     return true;
 }
 
-static bool __picoMpegTSDescriptorPayloadParseComponent(picoMpegTSDescriptor descriptor)
+static bool PRIV__picoMpegTSDescriptorPayloadParseComponent(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
     PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_COMPONENT);
@@ -2220,7 +2220,7 @@ static bool __picoMpegTSDescriptorPayloadParseComponent(picoMpegTSDescriptor des
     return true;
 }
 
-static bool __picoMpegTSDescriptorPayloadParseShortEvent(picoMpegTSDescriptor descriptor)
+static bool PRIV__picoMpegTSDescriptorPayloadParseShortEvent(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
     PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_SHORT_EVENT);
@@ -2271,7 +2271,7 @@ static bool __picoMpegTSDescriptorPayloadParseShortEvent(picoMpegTSDescriptor de
     return true;
 }
 
-static bool __picoMpegTSDescriptorPayloadParseServiceList(picoMpegTSDescriptor descriptor)
+static bool PRIV__picoMpegTSDescriptorPayloadParseServiceList(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
     PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE_LIST);
@@ -2293,7 +2293,7 @@ static bool __picoMpegTSDescriptorPayloadParseServiceList(picoMpegTSDescriptor d
     return true;
 }
 
-static bool __picoMpegTSDescriptorPayloadParseNetworkName(picoMpegTSDescriptor descriptor)
+static bool PRIV__picoMpegTSDescriptorPayloadParseNetworkName(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
     PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_NETWORK_NAME);
@@ -2309,7 +2309,7 @@ static bool __picoMpegTSDescriptorPayloadParseNetworkName(picoMpegTSDescriptor d
     return true;
 }
 
-static bool __picoMpegTSDescriptorPayloadParseParentalRating(picoMpegTSDescriptor descriptor)
+static bool PRIV__picoMpegTSDescriptorPayloadParseParentalRating(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
     PICO_ASSERT(descriptor->tag == PICO_MPEGTS_DESCRIPTOR_TAG_PARENTAL_RATING);
@@ -2332,37 +2332,37 @@ static bool __picoMpegTSDescriptorPayloadParseParentalRating(picoMpegTSDescripto
     return true;
 }
 
-static bool __picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
+static bool PRIV__picoMpegTSDescriptorPayloadParse(picoMpegTSDescriptor descriptor)
 {
     PICO_ASSERT(descriptor != NULL);
 
     switch (descriptor->tag) {
         case PICO_MPEGTS_DESCRIPTOR_TAG_ISO_639_LANGUAGE:
-            return __picoMpegTSDescriptorPayloadParseISO639Language(descriptor);
+            return PRIV__picoMpegTSDescriptorPayloadParseISO639Language(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE:
-            return __picoMpegTSDescriptorPayloadParseService(descriptor);
+            return PRIV__picoMpegTSDescriptorPayloadParseService(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_STREAM_IDENTIFIER:
-            return __picoMpegTSDescriptorPayloadParseStreamIdentifier(descriptor);
+            return PRIV__picoMpegTSDescriptorPayloadParseStreamIdentifier(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_CA:
-            return __picoMpegTSDescriptorPayloadParseCA(descriptor);
+            return PRIV__picoMpegTSDescriptorPayloadParseCA(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_CONTENT:
-            return __picoMpegTSDescriptorPayloadParseContent(descriptor);
+            return PRIV__picoMpegTSDescriptorPayloadParseContent(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_COMPONENT:
-            return __picoMpegTSDescriptorPayloadParseComponent(descriptor);
+            return PRIV__picoMpegTSDescriptorPayloadParseComponent(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_SHORT_EVENT:
-            return __picoMpegTSDescriptorPayloadParseShortEvent(descriptor);
+            return PRIV__picoMpegTSDescriptorPayloadParseShortEvent(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE_LIST:
-            return __picoMpegTSDescriptorPayloadParseServiceList(descriptor);
+            return PRIV__picoMpegTSDescriptorPayloadParseServiceList(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_NETWORK_NAME:
-            return __picoMpegTSDescriptorPayloadParseNetworkName(descriptor);
+            return PRIV__picoMpegTSDescriptorPayloadParseNetworkName(descriptor);
         case PICO_MPEGTS_DESCRIPTOR_TAG_PARENTAL_RATING:
-            return __picoMpegTSDescriptorPayloadParseParentalRating(descriptor);
+            return PRIV__picoMpegTSDescriptorPayloadParseParentalRating(descriptor);
         default:
             return false;
     }
 }
 
-static picoMpegTSResult __picoMpegTSDescriptorParse(picoMpegTSDescriptor descriptor, const uint8_t *data, size_t dataSize, size_t *bytesConsumed)
+static picoMpegTSResult PRIV__picoMpegTSDescriptorParse(picoMpegTSDescriptor descriptor, const uint8_t *data, size_t dataSize, size_t *bytesConsumed)
 {
     PICO_ASSERT(descriptor != NULL);
     PICO_ASSERT(data != NULL);
@@ -2393,13 +2393,13 @@ static picoMpegTSResult __picoMpegTSDescriptorParse(picoMpegTSDescriptor descrip
     }
     memcpy(descriptor->data, &data[2], copyLength);
 
-    descriptor->isParsed = __picoMpegTSDescriptorPayloadParse(descriptor);
+    descriptor->isParsed = PRIV__picoMpegTSDescriptorPayloadParse(descriptor);
 
     *bytesConsumed = 2 + descriptorLength;
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSDescriptorSetParse(picoMpegTSDescriptorSet descriptorSet, picoMpegTSFilterContext filterContext, bool additive)
+static picoMpegTSResult PRIV__picoMpegTSDescriptorSetParse(picoMpegTSDescriptorSet descriptorSet, picoMpegTSFilterContext filterContext, bool additive)
 {
     PICO_ASSERT(descriptorSet != NULL);
     PICO_ASSERT(filterContext != NULL);
@@ -2422,7 +2422,7 @@ static picoMpegTSResult __picoMpegTSDescriptorSetParse(picoMpegTSDescriptorSet d
     }
 
     if (!additive) {
-        __picoMpegTSDescriptorSetClear(descriptorSet);
+        PRIV__picoMpegTSDescriptorSetClear(descriptorSet);
     }
 
     size_t offset = 0;
@@ -2430,18 +2430,18 @@ static picoMpegTSResult __picoMpegTSDescriptorSetParse(picoMpegTSDescriptorSet d
         picoMpegTSDescriptor_t descriptor;
         size_t bytesConsumed = 0;
 
-        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorParse(&descriptor, &data[offset], descriptorsLength - offset, &bytesConsumed));
-        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetAdd(descriptorSet, &descriptor));
+        PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSDescriptorParse(&descriptor, &data[offset], descriptorsLength - offset, &bytesConsumed));
+        PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSDescriptorSetAdd(descriptorSet, &descriptor));
 
         offset += bytesConsumed;
     }
 
-    __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 2 + offset);
+    PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 2 + offset);
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static void __picoMpegTSDescriptorSetDestroy(picoMpegTSDescriptorSet set)
+static void PRIV__picoMpegTSDescriptorSetDestroy(picoMpegTSDescriptorSet set)
 {
     if (!set)
         return;
@@ -2453,7 +2453,7 @@ static void __picoMpegTSDescriptorSetDestroy(picoMpegTSDescriptorSet set)
     set->capacity    = 0;
 }
 
-static void __picoMpegTSMJDToGregorian(uint16_t mjd, int *year, int *month, int *day)
+static void PRIV__picoMpegTSMJDToGregorian(uint16_t mjd, int *year, int *month, int *day)
 {
     PICO_ASSERT(year != NULL);
     PICO_ASSERT(month != NULL);
@@ -2473,12 +2473,12 @@ static void __picoMpegTSMJDToGregorian(uint16_t mjd, int *year, int *month, int 
     *month = m_prime - 1 - k * 12;
 }
 
-static int __picoMpegTSBCDToInteger(uint8_t bcd)
+static int PRIV__picoMpegTSBCDToInteger(uint8_t bcd)
 {
     return ((bcd >> 4) & 0xF) * 10 + (bcd & 0xF);
 }
 
-static picoMpegTSTable __picoMpegTSTableCreate(uint8_t tableId, uint8_t versionNumber)
+static picoMpegTSTable PRIV__picoMpegTSTableCreate(uint8_t tableId, uint8_t versionNumber)
 {
     picoMpegTSTable table = (picoMpegTSTable)PICO_MALLOC(sizeof(picoMpegTSTable_t));
     if (!table)
@@ -2489,7 +2489,7 @@ static picoMpegTSTable __picoMpegTSTableCreate(uint8_t tableId, uint8_t versionN
     return table;
 }
 
-static uint64_t __picoMpegTSGetCurrentTimestamp(void)
+static uint64_t PRIV__picoMpegTSGetCurrentTimestamp(void)
 {
 #ifdef _WIN32
     return (uint64_t)time(NULL);
@@ -2500,7 +2500,7 @@ static uint64_t __picoMpegTSGetCurrentTimestamp(void)
 #endif
 }
 
-static bool __picoMpegTSIsVersionNewer(picoMpegTSTable candidate, picoMpegTSTable current)
+static bool PRIV__picoMpegTSIsVersionNewer(picoMpegTSTable candidate, picoMpegTSTable current)
 {
     if (candidate == NULL)
         return false;
@@ -2520,7 +2520,7 @@ static bool __picoMpegTSIsVersionNewer(picoMpegTSTable candidate, picoMpegTSTabl
     return candidate->versionNumber > current->versionNumber;
 }
 
-static void __picoMpegTSTableDestroy(picoMpegTSTable table)
+static void PRIV__picoMpegTSTableDestroy(picoMpegTSTable table)
 {
     PICO_ASSERT(table != NULL);
 
@@ -2530,18 +2530,18 @@ static void __picoMpegTSTableDestroy(picoMpegTSTable table)
             break;
 
         case PICO_MPEGTS_TABLE_ID_CAS:
-            __picoMpegTSDescriptorSetDestroy(&table->data.cas.descriptorSet);
+            PRIV__picoMpegTSDescriptorSetDestroy(&table->data.cas.descriptorSet);
             break;
 
         case PICO_MPEGTS_TABLE_ID_PMS:
-            __picoMpegTSDescriptorSetDestroy(&table->data.pms.programInfoDescriptorSet);
+            PRIV__picoMpegTSDescriptorSetDestroy(&table->data.pms.programInfoDescriptorSet);
             for (size_t i = 0; i < table->data.pms.streamCount; i++) {
-                __picoMpegTSDescriptorSetDestroy(&table->data.pms.streams[i].esInfoDescriptorSet);
+                PRIV__picoMpegTSDescriptorSetDestroy(&table->data.pms.streams[i].esInfoDescriptorSet);
             }
             break;
 
         case PICO_MPEGTS_TABLE_ID_TSDS:
-            __picoMpegTSDescriptorSetDestroy(&table->data.tsds.descriptorSet);
+            PRIV__picoMpegTSDescriptorSetDestroy(&table->data.tsds.descriptorSet);
             break;
 
         case PICO_MPEGTS_TABLE_ID_METAS:
@@ -2550,41 +2550,41 @@ static void __picoMpegTSTableDestroy(picoMpegTSTable table)
 
         case PICO_MPEGTS_TABLE_ID_NISAN:
         case PICO_MPEGTS_TABLE_ID_NISON:
-            __picoMpegTSDescriptorSetDestroy(&table->data.nit.descriptorSet);
+            PRIV__picoMpegTSDescriptorSetDestroy(&table->data.nit.descriptorSet);
             for (size_t i = 0; i < table->data.nit.transportStreamCount; i++) {
-                __picoMpegTSDescriptorSetDestroy(&table->data.nit.transportStreams[i].descriptorSet);
+                PRIV__picoMpegTSDescriptorSetDestroy(&table->data.nit.transportStreams[i].descriptorSet);
             }
             break;
 
         case PICO_MPEGTS_TABLE_ID_BAS:
-            __picoMpegTSDescriptorSetDestroy(&table->data.bat.descriptorSet);
+            PRIV__picoMpegTSDescriptorSetDestroy(&table->data.bat.descriptorSet);
             for (size_t i = 0; i < table->data.bat.serviceCount; i++) {
-                __picoMpegTSDescriptorSetDestroy(&table->data.bat.services[i].descriptorSet);
+                PRIV__picoMpegTSDescriptorSetDestroy(&table->data.bat.services[i].descriptorSet);
             }
             break;
 
         case PICO_MPEGTS_TABLE_ID_SDSATS:
         case PICO_MPEGTS_TABLE_ID_SDSOTS:
             for (size_t i = 0; i < table->data.sdt.serviceCount; i++) {
-                __picoMpegTSDescriptorSetDestroy(&table->data.sdt.services[i].descriptorSet);
+                PRIV__picoMpegTSDescriptorSetDestroy(&table->data.sdt.services[i].descriptorSet);
             }
             break;
 
         case PICO_MPEGTS_TABLE_ID_EISATSF:
         case PICO_MPEGTS_TABLE_ID_EISOTSF:
             for (size_t i = 0; i < table->data.eit.eventCount; i++) {
-                __picoMpegTSDescriptorSetDestroy(&table->data.eit.events[i].descriptorSet);
+                PRIV__picoMpegTSDescriptorSetDestroy(&table->data.eit.events[i].descriptorSet);
             }
             break;
 
         case PICO_MPEGTS_TABLE_ID_TOS:
-            __picoMpegTSDescriptorSetDestroy(&table->data.tot.descriptorSet);
+            PRIV__picoMpegTSDescriptorSetDestroy(&table->data.tot.descriptorSet);
             break;
 
         case PICO_MPEGTS_TABLE_ID_SIS:
-            __picoMpegTSDescriptorSetDestroy(&table->data.sit.transmissionInfoDescriptorSet);
+            PRIV__picoMpegTSDescriptorSetDestroy(&table->data.sit.transmissionInfoDescriptorSet);
             for (size_t i = 0; i < table->data.sit.serviceCount; i++) {
-                __picoMpegTSDescriptorSetDestroy(&table->data.sit.services[i].descriptorSet);
+                PRIV__picoMpegTSDescriptorSetDestroy(&table->data.sit.services[i].descriptorSet);
             }
             break;
 
@@ -2592,7 +2592,7 @@ static void __picoMpegTSTableDestroy(picoMpegTSTable table)
             if ((table->tableId >= 0x50 && table->tableId <= 0x5F) ||
                 (table->tableId >= 0x60 && table->tableId <= 0x6F)) {
                 for (size_t i = 0; i < table->data.eit.eventCount; i++) {
-                    __picoMpegTSDescriptorSetDestroy(&table->data.eit.events[i].descriptorSet);
+                    PRIV__picoMpegTSDescriptorSetDestroy(&table->data.eit.events[i].descriptorSet);
                 }
             }
             break;
@@ -2601,17 +2601,17 @@ static void __picoMpegTSTableDestroy(picoMpegTSTable table)
     PICO_FREE(table);
 }
 
-static picoMpegTSResult __picoMpegTSParseNIT(picoMpegTS mpegts, picoMpegTSNetworkInformationTablePayload table, picoMpegTSFilterContext filterContext)
+static picoMpegTSResult PRIV__picoMpegTSParseNIT(picoMpegTS mpegts, picoMpegTSNetworkInformationTablePayload table, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(table != NULL);
     PICO_ASSERT(filterContext != NULL);
 
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->descriptorSet, filterContext, true));
+    PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSDescriptorSetParse(&table->descriptorSet, filterContext, true));
 
     uint16_t transportStreamLength = (filterContext->payloadAccumulator[0] & 0x0F) << 8 | filterContext->payloadAccumulator[1];
     size_t targetLength            = filterContext->payloadAccumulatorSize - transportStreamLength;
-    __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 2);
+    PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 2);
 
     while (filterContext->payloadAccumulatorSize > targetLength) {
         if (table->transportStreamCount == PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT) {
@@ -2624,9 +2624,9 @@ static picoMpegTSResult __picoMpegTSParseNIT(picoMpegTS mpegts, picoMpegTSNetwor
         uint16_t originalNetworkId                                             = filterContext->payloadAccumulator[2] << 8 | filterContext->payloadAccumulator[3];
         table->transportStreams[table->transportStreamCount].originalNetworkId = originalNetworkId;
 
-        __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 4);
+        PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 4);
 
-        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->transportStreams[table->transportStreamCount].descriptorSet, filterContext, true));
+        PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSDescriptorSetParse(&table->transportStreams[table->transportStreamCount].descriptorSet, filterContext, true));
 
         table->transportStreamCount++;
     }
@@ -2637,17 +2637,17 @@ static picoMpegTSResult __picoMpegTSParseNIT(picoMpegTS mpegts, picoMpegTSNetwor
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSParseBAT(picoMpegTS mpegts, picoMpegTSBoquetAssociationTablePayload table, picoMpegTSFilterContext filterContext)
+static picoMpegTSResult PRIV__picoMpegTSParseBAT(picoMpegTS mpegts, picoMpegTSBoquetAssociationTablePayload table, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(table != NULL);
     PICO_ASSERT(filterContext != NULL);
 
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->descriptorSet, filterContext, true));
+    PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSDescriptorSetParse(&table->descriptorSet, filterContext, true));
 
     uint16_t transportStreamLength = (filterContext->payloadAccumulator[0] & 0x0F) << 8 | filterContext->payloadAccumulator[1];
     size_t targetLength            = filterContext->payloadAccumulatorSize - transportStreamLength;
-    __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 2);
+    PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 2);
 
     while (filterContext->payloadAccumulatorSize > targetLength) {
         if (table->serviceCount == PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT) {
@@ -2660,9 +2660,9 @@ static picoMpegTSResult __picoMpegTSParseBAT(picoMpegTS mpegts, picoMpegTSBoquet
         uint16_t originalNetworkId                             = filterContext->payloadAccumulator[2] << 8 | filterContext->payloadAccumulator[3];
         table->services[table->serviceCount].originalNetworkId = originalNetworkId;
 
-        __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 4);
+        PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 4);
 
-        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->services[table->serviceCount].descriptorSet, filterContext, true));
+        PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSDescriptorSetParse(&table->services[table->serviceCount].descriptorSet, filterContext, true));
 
         table->serviceCount++;
     }
@@ -2673,7 +2673,7 @@ static picoMpegTSResult __picoMpegTSParseBAT(picoMpegTS mpegts, picoMpegTSBoquet
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSParseSDT(picoMpegTS mpegts, picoMpegTSServiceDescriptionTablePayload table, picoMpegTSFilterContext filterContext)
+static picoMpegTSResult PRIV__picoMpegTSParseSDT(picoMpegTS mpegts, picoMpegTSServiceDescriptionTablePayload table, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(table != NULL);
@@ -2681,7 +2681,7 @@ static picoMpegTSResult __picoMpegTSParseSDT(picoMpegTS mpegts, picoMpegTSServic
 
     table->originalNetworkId = (uint16_t)(filterContext->payloadAccumulator[0] << 8) | filterContext->payloadAccumulator[1];
 
-    __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 3);
+    PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 3);
 
     size_t targetSize = filterContext->payloadAccumulatorSize - filterContext->expectedPayloadSize + 7; // 3 for the item above, 4 for the CRC32 at the end
     while (filterContext->payloadAccumulatorSize > targetSize) {
@@ -2705,9 +2705,9 @@ static picoMpegTSResult __picoMpegTSParseSDT(picoMpegTS mpegts, picoMpegTSServic
         table->services[table->serviceCount].runningStatus = (picoMpegTSSDTRunningStatus)((flags2 >> 5) & 0x07);
         table->services[table->serviceCount].freeCAMode    = (flags2 & 0x10) != 0;
 
-        __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 3);
+        PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 3);
 
-        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->services[table->serviceCount].descriptorSet, filterContext, true));
+        PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSDescriptorSetParse(&table->services[table->serviceCount].descriptorSet, filterContext, true));
 
         table->serviceCount++;
     }
@@ -2718,7 +2718,7 @@ static picoMpegTSResult __picoMpegTSParseSDT(picoMpegTS mpegts, picoMpegTSServic
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSParseTDT(picoMpegTS mpegts, picoMpegTSTimeDateTablePayload table, picoMpegTSFilterContext filterContext)
+static picoMpegTSResult PRIV__picoMpegTSParseTDT(picoMpegTS mpegts, picoMpegTSTimeDateTablePayload table, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(table != NULL);
@@ -2731,7 +2731,7 @@ static picoMpegTSResult __picoMpegTSParseTDT(picoMpegTS mpegts, picoMpegTSTimeDa
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSParseTOT(picoMpegTS mpegts, picoMpegTSTimeOffsetTablePayload table, picoMpegTSFilterContext filterContext)
+static picoMpegTSResult PRIV__picoMpegTSParseTOT(picoMpegTS mpegts, picoMpegTSTimeOffsetTablePayload table, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(table != NULL);
@@ -2740,12 +2740,12 @@ static picoMpegTSResult __picoMpegTSParseTOT(picoMpegTS mpegts, picoMpegTSTimeOf
     // NOTE: right now due to an issue, we arent parsing the UTC time
     PICO_MPEGTS_LOG("Time Offset Table only partially implemented\n");
 
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->descriptorSet, filterContext, false));
+    PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSDescriptorSetParse(&table->descriptorSet, filterContext, false));
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSParseRST(picoMpegTS mpegts, picoMpegTSRunningStatusTablePayload table, picoMpegTSFilterContext filterContext)
+static picoMpegTSResult PRIV__picoMpegTSParseRST(picoMpegTS mpegts, picoMpegTSRunningStatusTablePayload table, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(table != NULL);
@@ -2757,7 +2757,7 @@ static picoMpegTSResult __picoMpegTSParseRST(picoMpegTS mpegts, picoMpegTSRunnin
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSParseEIT(picoMpegTS mpegts, picoMpegTSEventInformationTablePayload table, picoMpegTSFilterContext filterContext)
+static picoMpegTSResult PRIV__picoMpegTSParseEIT(picoMpegTS mpegts, picoMpegTSEventInformationTablePayload table, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(table != NULL);
@@ -2767,7 +2767,7 @@ static picoMpegTSResult __picoMpegTSParseEIT(picoMpegTS mpegts, picoMpegTSEventI
     table->transportStreamId = (uint16_t)(filterContext->payloadAccumulator[0] << 8) | filterContext->payloadAccumulator[1];
     table->originalNetworkId = (uint16_t)(filterContext->payloadAccumulator[2] << 8) | filterContext->payloadAccumulator[3];
 
-    __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 6);
+    PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 6);
 
     while (filterContext->payloadAccumulatorSize > targetSize) {
         if (table->eventCount == PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT) {
@@ -2782,14 +2782,14 @@ static picoMpegTSResult __picoMpegTSParseEIT(picoMpegTS mpegts, picoMpegTSEventI
                                                    filterContext->payloadAccumulator[1];
 
         uint16_t mjd = (uint16_t)(filterContext->payloadAccumulator[2] << 8) | filterContext->payloadAccumulator[3];
-        __picoMpegTSMJDToGregorian(mjd,
+        PRIV__picoMpegTSMJDToGregorian(mjd,
                                    &table->events[table->eventCount].startTime.year,
                                    &table->events[table->eventCount].startTime.month,
                                    &table->events[table->eventCount].startTime.day);
 
-        table->events[table->eventCount].startTime.hour   = __picoMpegTSBCDToInteger(filterContext->payloadAccumulator[4]);
-        table->events[table->eventCount].startTime.minute = __picoMpegTSBCDToInteger(filterContext->payloadAccumulator[5]);
-        table->events[table->eventCount].startTime.second = __picoMpegTSBCDToInteger(filterContext->payloadAccumulator[6]);
+        table->events[table->eventCount].startTime.hour   = PRIV__picoMpegTSBCDToInteger(filterContext->payloadAccumulator[4]);
+        table->events[table->eventCount].startTime.minute = PRIV__picoMpegTSBCDToInteger(filterContext->payloadAccumulator[5]);
+        table->events[table->eventCount].startTime.second = PRIV__picoMpegTSBCDToInteger(filterContext->payloadAccumulator[6]);
 
         table->events[table->eventCount].duration.hours   = filterContext->payloadAccumulator[7];
         table->events[table->eventCount].duration.minutes = filterContext->payloadAccumulator[8];
@@ -2799,8 +2799,8 @@ static picoMpegTSResult __picoMpegTSParseEIT(picoMpegTS mpegts, picoMpegTSEventI
         table->events[table->eventCount].runningStatus = (picoMpegTSSDTRunningStatus)((flags >> 13) & 0x07);
         table->events[table->eventCount].freeCAMode    = ((flags >> 12) & 0x01) != 0;
 
-        __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 10);
-        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->events[table->eventCount].descriptorSet, filterContext, true));
+        PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 10);
+        PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSDescriptorSetParse(&table->events[table->eventCount].descriptorSet, filterContext, true));
 
         table->eventCount++;
     }
@@ -2808,7 +2808,7 @@ static picoMpegTSResult __picoMpegTSParseEIT(picoMpegTS mpegts, picoMpegTSEventI
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSParsePAT(picoMpegTS mpegts, picoMpegTSProgramAssociationSectionPayload table, picoMpegTSFilterContext filterContext)
+static picoMpegTSResult PRIV__picoMpegTSParsePAT(picoMpegTS mpegts, picoMpegTSProgramAssociationSectionPayload table, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(table != NULL);
@@ -2828,7 +2828,7 @@ static picoMpegTSResult __picoMpegTSParsePAT(picoMpegTS mpegts, picoMpegTSProgra
                        filterContext->payloadAccumulator[3];
         table->programs[table->programCount].pid = pid;
 
-        __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 4);
+        PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 4);
 
         table->programCount++;
     }
@@ -2841,7 +2841,7 @@ static picoMpegTSResult __picoMpegTSParsePAT(picoMpegTS mpegts, picoMpegTSProgra
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSParseCAT(picoMpegTS mpegts, picoMpegTSConditionalAccessSectionPayload table, picoMpegTSFilterContext filterContext)
+static picoMpegTSResult PRIV__picoMpegTSParseCAT(picoMpegTS mpegts, picoMpegTSConditionalAccessSectionPayload table, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(table != NULL);
@@ -2852,14 +2852,14 @@ static picoMpegTSResult __picoMpegTSParseCAT(picoMpegTS mpegts, picoMpegTSCondit
         picoMpegTSDescriptor_t descriptor = {0};
         size_t bytesConsumed              = 0;
 
-        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorParse(&descriptor,
+        PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSDescriptorParse(&descriptor,
                                                                 filterContext->payloadAccumulator,
                                                                 filterContext->payloadAccumulatorSize - targetSize,
                                                                 &bytesConsumed));
 
-        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetAdd(&table->descriptorSet, &descriptor));
+        PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSDescriptorSetAdd(&table->descriptorSet, &descriptor));
 
-        __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, bytesConsumed);
+        PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, bytesConsumed);
     }
 
     // uint32_t crc32 = (filterContext->payloadAccumulator[0] << 24) |
@@ -2871,7 +2871,7 @@ static picoMpegTSResult __picoMpegTSParseCAT(picoMpegTS mpegts, picoMpegTSCondit
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSParseTSDT(picoMpegTS mpegts, picoMpegTSTransportStreamDescriptionSectionPayload table, picoMpegTSFilterContext filterContext)
+static picoMpegTSResult PRIV__picoMpegTSParseTSDT(picoMpegTS mpegts, picoMpegTSTransportStreamDescriptionSectionPayload table, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(table != NULL);
@@ -2882,14 +2882,14 @@ static picoMpegTSResult __picoMpegTSParseTSDT(picoMpegTS mpegts, picoMpegTSTrans
         picoMpegTSDescriptor_t descriptor = {0};
         size_t bytesConsumed              = 0;
 
-        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorParse(&descriptor,
+        PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSDescriptorParse(&descriptor,
                                                                 filterContext->payloadAccumulator,
                                                                 filterContext->payloadAccumulatorSize - targetSize,
                                                                 &bytesConsumed));
 
-        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetAdd(&table->descriptorSet, &descriptor));
+        PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSDescriptorSetAdd(&table->descriptorSet, &descriptor));
 
-        __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, bytesConsumed);
+        PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, bytesConsumed);
     }
 
     // uint32_t crc32 = (filterContext->payloadAccumulator[0] << 24) |
@@ -2901,7 +2901,7 @@ static picoMpegTSResult __picoMpegTSParseTSDT(picoMpegTS mpegts, picoMpegTSTrans
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSParsePMT(picoMpegTS mpegts, picoMpegTSProgramMapSectionPayload table, picoMpegTSFilterContext filterContext)
+static picoMpegTSResult PRIV__picoMpegTSParsePMT(picoMpegTS mpegts, picoMpegTSProgramMapSectionPayload table, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(table != NULL);
@@ -2912,8 +2912,8 @@ static picoMpegTSResult __picoMpegTSParsePMT(picoMpegTS mpegts, picoMpegTSProgra
 
     size_t targetSize = filterContext->payloadAccumulatorSize - filterContext->expectedPayloadSize + 4;
 
-    __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 2);
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->programInfoDescriptorSet, filterContext, true));
+    PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 2);
+    PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSDescriptorSetParse(&table->programInfoDescriptorSet, filterContext, true));
 
     while (filterContext->payloadAccumulatorSize > targetSize) {
         if (table->streamCount == PICO_MPEGTS_MAX_TABLE_PAYLOAD_COUNT) {
@@ -2925,9 +2925,9 @@ static picoMpegTSResult __picoMpegTSParsePMT(picoMpegTS mpegts, picoMpegTSProgra
         table->streams[table->streamCount].elementaryPid = ((uint16_t)(filterContext->payloadAccumulator[1] & 0x1F) << 8) |
                                                            filterContext->payloadAccumulator[2];
 
-        __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 3);
+        PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 3);
 
-        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSDescriptorSetParse(&table->streams[table->streamCount].esInfoDescriptorSet, filterContext, true));
+        PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSDescriptorSetParse(&table->streams[table->streamCount].esInfoDescriptorSet, filterContext, true));
 
         table->streamCount++;
     }
@@ -2941,7 +2941,7 @@ static picoMpegTSResult __picoMpegTSParsePMT(picoMpegTS mpegts, picoMpegTSProgra
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSOnTableReady(picoMpegTS mpegts, picoMpegTSTable oldTable, picoMpegTSTable newTable)
+static picoMpegTSResult PRIV__picoMpegTSOnTableReady(picoMpegTS mpegts, picoMpegTSTable oldTable, picoMpegTSTable newTable)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(newTable != NULL);
@@ -2956,7 +2956,7 @@ static picoMpegTSResult __picoMpegTSOnTableReady(picoMpegTS mpegts, picoMpegTSTa
                 for (size_t i = 0; i < oldTable->data.pas.programCount; i++) {
                     uint16_t oldPid = oldTable->data.pas.programs[i].pid;
                     if (mpegts->pidFilters[oldPid] != NULL) {
-                        __picoMpegTSDestroyFilterContext(mpegts, mpegts->pidFilters[oldPid]);
+                        PRIV__picoMpegTSDestroyFilterContext(mpegts, mpegts->pidFilters[oldPid]);
                         mpegts->pidFilters[oldPid] = NULL;
                     }
                 }
@@ -2965,7 +2965,7 @@ static picoMpegTSResult __picoMpegTSOnTableReady(picoMpegTS mpegts, picoMpegTSTa
             // register filters for all PIDs in new PAT
             for (size_t i = 0; i < newTable->data.pas.programCount; i++) {
                 uint16_t pid = newTable->data.pas.programs[i].pid;
-                PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, pid));
+                PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, pid));
             }
             break;
         case PICO_MPEGTS_TABLE_ID_PMS:
@@ -2974,7 +2974,7 @@ static picoMpegTSResult __picoMpegTSOnTableReady(picoMpegTS mpegts, picoMpegTSTa
                 for (size_t i = 0; i < oldTable->data.pms.streamCount; i++) {
                     uint16_t oldPid = oldTable->data.pms.streams[i].elementaryPid;
                     if (mpegts->pidFilters[oldPid] != NULL) {
-                        __picoMpegTSDestroyFilterContext(mpegts, mpegts->pidFilters[oldPid]);
+                        PRIV__picoMpegTSDestroyFilterContext(mpegts, mpegts->pidFilters[oldPid]);
                         mpegts->pidFilters[oldPid] = NULL;
                     }
                 }
@@ -2983,7 +2983,7 @@ static picoMpegTSResult __picoMpegTSOnTableReady(picoMpegTS mpegts, picoMpegTSTa
             // register filters for all ES PIDs in new PMT
             for (size_t i = 0; i < newTable->data.pms.streamCount; i++) {
                 uint16_t pid = newTable->data.pms.streams[i].elementaryPid;
-                PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPESFilter(mpegts, pid));
+                PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSReplaceOrRegisterPESFilter(mpegts, pid));
             }
             break;
 
@@ -2995,7 +2995,7 @@ static picoMpegTSResult __picoMpegTSOnTableReady(picoMpegTS mpegts, picoMpegTSTa
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t tableId, picoMpegTSFilterContext filterContext)
+static picoMpegTSResult PRIV__picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t tableId, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(filterContext != NULL);
@@ -3022,14 +3022,14 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
     }
 
     if (mpegts->partialTables[tableId][versionIndex] == NULL) {
-        mpegts->partialTables[tableId][versionIndex] = __picoMpegTSTableCreate(tableId, head->versionNumber);
+        mpegts->partialTables[tableId][versionIndex] = PRIV__picoMpegTSTableCreate(tableId, head->versionNumber);
     }
 
     picoMpegTSTable table = mpegts->partialTables[tableId][versionIndex];
 
     if (table->versionNumber != head->versionNumber) {
-        __picoMpegTSTableDestroy(table);
-        mpegts->partialTables[tableId][versionIndex] = __picoMpegTSTableCreate(tableId, head->versionNumber);
+        PRIV__picoMpegTSTableDestroy(table);
+        mpegts->partialTables[tableId][versionIndex] = PRIV__picoMpegTSTableCreate(tableId, head->versionNumber);
         table                                        = mpegts->partialTables[tableId][versionIndex];
     }
 
@@ -3047,50 +3047,50 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
 
     switch (tableId) {
         case PICO_MPEGTS_TABLE_ID_PAS:
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParsePAT(mpegts, &table->data.pas, filterContext));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSParsePAT(mpegts, &table->data.pas, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_CAS:
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseCAT(mpegts, &table->data.cas, filterContext));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSParseCAT(mpegts, &table->data.cas, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_PMS:
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParsePMT(mpegts, &table->data.pms, filterContext));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSParsePMT(mpegts, &table->data.pms, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_TSDS:
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseTSDT(mpegts, &table->data.tsds, filterContext));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSParseTSDT(mpegts, &table->data.tsds, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_NISAN:
         case PICO_MPEGTS_TABLE_ID_NISON:
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseNIT(mpegts, &table->data.nit, filterContext));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSParseNIT(mpegts, &table->data.nit, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_BAS:
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseBAT(mpegts, &table->data.bat, filterContext));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSParseBAT(mpegts, &table->data.bat, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_SDSATS:
         case PICO_MPEGTS_TABLE_ID_SDSOTS:
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseSDT(mpegts, &table->data.sdt, filterContext));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSParseSDT(mpegts, &table->data.sdt, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_EISATSF:
         case PICO_MPEGTS_TABLE_ID_EISOTSF:
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseEIT(mpegts, &table->data.eit, filterContext));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSParseEIT(mpegts, &table->data.eit, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_TDS:
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseTDT(mpegts, &table->data.tdt, filterContext));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSParseTDT(mpegts, &table->data.tdt, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_RSS:
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseRST(mpegts, &table->data.rst, filterContext));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSParseRST(mpegts, &table->data.rst, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_TOS:
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseTOT(mpegts, &table->data.tot, filterContext));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSParseTOT(mpegts, &table->data.tot, filterContext));
             break;
 
         case PICO_MPEGTS_TABLE_ID_SIS:
@@ -3098,7 +3098,7 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
 
         default:
             if ((tableId >= 0x50 && tableId <= 0x5F) || (tableId >= 0x60 && tableId <= 0x6F)) {
-                PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSParseEIT(mpegts, &table->data.eit, filterContext));
+                PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSParseEIT(mpegts, &table->data.eit, filterContext));
             }
             break;
     }
@@ -3112,10 +3112,10 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
     }
 
     if (allSectionsPresent) {
-        table->completedTimestamp = __picoMpegTSGetCurrentTimestamp();
+        table->completedTimestamp = PRIV__picoMpegTSGetCurrentTimestamp();
 
         if (mpegts->parsedTables[tableId][versionIndex] != NULL) {
-            __picoMpegTSTableDestroy(mpegts->parsedTables[tableId][versionIndex]);
+            PRIV__picoMpegTSTableDestroy(mpegts->parsedTables[tableId][versionIndex]);
         }
         mpegts->parsedTables[tableId][versionIndex]  = table;
         mpegts->partialTables[tableId][versionIndex] = NULL;
@@ -3123,7 +3123,7 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
         picoMpegTSTable latestTable = NULL;
         for (size_t v = 0; v < PICO_MPEGTS_MAX_VERSIONS; v++) {
             if (mpegts->parsedTables[tableId][v] != NULL) {
-                if (__picoMpegTSIsVersionNewer(mpegts->parsedTables[tableId][v], latestTable)) {
+                if (PRIV__picoMpegTSIsVersionNewer(mpegts->parsedTables[tableId][v], latestTable)) {
                     latestTable = mpegts->parsedTables[tableId][v];
                 }
             }
@@ -3131,14 +3131,14 @@ static picoMpegTSResult __picoMpegTSTableAddSection(picoMpegTS mpegts, uint8_t t
 
         if (latestTable != NULL && latestTable != mpegts->tables[tableId]) {
             picoMpegTSTable oldTable = mpegts->tables[tableId];
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSOnTableReady(mpegts, oldTable, latestTable));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSOnTableReady(mpegts, oldTable, latestTable));
             mpegts->tables[tableId] = latestTable;
         }
     }
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSPESPacketParse(picoMpegTSPESPacket packet, picoMpegTSFilterContext filterContext)
+static picoMpegTSResult PRIV__picoMpegTSPESPacketParse(picoMpegTSPESPacket packet, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(packet != NULL);
     PICO_ASSERT(filterContext != NULL);
@@ -3338,7 +3338,7 @@ static picoMpegTSResult __picoMpegTSPESPacketParse(picoMpegTSPESPacket packet, p
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSAddPESPacket(picoMpegTS mpegts, picoMpegTSFilterContext filterContext)
+static picoMpegTSResult PRIV__picoMpegTSAddPESPacket(picoMpegTS mpegts, picoMpegTSFilterContext filterContext)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(filterContext != NULL);
@@ -3356,7 +3356,7 @@ static picoMpegTSResult __picoMpegTSAddPESPacket(picoMpegTS mpegts, picoMpegTSFi
     memset(&packet, 0, sizeof(picoMpegTSPESPacket_t));
     memcpy(&packet.head, &filterContext->head.pes, sizeof(picoMpegTSPESHead_t));
     packet.head.pid = filterContext->pid;
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSPESPacketParse(&packet, filterContext));
+    PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSPESPacketParse(&packet, filterContext));
 
     if (mpegts->pesPacketCapacity == mpegts->pesPacketCount) {
         mpegts->pesPacketCapacity = mpegts->pesPacketCapacity == 0 ? 8 : mpegts->pesPacketCapacity * 2;
@@ -3366,7 +3366,7 @@ static picoMpegTSResult __picoMpegTSAddPESPacket(picoMpegTS mpegts, picoMpegTSFi
         }
     }
 
-    picoMpegTSPESPacket packetPtr = __picoMpegTSPesPacketCreate();
+    picoMpegTSPESPacket packetPtr = PRIV__picoMpegTSPesPacketCreate();
     if (!packetPtr) {
         return PICO_MPEGTS_RESULT_MALLOC_ERROR;
     }
@@ -3377,7 +3377,7 @@ static picoMpegTSResult __picoMpegTSAddPESPacket(picoMpegTS mpegts, picoMpegTSFi
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSParsePacketAdaptationFieldExtenstion(const uint8_t *data, uint8_t dataSize, picoMpegTSAdaptionFieldExtension afExt)
+static picoMpegTSResult PRIV__picoMpegTSParsePacketAdaptationFieldExtenstion(const uint8_t *data, uint8_t dataSize, picoMpegTSAdaptionFieldExtension afExt)
 {
     PICO_ASSERT(afExt != NULL);
     PICO_ASSERT(data != NULL);
@@ -3452,7 +3452,7 @@ static picoMpegTSResult __picoMpegTSParsePacketAdaptationFieldExtenstion(const u
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSParsePacketAdaptationField(const uint8_t *data, uint8_t dataSize, picoMpegTSPacketAdaptationField af)
+static picoMpegTSResult PRIV__picoMpegTSParsePacketAdaptationField(const uint8_t *data, uint8_t dataSize, picoMpegTSPacketAdaptationField af)
 {
     PICO_ASSERT(af != NULL);
     PICO_ASSERT(data != NULL);
@@ -3534,7 +3534,7 @@ static picoMpegTSResult __picoMpegTSParsePacketAdaptationField(const uint8_t *da
             return PICO_MPEGTS_RESULT_INVALID_DATA;
         }
         PICO_MPEGTS_RETURN_ON_ERROR(
-            __picoMpegTSParsePacketAdaptationFieldExtenstion(
+            PRIV__picoMpegTSParsePacketAdaptationFieldExtenstion(
                 data,
                 afExtLength,
                 &af->adaptationFieldExtension));
@@ -3547,12 +3547,12 @@ static picoMpegTSResult __picoMpegTSParsePacketAdaptationField(const uint8_t *da
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static bool __picoMpegTSIsPIDCustom(uint16_t pid)
+static bool PRIV__picoMpegTSIsPIDCustom(uint16_t pid)
 {
     return (pid >= PICO_MPEGTS_PID_CUSTOM_START && pid <= PICO_MPEGTS_PID_CUSTOM_END);
 }
 
-static picoMpegTSResult __picoMpegTSParseSectionHead(const uint8_t *data, picoMpegTSPSISectionHead sectionHeadOut)
+static picoMpegTSResult PRIV__picoMpegTSParseSectionHead(const uint8_t *data, picoMpegTSPSISectionHead sectionHeadOut)
 {
     PICO_ASSERT(data != NULL);
     PICO_ASSERT(sectionHeadOut != NULL);
@@ -3569,7 +3569,7 @@ static picoMpegTSResult __picoMpegTSParseSectionHead(const uint8_t *data, picoMp
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSParsePESHead(const uint8_t *data, picoMpegTSPESHead pesHeadOut)
+static picoMpegTSResult PRIV__picoMpegTSParsePESHead(const uint8_t *data, picoMpegTSPESHead pesHeadOut)
 {
     PICO_ASSERT(data != NULL);
     PICO_ASSERT(pesHeadOut != NULL);
@@ -3582,7 +3582,7 @@ static picoMpegTSResult __picoMpegTSParsePESHead(const uint8_t *data, picoMpegTS
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSFilterContext __picoMpegTSCreateFilterContext(picoMpegTS mpegts, picoMpegTSFilterType filterType, uint16_t pid)
+static picoMpegTSFilterContext PRIV__picoMpegTSCreateFilterContext(picoMpegTS mpegts, picoMpegTSFilterType filterType, uint16_t pid)
 {
     PICO_ASSERT(mpegts != NULL);
 
@@ -3608,7 +3608,7 @@ static picoMpegTSFilterContext __picoMpegTSCreateFilterContext(picoMpegTS mpegts
     return context;
 }
 
-static void __picoMpegTSDestroyFilterContext(picoMpegTS mpegts, picoMpegTSFilterContext context)
+static void PRIV__picoMpegTSDestroyFilterContext(picoMpegTS mpegts, picoMpegTSFilterContext context)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(context != NULL);
@@ -3621,7 +3621,7 @@ static void __picoMpegTSDestroyFilterContext(picoMpegTS mpegts, picoMpegTSFilter
 
 // remove N bytes from the start of the payload accumulator, shifting the rest to the front
 // if N = 0, remove all bytes
-static void __picoMpegTSFilterContextFlushPayloadAccumulator(picoMpegTSFilterContext filterContext, size_t byteCount)
+static void PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(picoMpegTSFilterContext filterContext, size_t byteCount)
 {
     PICO_ASSERT(filterContext != NULL);
 
@@ -3636,7 +3636,7 @@ static void __picoMpegTSFilterContextFlushPayloadAccumulator(picoMpegTSFilterCon
     }
 }
 
-static picoMpegTSResult __picoMpegTSFilterContextPushData(
+static picoMpegTSResult PRIV__picoMpegTSFilterContextPushData(
     picoMpegTSFilterContext filterContext,
     const uint8_t *data,
     size_t dataSize)
@@ -3666,7 +3666,7 @@ static picoMpegTSResult __picoMpegTSFilterContextPushData(
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSFilterContextFlush(picoMpegTS mpegts, picoMpegTSFilterContext filterContext, size_t flushPayloadSize)
+static picoMpegTSResult PRIV__picoMpegTSFilterContextFlush(picoMpegTS mpegts, picoMpegTSFilterContext filterContext, size_t flushPayloadSize)
 {
     PICO_ASSERT(mpegts != NULL);
     PICO_ASSERT(filterContext != NULL);
@@ -3675,14 +3675,14 @@ static picoMpegTSResult __picoMpegTSFilterContextFlush(picoMpegTS mpegts, picoMp
     if (filterContext->payloadAccumulatorSize >= filterContext->expectedPayloadSize && filterContext->hasHead) {
         if (filterContext->filterType == PICO_MPEGTS_FILTER_TYPE_SECTION) {
             uint8_t tableId = filterContext->head.psi.tableId;
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSTableAddSection(mpegts, tableId, filterContext));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSTableAddSection(mpegts, tableId, filterContext));
         } else {
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSAddPESPacket(mpegts, filterContext));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSAddPESPacket(mpegts, filterContext));
         }
     }
 
     // flush the accumulator
-    __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, flushPayloadSize);
+    PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, flushPayloadSize);
     filterContext->hasHead             = false;
     filterContext->expectedPayloadSize = 0;
     memset(&filterContext->head.psi, 0, sizeof(picoMpegTSPSISectionHead_t));
@@ -3690,7 +3690,7 @@ static picoMpegTSResult __picoMpegTSFilterContextFlush(picoMpegTS mpegts, picoMp
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext filterContext, picoMpegTS mpegts, picoMpegTSPacket packet)
+static picoMpegTSResult PRIV__picoMpegTSFilterContextApply(picoMpegTSFilterContext filterContext, picoMpegTS mpegts, picoMpegTSPacket packet)
 {
     PICO_ASSERT(filterContext != NULL);
     PICO_ASSERT(mpegts != NULL);
@@ -3734,7 +3734,7 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
                         prePointerSize = packet->payloadSize - 1;
                     }
                     PICO_MPEGTS_RETURN_ON_ERROR(
-                        __picoMpegTSFilterContextPushData(
+                        PRIV__picoMpegTSFilterContextPushData(
                             filterContext,
                             &packet->payload[1],
                             prePointerSize));
@@ -3744,27 +3744,27 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
                 payloadOffset = 1 + pointerField;
             }
 
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterContextFlush(mpegts, filterContext, 0));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSFilterContextFlush(mpegts, filterContext, 0));
 
             PICO_MPEGTS_RETURN_ON_ERROR(
-                __picoMpegTSFilterContextPushData(
+                PRIV__picoMpegTSFilterContextPushData(
                     filterContext,
                     &packet->payload[payloadOffset],
                     packet->payloadSize - payloadOffset));
 
             if (filterContext->filterType == PICO_MPEGTS_FILTER_TYPE_SECTION) {
                 PICO_MPEGTS_RETURN_ON_ERROR(
-                    __picoMpegTSParseSectionHead(
+                    PRIV__picoMpegTSParseSectionHead(
                         filterContext->payloadAccumulator,
                         &filterContext->head.psi));
-                __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 8);
+                PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 8);
                 filterContext->expectedPayloadSize = filterContext->head.psi.sectionLength - 5;
             } else {
                 PICO_MPEGTS_RETURN_ON_ERROR(
-                    __picoMpegTSParsePESHead(
+                    PRIV__picoMpegTSParsePESHead(
                         filterContext->payloadAccumulator,
                         &filterContext->head.pes));
-                __picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 6);
+                PRIV__picoMpegTSFilterContextFlushPayloadAccumulator(filterContext, 6);
                 filterContext->expectedPayloadSize = filterContext->head.pes.pesPacketLength;
             }
             filterContext->startPacketIndex = mpegts->parsedPacketCount;
@@ -3772,7 +3772,7 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
         } else {
             // no pointer field, just push all data
             PICO_MPEGTS_RETURN_ON_ERROR(
-                __picoMpegTSFilterContextPushData(
+                PRIV__picoMpegTSFilterContextPushData(
                     filterContext,
                     &packet->payload[payloadOffset],
                     packet->payloadSize - payloadOffset));
@@ -3781,32 +3781,32 @@ static picoMpegTSResult __picoMpegTSFilterContextApply(picoMpegTSFilterContext f
         // if the expected payload size is set, check if we have enough data to call body
         if (filterContext->expectedPayloadSize > 0 &&
             filterContext->payloadAccumulatorSize >= filterContext->expectedPayloadSize) {
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterContextFlush(mpegts, filterContext, filterContext->expectedPayloadSize));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSFilterContextFlush(mpegts, filterContext, filterContext->expectedPayloadSize));
         }
     }
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSFilterFlushAllContexts(picoMpegTS mpegts)
+static picoMpegTSResult PRIV__picoMpegTSFilterFlushAllContexts(picoMpegTS mpegts)
 {
     PICO_ASSERT(mpegts != NULL);
 
     for (size_t pid = 0; pid < PICO_MPEGTS_MAX_PID_COUNT; pid++) {
         picoMpegTSFilterContext filterContext = mpegts->pidFilters[pid];
         if (filterContext) {
-            PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterContextFlush(mpegts, filterContext, 0));
+            PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSFilterContextFlush(mpegts, filterContext, 0));
         }
     }
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSRegisterFilter(picoMpegTS mpegts, picoMpegTSPacketPID pid, picoMpegTSFilterType filterType)
+static picoMpegTSResult PRIV__picoMpegTSRegisterFilter(picoMpegTS mpegts, picoMpegTSPacketPID pid, picoMpegTSFilterType filterType)
 {
     PICO_ASSERT(mpegts != NULL);
 
-    picoMpegTSFilterContext filterContext = __picoMpegTSCreateFilterContext(mpegts, filterType, pid);
+    picoMpegTSFilterContext filterContext = PRIV__picoMpegTSCreateFilterContext(mpegts, filterType, pid);
 
     if (!filterContext) {
         PICO_MPEGTS_LOG("picoMpegTS: Failed to create (%s) filter context for PID 0x%04X\n",
@@ -3820,7 +3820,7 @@ static picoMpegTSResult __picoMpegTSRegisterFilter(picoMpegTS mpegts, picoMpegTS
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
 
-static picoMpegTSResult __picoMpegTSReplaceOrRegisterPSIFilter(picoMpegTS mpegts, uint16_t pid)
+static picoMpegTSResult PRIV__picoMpegTSReplaceOrRegisterPSIFilter(picoMpegTS mpegts, uint16_t pid)
 {
     PICO_ASSERT(mpegts != NULL);
 
@@ -3830,14 +3830,14 @@ static picoMpegTSResult __picoMpegTSReplaceOrRegisterPSIFilter(picoMpegTS mpegts
         }
 
         picoMpegTSFilterContext oldFilter = mpegts->pidFilters[pid];
-        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterContextFlush(mpegts, oldFilter, 0));
-        __picoMpegTSDestroyFilterContext(mpegts, oldFilter);
+        PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSFilterContextFlush(mpegts, oldFilter, 0));
+        PRIV__picoMpegTSDestroyFilterContext(mpegts, oldFilter);
         mpegts->pidFilters[pid] = NULL;
     }
-    return __picoMpegTSRegisterFilter(mpegts, pid, PICO_MPEGTS_FILTER_TYPE_SECTION);
+    return PRIV__picoMpegTSRegisterFilter(mpegts, pid, PICO_MPEGTS_FILTER_TYPE_SECTION);
 }
 
-static picoMpegTSResult __picoMpegTSReplaceOrRegisterPESFilter(picoMpegTS mpegts, uint16_t pid)
+static picoMpegTSResult PRIV__picoMpegTSReplaceOrRegisterPESFilter(picoMpegTS mpegts, uint16_t pid)
 {
     PICO_ASSERT(mpegts != NULL);
 
@@ -3847,27 +3847,27 @@ static picoMpegTSResult __picoMpegTSReplaceOrRegisterPESFilter(picoMpegTS mpegts
         }
 
         picoMpegTSFilterContext oldFilter = mpegts->pidFilters[pid];
-        PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterContextFlush(mpegts, oldFilter, 0));
-        __picoMpegTSDestroyFilterContext(mpegts, oldFilter);
+        PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSFilterContextFlush(mpegts, oldFilter, 0));
+        PRIV__picoMpegTSDestroyFilterContext(mpegts, oldFilter);
         mpegts->pidFilters[pid] = NULL;
     }
-    return __picoMpegTSRegisterFilter(mpegts, pid, PICO_MPEGTS_FILTER_TYPE_PES);
+    return PRIV__picoMpegTSRegisterFilter(mpegts, pid, PICO_MPEGTS_FILTER_TYPE_PES);
 }
 
-static picoMpegTSResult __picoMpegTSRegisterPSIFilters(picoMpegTS mpegts)
+static picoMpegTSResult PRIV__picoMpegTSRegisterPSIFilters(picoMpegTS mpegts)
 {
     PICO_ASSERT(mpegts != NULL);
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_PAT));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_CAT));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_TSDT));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_NIT));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_SDT_BAT));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_EIT));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_RST));
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_TDT_TOT));
+    PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_PAT));
+    PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_CAT));
+    PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_TSDT));
+    PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_NIT));
+    PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_SDT_BAT));
+    PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_EIT));
+    PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_RST));
+    PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_TDT_TOT));
     // The following two arent needed now, TODO: implement these
-    // PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_DIT));
-    // PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_SIT));
+    // PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_DIT));
+    // PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSReplaceOrRegisterPSIFilter(mpegts, PICO_MPEGTS_PID_SIT));
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -3900,7 +3900,7 @@ picoMpegTSResult picoMpegTSParsePacket(const uint8_t *data, picoMpegTSPacket pac
         payloadOffset += 1 + adaptationFieldLength;
         if (adaptationFieldLength > 0) {
             PICO_MPEGTS_RETURN_ON_ERROR(
-                __picoMpegTSParsePacketAdaptationField(
+                PRIV__picoMpegTSParsePacketAdaptationField(
                     &data[5],
                     adaptationFieldLength,
                     &packet->adaptionField));
@@ -3984,7 +3984,7 @@ void picoMpegTSFreePopPESPackets(picoMpegTS mpegts, size_t count)
 
     for (size_t i = 0; i < count; i++) {
         if (mpegts->pesPackets[i]) {
-            __picoMpegTSPesPacketDestroy(mpegts->pesPackets[i]);
+            PRIV__picoMpegTSPesPacketDestroy(mpegts->pesPackets[i]);
         }
     }
 
@@ -4024,7 +4024,7 @@ picoMpegTS picoMpegTSCreate(bool storeParsedPackets)
 
     memset(mpegts, 0, sizeof(picoMpegTS_t));
 
-    if (__picoMpegTSRegisterPSIFilters(mpegts) != PICO_MPEGTS_RESULT_SUCCESS) {
+    if (PRIV__picoMpegTSRegisterPSIFilters(mpegts) != PICO_MPEGTS_RESULT_SUCCESS) {
         PICO_FREE(mpegts);
         return NULL;
     }
@@ -4052,17 +4052,17 @@ void picoMpegTSDestroy(picoMpegTS mpegts)
 
     for (size_t i = 0; i < PICO_MPEGTS_MAX_PID_COUNT; i++) {
         if (mpegts->pidFilters[i]) {
-            __picoMpegTSDestroyFilterContext(mpegts, mpegts->pidFilters[i]);
+            PRIV__picoMpegTSDestroyFilterContext(mpegts, mpegts->pidFilters[i]);
         }
     }
 
     for (size_t i = 0; i < PICO_MPEGTS_MAX_TABLE_COUNT; i++) {
         for (size_t v = 0; v < PICO_MPEGTS_MAX_VERSIONS; v++) {
             if (mpegts->partialTables[i][v]) {
-                __picoMpegTSTableDestroy(mpegts->partialTables[i][v]);
+                PRIV__picoMpegTSTableDestroy(mpegts->partialTables[i][v]);
             }
             if (mpegts->parsedTables[i][v]) {
-                __picoMpegTSTableDestroy(mpegts->parsedTables[i][v]);
+                PRIV__picoMpegTSTableDestroy(mpegts->parsedTables[i][v]);
             }
         }
     }
@@ -4070,7 +4070,7 @@ void picoMpegTSDestroy(picoMpegTS mpegts)
     if (mpegts->pesPackets) {
         for (size_t i = 0; i < mpegts->pesPacketCount; i++) {
             if (mpegts->pesPackets[i]) {
-                __picoMpegTSPesPacketDestroy(mpegts->pesPackets[i]);
+                PRIV__picoMpegTSPesPacketDestroy(mpegts->pesPackets[i]);
             }
         }
         PICO_FREE(mpegts->pesPackets);
@@ -4187,14 +4187,14 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
     picoMpegTSFilterContext filterContext = mpegts->pidFilters[packet.pid];
 
     // if there is no filter for this PID and it is not a custom PID then this is an error
-    if (!filterContext && !__picoMpegTSIsPIDCustom(packet.pid)) {
+    if (!filterContext && !PRIV__picoMpegTSIsPIDCustom(packet.pid)) {
         PICO_MPEGTS_LOG("picoMpegTS: Unknown PID: 0x%04X [%s]\n", packet.pid, picoMpegTSPIDToString(packet.pid));
         // TODO: Maybe just skip the packet?
         return PICO_MPEGTS_RESULT_UNKNOWN_PID_PACKET;
     }
 
     if (filterContext) {
-        return __picoMpegTSFilterContextApply(filterContext, mpegts, &packet);
+        return PRIV__picoMpegTSFilterContextApply(filterContext, mpegts, &packet);
     }
 
     // if the packet is of custom PID without a filter, then we
@@ -4202,17 +4202,17 @@ picoMpegTSResult picoMpegTSAddPacket(picoMpegTS mpegts, const uint8_t *data)
     // at that case we cant register a pes filter
     // otherwise we just ignore the packet
 
-    if (__picoMpegTSIsPIDCustom(packet.pid) && !packet.payloadUnitStartIndicator) {
+    if (PRIV__picoMpegTSIsPIDCustom(packet.pid) && !packet.payloadUnitStartIndicator) {
         // TODO: not sure fi we need to handle this manually? as proper pes filters
         // should get registered by respective table updates (pmst/sdt/eit)
         mpegts->ignoredPacketCount++;
         return PICO_MPEGTS_RESULT_SUCCESS;
     }
 
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSReplaceOrRegisterPESFilter(mpegts, packet.pid));
+    PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSReplaceOrRegisterPESFilter(mpegts, packet.pid));
 
     picoMpegTSFilterContext newFilterContext = mpegts->pidFilters[packet.pid];
-    return __picoMpegTSFilterContextApply(newFilterContext, mpegts, &packet);
+    return PRIV__picoMpegTSFilterContextApply(newFilterContext, mpegts, &packet);
 
     // PICO_MPEGTS_LOG("Ignoring packet with custom PID 0x%04X without filter.\n", packet.pid);
     // return PICO_MPEGTS_RESULT_SUCCESS;
@@ -4241,7 +4241,7 @@ picoMpegTSResult picoMpegTSAddBuffer(picoMpegTS mpegts, const uint8_t *buffer, s
         offset += packetSize;
     }
 
-    PICO_MPEGTS_RETURN_ON_ERROR(__picoMpegTSFilterFlushAllContexts(mpegts));
+    PICO_MPEGTS_RETURN_ON_ERROR(PRIV__picoMpegTSFilterFlushAllContexts(mpegts));
 
     return PICO_MPEGTS_RESULT_SUCCESS;
 }
@@ -5874,7 +5874,7 @@ void picoMpegTSPESPacketDebugPrint(picoMpegTSPESPacket packet)
     PICO_MPEGTS_LOG("  PES Data Length: %zu bytes\n", packet->dataLength);
 }
 
-static void __picoMpegTSDescriptorPayloadISO639LanguageDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+static void PRIV__picoMpegTSDescriptorPayloadISO639LanguageDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     (void)indent;
     if (descriptor == NULL) {
@@ -5890,7 +5890,7 @@ static void __picoMpegTSDescriptorPayloadISO639LanguageDebugPrint(picoMpegTSDesc
     }
 }
 
-static void __picoMpegTSDescriptorPayloadServiceDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+static void PRIV__picoMpegTSDescriptorPayloadServiceDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     (void)indent;
     if (descriptor == NULL) {
@@ -5904,7 +5904,7 @@ static void __picoMpegTSDescriptorPayloadServiceDebugPrint(picoMpegTSDescriptor 
     PICO_MPEGTS_LOG("%*sService Name\t: %s\n", indent + 2, "", descriptor->parsed.service.serviceName);
 }
 
-static void __picoMpegTSDescriptorPayloadStreamIdentifierDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+static void PRIV__picoMpegTSDescriptorPayloadStreamIdentifierDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     (void)indent;
     if (descriptor == NULL) {
@@ -5914,7 +5914,7 @@ static void __picoMpegTSDescriptorPayloadStreamIdentifierDebugPrint(picoMpegTSDe
     PICO_MPEGTS_LOG("%*sComponent Tag\t: 0x%02X\n", indent + 2, "", descriptor->parsed.streamIdentifier.componentTag);
 }
 
-static void __picoMpegTSDescriptorPayloadCADebugPrint(picoMpegTSDescriptor descriptor, int indent)
+static void PRIV__picoMpegTSDescriptorPayloadCADebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     (void)indent;
     if (descriptor == NULL) {
@@ -5933,7 +5933,7 @@ static void __picoMpegTSDescriptorPayloadCADebugPrint(picoMpegTSDescriptor descr
     }
 }
 
-static void __picoMpegTSDescriptorPayloadContentDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+static void PRIV__picoMpegTSDescriptorPayloadContentDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     (void)indent;
     if (descriptor == NULL) {
@@ -5952,7 +5952,7 @@ static void __picoMpegTSDescriptorPayloadContentDebugPrint(picoMpegTSDescriptor 
     }
 }
 
-static void __picoMpegTSDescriptorPayloadComponentDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+static void PRIV__picoMpegTSDescriptorPayloadComponentDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     (void)indent;
     if (descriptor == NULL) {
@@ -5981,7 +5981,7 @@ static void __picoMpegTSDescriptorPayloadComponentDebugPrint(picoMpegTSDescripto
     }
 }
 
-static void __picoMpegTSDescriptorPayloadShortEventDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+static void PRIV__picoMpegTSDescriptorPayloadShortEventDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     (void)indent;
     if (descriptor == NULL) {
@@ -5997,7 +5997,7 @@ static void __picoMpegTSDescriptorPayloadShortEventDebugPrint(picoMpegTSDescript
     }
 }
 
-static void __picoMpegTSDescriptorPayloadServiceListDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+static void PRIV__picoMpegTSDescriptorPayloadServiceListDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     (void)indent;
     if (descriptor == NULL) {
@@ -6013,7 +6013,7 @@ static void __picoMpegTSDescriptorPayloadServiceListDebugPrint(picoMpegTSDescrip
     }
 }
 
-static void __picoMpegTSDescriptorPayloadNetworkNameDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+static void PRIV__picoMpegTSDescriptorPayloadNetworkNameDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     (void)indent;
     if (descriptor == NULL) {
@@ -6023,7 +6023,7 @@ static void __picoMpegTSDescriptorPayloadNetworkNameDebugPrint(picoMpegTSDescrip
     PICO_MPEGTS_LOG("%*sNetwork Name\t: %s\n", indent + 2, "", descriptor->parsed.networkName.name);
 }
 
-static void __picoMpegTSDescriptorPayloadParentalRatingDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+static void PRIV__picoMpegTSDescriptorPayloadParentalRatingDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     (void)indent;
     if (descriptor == NULL) {
@@ -6045,7 +6045,7 @@ static void __picoMpegTSDescriptorPayloadParentalRatingDebugPrint(picoMpegTSDesc
     }
 }
 
-static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+static void PRIV__picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     (void)indent;
     if (descriptor == NULL) {
@@ -6053,34 +6053,34 @@ static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descrip
     }
     switch (descriptor->tag) {
         case PICO_MPEGTS_DESCRIPTOR_TAG_ISO_639_LANGUAGE:
-            __picoMpegTSDescriptorPayloadISO639LanguageDebugPrint(descriptor, indent);
+            PRIV__picoMpegTSDescriptorPayloadISO639LanguageDebugPrint(descriptor, indent);
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE:
-            __picoMpegTSDescriptorPayloadServiceDebugPrint(descriptor, indent);
+            PRIV__picoMpegTSDescriptorPayloadServiceDebugPrint(descriptor, indent);
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_STREAM_IDENTIFIER:
-            __picoMpegTSDescriptorPayloadStreamIdentifierDebugPrint(descriptor, indent);
+            PRIV__picoMpegTSDescriptorPayloadStreamIdentifierDebugPrint(descriptor, indent);
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_CA:
-            __picoMpegTSDescriptorPayloadCADebugPrint(descriptor, indent);
+            PRIV__picoMpegTSDescriptorPayloadCADebugPrint(descriptor, indent);
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_CONTENT:
-            __picoMpegTSDescriptorPayloadContentDebugPrint(descriptor, indent);
+            PRIV__picoMpegTSDescriptorPayloadContentDebugPrint(descriptor, indent);
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_COMPONENT:
-            __picoMpegTSDescriptorPayloadComponentDebugPrint(descriptor, indent);
+            PRIV__picoMpegTSDescriptorPayloadComponentDebugPrint(descriptor, indent);
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_SHORT_EVENT:
-            __picoMpegTSDescriptorPayloadShortEventDebugPrint(descriptor, indent);
+            PRIV__picoMpegTSDescriptorPayloadShortEventDebugPrint(descriptor, indent);
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_SERVICE_LIST:
-            __picoMpegTSDescriptorPayloadServiceListDebugPrint(descriptor, indent);
+            PRIV__picoMpegTSDescriptorPayloadServiceListDebugPrint(descriptor, indent);
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_NETWORK_NAME:
-            __picoMpegTSDescriptorPayloadNetworkNameDebugPrint(descriptor, indent);
+            PRIV__picoMpegTSDescriptorPayloadNetworkNameDebugPrint(descriptor, indent);
             break;
         case PICO_MPEGTS_DESCRIPTOR_TAG_PARENTAL_RATING:
-            __picoMpegTSDescriptorPayloadParentalRatingDebugPrint(descriptor, indent);
+            PRIV__picoMpegTSDescriptorPayloadParentalRatingDebugPrint(descriptor, indent);
             break;
         default:
             PICO_MPEGTS_LOG("%*sDescriptor Payload: \n", indent, "");
@@ -6092,7 +6092,7 @@ static void __picoMpegTSDescriptorPayloadDebugPrint(picoMpegTSDescriptor descrip
     }
 }
 
-static void __picoMpegTSDescriptorDebugPrint(picoMpegTSDescriptor descriptor, int indent)
+static void PRIV__picoMpegTSDescriptorDebugPrint(picoMpegTSDescriptor descriptor, int indent)
 {
     if (descriptor == NULL) {
         return;
@@ -6103,21 +6103,21 @@ static void __picoMpegTSDescriptorDebugPrint(picoMpegTSDescriptor descriptor, in
                     descriptor->dataLength,
                     descriptor->isParsed ? "true" : "false");
     if (descriptor->isParsed) {
-        __picoMpegTSDescriptorPayloadDebugPrint(descriptor, indent + 2);
+        PRIV__picoMpegTSDescriptorPayloadDebugPrint(descriptor, indent + 2);
     }
 }
 
-static void __picoMpegTSDescriptorSetDebugPrint(picoMpegTSDescriptorSet set, int indent)
+static void PRIV__picoMpegTSDescriptorSetDebugPrint(picoMpegTSDescriptorSet set, int indent)
 {
     if (set == NULL || set->count == 0) {
         return;
     }
     for (size_t i = 0; i < set->count; i++) {
-        __picoMpegTSDescriptorDebugPrint(&set->descriptors[i], indent);
+        PRIV__picoMpegTSDescriptorDebugPrint(&set->descriptors[i], indent);
     }
 }
 
-static void __picoMpegTSUTCTimeDebugPrint(const picoMpegTSUTCTime_t *time, const char *label, int indent)
+static void PRIV__picoMpegTSUTCTimeDebugPrint(const picoMpegTSUTCTime_t *time, const char *label, int indent)
 {
     (void)indent;
     (void)label;
@@ -6127,7 +6127,7 @@ static void __picoMpegTSUTCTimeDebugPrint(const picoMpegTSUTCTime_t *time, const
                     indent, "", label, time->year, time->month, time->day, time->hour, time->minute, time->second);
 }
 
-static void __picoMpegTSDurationDebugPrint(const picoMpegTSDuration_t *duration, const char *label, int indent)
+static void PRIV__picoMpegTSDurationDebugPrint(const picoMpegTSDuration_t *duration, const char *label, int indent)
 {
     (void)indent;
     (void)label;
@@ -6137,7 +6137,7 @@ static void __picoMpegTSDurationDebugPrint(const picoMpegTSDuration_t *duration,
                     indent, "", label, duration->hours, duration->minutes, duration->seconds);
 }
 
-static void __picoMpegTSPASDebugPrint(const picoMpegTSProgramAssociationSectionPayload_t *pas)
+static void PRIV__picoMpegTSPASDebugPrint(const picoMpegTSProgramAssociationSectionPayload_t *pas)
 {
     if (pas == NULL)
         return;
@@ -6153,42 +6153,42 @@ static void __picoMpegTSPASDebugPrint(const picoMpegTSProgramAssociationSectionP
     }
 }
 
-static void __picoMpegTSCASDebugPrint(const picoMpegTSConditionalAccessSectionPayload_t *cas)
+static void PRIV__picoMpegTSCASDebugPrint(const picoMpegTSConditionalAccessSectionPayload_t *cas)
 {
     if (cas == NULL)
         return;
     PICO_MPEGTS_LOG("  Conditional Access Section (CAS):\n");
     PICO_MPEGTS_LOG("    Descriptor Count: %zu\n", cas->descriptorSet.count);
-    __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&cas->descriptorSet, 4);
+    PRIV__picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&cas->descriptorSet, 4);
 }
 
-static void __picoMpegTSPMSDebugPrint(const picoMpegTSProgramMapSectionPayload_t *pms)
+static void PRIV__picoMpegTSPMSDebugPrint(const picoMpegTSProgramMapSectionPayload_t *pms)
 {
     if (pms == NULL)
         return;
     PICO_MPEGTS_LOG("  Program Map Section (PMS):\n");
     PICO_MPEGTS_LOG("    PCR PID: 0x%04X\n", pms->pcrPid);
     PICO_MPEGTS_LOG("    Program Info Descriptors: %zu\n", pms->programInfoDescriptorSet.count);
-    __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&pms->programInfoDescriptorSet, 4);
+    PRIV__picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&pms->programInfoDescriptorSet, 4);
     PICO_MPEGTS_LOG("    Stream Count: %zu\n", pms->streamCount);
     for (size_t i = 0; i < pms->streamCount; i++) {
         PICO_MPEGTS_LOG("    [%zu] Stream Type: %s [0x%02X], Elementary PID: 0x%04X, ES Descriptors: %zu\n",
                         i, picoMpegTSStreamTypeToString(pms->streams[i].streamType), pms->streams[i].streamType, pms->streams[i].elementaryPid,
                         pms->streams[i].esInfoDescriptorSet.count);
-        __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&pms->streams[i].esInfoDescriptorSet, 6);
+        PRIV__picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&pms->streams[i].esInfoDescriptorSet, 6);
     }
 }
 
-static void __picoMpegTSTSDSDebugPrint(const picoMpegTSTransportStreamDescriptionSectionPayload_t *tsds)
+static void PRIV__picoMpegTSTSDSDebugPrint(const picoMpegTSTransportStreamDescriptionSectionPayload_t *tsds)
 {
     if (tsds == NULL)
         return;
     PICO_MPEGTS_LOG("  Transport Stream Description Section (TSDS):\n");
     PICO_MPEGTS_LOG("    Descriptor Count: %zu\n", tsds->descriptorSet.count);
-    __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&tsds->descriptorSet, 4);
+    PRIV__picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&tsds->descriptorSet, 4);
 }
 
-static void __picoMpegTSMETASDebugPrint(const picoMpegTSMetadataSectionPayload_t *metas)
+static void PRIV__picoMpegTSMETASDebugPrint(const picoMpegTSMetadataSectionPayload_t *metas)
 {
     if (metas == NULL)
         return;
@@ -6196,41 +6196,41 @@ static void __picoMpegTSMETASDebugPrint(const picoMpegTSMetadataSectionPayload_t
     PICO_MPEGTS_LOG("    Metadata Byte Count: %zu\n", metas->metadataByteCount);
 }
 
-static void __picoMpegTSNITDebugPrint(const picoMpegTSNetworkInformationTablePayload_t *nit)
+static void PRIV__picoMpegTSNITDebugPrint(const picoMpegTSNetworkInformationTablePayload_t *nit)
 {
     if (nit == NULL)
         return;
     PICO_MPEGTS_LOG("  Network Information Table (NIT):\n");
     PICO_MPEGTS_LOG("    Network Descriptors: %zu\n", nit->descriptorSet.count);
-    __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&nit->descriptorSet, 4);
+    PRIV__picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&nit->descriptorSet, 4);
     PICO_MPEGTS_LOG("    Transport Stream Count: %zu\n", nit->transportStreamCount);
     for (size_t i = 0; i < nit->transportStreamCount; i++) {
         PICO_MPEGTS_LOG("    [%zu] TS ID: 0x%04X, Original Network ID: 0x%04X, Descriptors: %zu\n",
                         i, nit->transportStreams[i].transportStreamId,
                         nit->transportStreams[i].originalNetworkId,
                         nit->transportStreams[i].descriptorSet.count);
-        __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&nit->transportStreams[i].descriptorSet, 6);
+        PRIV__picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&nit->transportStreams[i].descriptorSet, 6);
     }
 }
 
-static void __picoMpegTSBATDebugPrint(const picoMpegTSBoquetAssociationTablePayload_t *bat)
+static void PRIV__picoMpegTSBATDebugPrint(const picoMpegTSBoquetAssociationTablePayload_t *bat)
 {
     if (bat == NULL)
         return;
     PICO_MPEGTS_LOG("  Bouquet Association Table (BAT):\n");
     PICO_MPEGTS_LOG("    Bouquet Descriptors: %zu\n", bat->descriptorSet.count);
-    __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&bat->descriptorSet, 4);
+    PRIV__picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&bat->descriptorSet, 4);
     PICO_MPEGTS_LOG("    Service Count: %zu\n", bat->serviceCount);
     for (size_t i = 0; i < bat->serviceCount; i++) {
         PICO_MPEGTS_LOG("    [%zu] TS ID: 0x%04X, Original Network ID: 0x%04X, Descriptors: %zu\n",
                         i, bat->services[i].transportStreamId,
                         bat->services[i].originalNetworkId,
                         bat->services[i].descriptorSet.count);
-        __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&bat->services[i].descriptorSet, 6);
+        PRIV__picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&bat->services[i].descriptorSet, 6);
     }
 }
 
-static void __picoMpegTSSDTDebugPrint(const picoMpegTSServiceDescriptionTablePayload_t *sdt)
+static void PRIV__picoMpegTSSDTDebugPrint(const picoMpegTSServiceDescriptionTablePayload_t *sdt)
 {
     if (sdt == NULL)
         return;
@@ -6244,11 +6244,11 @@ static void __picoMpegTSSDTDebugPrint(const picoMpegTSServiceDescriptionTablePay
         PICO_MPEGTS_LOG("      Running Status: %s\n", picoMpegTSSDTRunningStatusToString(sdt->services[i].runningStatus));
         PICO_MPEGTS_LOG("      Free CA Mode: %s\n", sdt->services[i].freeCAMode ? "true" : "false");
         PICO_MPEGTS_LOG("      Descriptors: %zu\n", sdt->services[i].descriptorSet.count);
-        __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&sdt->services[i].descriptorSet, 6);
+        PRIV__picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&sdt->services[i].descriptorSet, 6);
     }
 }
 
-static void __picoMpegTSEITDebugPrint(const picoMpegTSEventInformationTablePayload_t *eit)
+static void PRIV__picoMpegTSEITDebugPrint(const picoMpegTSEventInformationTablePayload_t *eit)
 {
     if (eit == NULL)
         return;
@@ -6258,34 +6258,34 @@ static void __picoMpegTSEITDebugPrint(const picoMpegTSEventInformationTablePaylo
     PICO_MPEGTS_LOG("    Event Count: %zu\n", eit->eventCount);
     for (size_t i = 0; i < eit->eventCount; i++) {
         PICO_MPEGTS_LOG("    [%zu] Event ID: 0x%04X\n", i, eit->events[i].eventId);
-        __picoMpegTSUTCTimeDebugPrint(&eit->events[i].startTime, "Start Time", 6);
-        __picoMpegTSDurationDebugPrint(&eit->events[i].duration, "Duration", 6);
+        PRIV__picoMpegTSUTCTimeDebugPrint(&eit->events[i].startTime, "Start Time", 6);
+        PRIV__picoMpegTSDurationDebugPrint(&eit->events[i].duration, "Duration", 6);
         PICO_MPEGTS_LOG("      Running Status: %s\n", picoMpegTSSDTRunningStatusToString(eit->events[i].runningStatus));
         PICO_MPEGTS_LOG("      Free CA Mode: %s\n", eit->events[i].freeCAMode ? "true" : "false");
         PICO_MPEGTS_LOG("      Descriptors: %zu\n", eit->events[i].descriptorSet.count);
-        __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&eit->events[i].descriptorSet, 6);
+        PRIV__picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&eit->events[i].descriptorSet, 6);
     }
 }
 
-static void __picoMpegTSTDTDebugPrint(const picoMpegTSTimeDateTablePayload_t *tdt)
+static void PRIV__picoMpegTSTDTDebugPrint(const picoMpegTSTimeDateTablePayload_t *tdt)
 {
     if (tdt == NULL)
         return;
     PICO_MPEGTS_LOG("  Time Date Table (TDT):\n");
-    __picoMpegTSUTCTimeDebugPrint(&tdt->utcTime, "UTC Time", 4);
+    PRIV__picoMpegTSUTCTimeDebugPrint(&tdt->utcTime, "UTC Time", 4);
 }
 
-static void __picoMpegTSTOTDebugPrint(const picoMpegTSTimeOffsetTablePayload_t *tot)
+static void PRIV__picoMpegTSTOTDebugPrint(const picoMpegTSTimeOffsetTablePayload_t *tot)
 {
     if (tot == NULL)
         return;
     PICO_MPEGTS_LOG("  Time Offset Table (TOT):\n");
-    __picoMpegTSUTCTimeDebugPrint(&tot->utcTime, "UTC Time", 4);
+    PRIV__picoMpegTSUTCTimeDebugPrint(&tot->utcTime, "UTC Time", 4);
     PICO_MPEGTS_LOG("    Descriptor Count: %zu\n", tot->descriptorSet.count);
-    __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&tot->descriptorSet, 4);
+    PRIV__picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&tot->descriptorSet, 4);
 }
 
-static void __picoMpegTSRSTDebugPrint(const picoMpegTSRunningStatusTablePayload_t *rst)
+static void PRIV__picoMpegTSRSTDebugPrint(const picoMpegTSRunningStatusTablePayload_t *rst)
 {
     if (rst == NULL)
         return;
@@ -6301,7 +6301,7 @@ static void __picoMpegTSRSTDebugPrint(const picoMpegTSRunningStatusTablePayload_
     }
 }
 
-static void __picoMpegTSDITDebugPrint(const picoMpegTSDiscriminationInformationTablePayload_t *dit)
+static void PRIV__picoMpegTSDITDebugPrint(const picoMpegTSDiscriminationInformationTablePayload_t *dit)
 {
     if (dit == NULL)
         return;
@@ -6309,21 +6309,21 @@ static void __picoMpegTSDITDebugPrint(const picoMpegTSDiscriminationInformationT
     PICO_MPEGTS_LOG("    Transition Flag: %s\n", dit->transitionFlag ? "true" : "false");
 }
 
-static void __picoMpegTSSITDebugPrint(const picoMpegTSServiceInformationTablePayload_t *sit)
+static void PRIV__picoMpegTSSITDebugPrint(const picoMpegTSServiceInformationTablePayload_t *sit)
 {
     if (sit == NULL)
         return;
     PICO_MPEGTS_LOG("  Selection Information Table (SIT):\n");
     PICO_MPEGTS_LOG("    Transmission Info Loop Length: %u\n", sit->transmissionInfoLoopLength);
     PICO_MPEGTS_LOG("    Transmission Info Descriptors: %zu\n", sit->transmissionInfoDescriptorSet.count);
-    __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&sit->transmissionInfoDescriptorSet, 4);
+    PRIV__picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&sit->transmissionInfoDescriptorSet, 4);
     PICO_MPEGTS_LOG("    Service Count: %zu\n", sit->serviceCount);
     for (size_t i = 0; i < sit->serviceCount; i++) {
         PICO_MPEGTS_LOG("    [%zu] Service ID: 0x%04X, Running Status: %s\n",
                         i, sit->services[i].serviceId,
                         picoMpegTSSDTRunningStatusToString(sit->services[i].runningStatus));
         PICO_MPEGTS_LOG("      Descriptors: %zu\n", sit->services[i].descriptorSet.count);
-        __picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&sit->services[i].descriptorSet, 6);
+        PRIV__picoMpegTSDescriptorSetDebugPrint((picoMpegTSDescriptorSet)&sit->services[i].descriptorSet, 6);
     }
 }
 
@@ -6348,68 +6348,68 @@ void picoMpegTSTableDebugPrint(picoMpegTSTable table)
 
     switch (table->tableId) {
         case PICO_MPEGTS_TABLE_ID_PAS:
-            __picoMpegTSPASDebugPrint(&table->data.pas);
+            PRIV__picoMpegTSPASDebugPrint(&table->data.pas);
             break;
 
         case PICO_MPEGTS_TABLE_ID_CAS:
-            __picoMpegTSCASDebugPrint(&table->data.cas);
+            PRIV__picoMpegTSCASDebugPrint(&table->data.cas);
             break;
 
         case PICO_MPEGTS_TABLE_ID_PMS:
-            __picoMpegTSPMSDebugPrint(&table->data.pms);
+            PRIV__picoMpegTSPMSDebugPrint(&table->data.pms);
             break;
 
         case PICO_MPEGTS_TABLE_ID_TSDS:
-            __picoMpegTSTSDSDebugPrint(&table->data.tsds);
+            PRIV__picoMpegTSTSDSDebugPrint(&table->data.tsds);
             break;
 
         case PICO_MPEGTS_TABLE_ID_METAS:
-            __picoMpegTSMETASDebugPrint(&table->data.metas);
+            PRIV__picoMpegTSMETASDebugPrint(&table->data.metas);
             break;
 
         case PICO_MPEGTS_TABLE_ID_NISAN:
         case PICO_MPEGTS_TABLE_ID_NISON:
-            __picoMpegTSNITDebugPrint(&table->data.nit);
+            PRIV__picoMpegTSNITDebugPrint(&table->data.nit);
             break;
 
         case PICO_MPEGTS_TABLE_ID_BAS:
-            __picoMpegTSBATDebugPrint(&table->data.bat);
+            PRIV__picoMpegTSBATDebugPrint(&table->data.bat);
             break;
 
         case PICO_MPEGTS_TABLE_ID_SDSATS:
         case PICO_MPEGTS_TABLE_ID_SDSOTS:
-            __picoMpegTSSDTDebugPrint(&table->data.sdt);
+            PRIV__picoMpegTSSDTDebugPrint(&table->data.sdt);
             break;
 
         case PICO_MPEGTS_TABLE_ID_EISATSF:
         case PICO_MPEGTS_TABLE_ID_EISOTSF:
-            __picoMpegTSEITDebugPrint(&table->data.eit);
+            PRIV__picoMpegTSEITDebugPrint(&table->data.eit);
             break;
 
         case PICO_MPEGTS_TABLE_ID_TDS:
-            __picoMpegTSTDTDebugPrint(&table->data.tdt);
+            PRIV__picoMpegTSTDTDebugPrint(&table->data.tdt);
             break;
 
         case PICO_MPEGTS_TABLE_ID_TOS:
-            __picoMpegTSTOTDebugPrint(&table->data.tot);
+            PRIV__picoMpegTSTOTDebugPrint(&table->data.tot);
             break;
 
         case PICO_MPEGTS_TABLE_ID_RSS:
-            __picoMpegTSRSTDebugPrint(&table->data.rst);
+            PRIV__picoMpegTSRSTDebugPrint(&table->data.rst);
             break;
 
         case PICO_MPEGTS_TABLE_ID_DIS:
-            __picoMpegTSDITDebugPrint(&table->data.dit);
+            PRIV__picoMpegTSDITDebugPrint(&table->data.dit);
             break;
 
         case PICO_MPEGTS_TABLE_ID_SIS:
-            __picoMpegTSSITDebugPrint(&table->data.sit);
+            PRIV__picoMpegTSSITDebugPrint(&table->data.sit);
             break;
 
         default:
             if ((table->tableId >= 0x50 && table->tableId <= 0x5F) ||
                 (table->tableId >= 0x60 && table->tableId <= 0x6F)) {
-                __picoMpegTSEITDebugPrint(&table->data.eit);
+                PRIV__picoMpegTSEITDebugPrint(&table->data.eit);
             } else {
                 PICO_MPEGTS_LOG("  (Unknown or unsupported table type)\n");
             }

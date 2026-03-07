@@ -153,14 +153,14 @@ bool picoStreamIsSystemLittleEndian(void);
     type picoStreamRead##typeName(picoStream stream)            \
     {                                                            \
         type value = (type)0;                                         \
-        __picoStreamReadEndianess(stream, &value, sizeof(value)); \
+        PRIV__picoStreamReadEndianess(stream, &value, sizeof(value)); \
         return value;                                           \
     }
 
 #define __PICO_STREAM_WRITE_IMPL(typeName, type)       \
     void picoStreamWrite##typeName(picoStream stream, type value) \
     {                                                            \
-        __picoStreamWriteEndianess(stream, &value, sizeof(value)); \
+        PRIV__picoStreamWriteEndianess(stream, &value, sizeof(value)); \
     }
 
 
@@ -214,7 +214,7 @@ struct picoStream_t {
 };
 
 
-static void __picoStreamReadEndianess(picoStream stream, void *outValue, size_t size)
+static void PRIV__picoStreamReadEndianess(picoStream stream, void *outValue, size_t size)
 {
     if (!stream || !outValue || size == 0 || !stream->canRead) {
         return;
@@ -236,7 +236,7 @@ static void __picoStreamReadEndianess(picoStream stream, void *outValue, size_t 
     }
 }
 
-static void __picoStreamWriteEndianess(picoStream stream, const void *value, size_t size)
+static void PRIV__picoStreamWriteEndianess(picoStream stream, const void *value, size_t size)
 {
     if (!stream || !value || size == 0 || !stream->canWrite) {
         return;
