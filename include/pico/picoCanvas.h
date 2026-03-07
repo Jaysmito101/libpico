@@ -118,8 +118,8 @@ void picoCanvasColor2Rgba(picoCanvasColor color, uint8_t *r, uint8_t *g, uint8_t
 typedef struct {
     HBITMAP bitmap;
     uint32_t *buffer;
-} __picoCanvasGraphicsBuffer_t;
-typedef __picoCanvasGraphicsBuffer_t *__picoCanvasGraphicsBuffer;
+} PRIV__picoCanvasGraphicsBuffer_t;
+typedef PRIV__picoCanvasGraphicsBuffer_t *PRIV__picoCanvasGraphicsBuffer;
 
 struct picoCanvas_t {
     HWND windowHandle;
@@ -127,8 +127,8 @@ struct picoCanvas_t {
     bool isOpen;
     int32_t width;
     int32_t height;
-    __picoCanvasGraphicsBuffer frontBuffer;
-    __picoCanvasGraphicsBuffer backBuffer;
+    PRIV__picoCanvasGraphicsBuffer frontBuffer;
+    PRIV__picoCanvasGraphicsBuffer backBuffer;
     picoCanvasLoggerCallback logger;
     picoCanvasResizeCallback resizeCallback;
     void *userData;
@@ -137,12 +137,12 @@ struct picoCanvas_t {
 
 // ---------------------------------------------------------------------------------------------------------------
 
-static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(int32_t width, int32_t height, bool useBitmap)
+static PRIV__picoCanvasGraphicsBuffer PRIV__picoCanvasGraphicsBufferCreate(int32_t width, int32_t height, bool useBitmap)
 {
-    __picoCanvasGraphicsBuffer buffer = (__picoCanvasGraphicsBuffer)PICO_MALLOC(sizeof(__picoCanvasGraphicsBuffer_t));
+    PRIV__picoCanvasGraphicsBuffer buffer = (PRIV__picoCanvasGraphicsBuffer)PICO_MALLOC(sizeof(PRIV__picoCanvasGraphicsBuffer_t));
     if (!buffer)
         return NULL;
-    memset(buffer, 0, sizeof(__picoCanvasGraphicsBuffer_t));
+    memset(buffer, 0, sizeof(PRIV__picoCanvasGraphicsBuffer_t));
 
     if (useBitmap) {
         HDC hdcScreen               = GetDC(NULL);
@@ -166,7 +166,7 @@ static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(int32_t width
     return buffer;
 }
 
-static void __picoCanvasGraphicsBufferDestroy(__picoCanvasGraphicsBuffer buffer)
+static void PRIV__picoCanvasGraphicsBufferDestroy(PRIV__picoCanvasGraphicsBuffer buffer)
 {
     if (buffer->bitmap) {
         DeleteObject(buffer->bitmap);
@@ -177,18 +177,18 @@ static void __picoCanvasGraphicsBufferDestroy(__picoCanvasGraphicsBuffer buffer)
     PICO_FREE(buffer);
 }
 
-static bool __picoCanvasGraphicsBufferRecreate(picoCanvas canvas)
+static bool PRIV__picoCanvasGraphicsBufferRecreate(picoCanvas canvas)
 {
     if (canvas->frontBuffer)
-        __picoCanvasGraphicsBufferDestroy(canvas->frontBuffer);
+        PRIV__picoCanvasGraphicsBufferDestroy(canvas->frontBuffer);
     if (canvas->backBuffer)
-        __picoCanvasGraphicsBufferDestroy(canvas->backBuffer);
-    canvas->frontBuffer = __picoCanvasGraphicsBufferCreate(canvas->width, canvas->height, true);
-    canvas->backBuffer  = __picoCanvasGraphicsBufferCreate(canvas->width, canvas->height, false);
+        PRIV__picoCanvasGraphicsBufferDestroy(canvas->backBuffer);
+    canvas->frontBuffer = PRIV__picoCanvasGraphicsBufferCreate(canvas->width, canvas->height, true);
+    canvas->backBuffer  = PRIV__picoCanvasGraphicsBufferCreate(canvas->width, canvas->height, false);
     return canvas->frontBuffer && canvas->backBuffer;
 }
 
-LRESULT CALLBACK __picoCanvasWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK PRIV__picoCanvasWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     picoCanvas canvas = (picoCanvas)GetWindowLongPtr(hwnd, GWLP_USERDATA);
     if (!canvas)
@@ -211,7 +211,7 @@ LRESULT CALLBACK __picoCanvasWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPA
             if (newWidth != canvas->width || newHeight != canvas->height) {
                 canvas->width  = newWidth;
                 canvas->height = newHeight;
-                if (!__picoCanvasGraphicsBufferRecreate(canvas)) {
+                if (!PRIV__picoCanvasGraphicsBufferRecreate(canvas)) {
                     if (canvas->logger)
                         canvas->logger("Failed to recreate graphics buffers on resize", canvas);
                 }
@@ -260,7 +260,7 @@ picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, pic
     WNDCLASSEX wincl    = {0};
     wincl.hInstance     = canvas->moduleHandle;
     wincl.lpszClassName = "PicoCanvasWindowClass";
-    wincl.lpfnWndProc   = __picoCanvasWindowProc;
+    wincl.lpfnWndProc   = PRIV__picoCanvasWindowProc;
     wincl.style         = CS_DBLCLKS;
     wincl.cbSize        = sizeof(WNDCLASSEX);
     wincl.hCursor       = LoadCursor(NULL, IDC_ARROW);
@@ -287,7 +287,7 @@ picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, pic
     ShowWindow(canvas->windowHandle, SW_SHOW);
     SetWindowLongPtr(canvas->windowHandle, GWLP_USERDATA, (LONG_PTR)canvas);
 
-    if (!__picoCanvasGraphicsBufferRecreate(canvas)) {
+    if (!PRIV__picoCanvasGraphicsBufferRecreate(canvas)) {
         if (canvas->logger)
             canvas->logger("Failed to create graphics buffers", canvas);
         return NULL;
@@ -299,9 +299,9 @@ picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, pic
 void picoCanvasDestroy(picoCanvas canvas)
 {
     if (canvas->frontBuffer)
-        __picoCanvasGraphicsBufferDestroy(canvas->frontBuffer);
+        PRIV__picoCanvasGraphicsBufferDestroy(canvas->frontBuffer);
     if (canvas->backBuffer)
-        __picoCanvasGraphicsBufferDestroy(canvas->backBuffer);
+        PRIV__picoCanvasGraphicsBufferDestroy(canvas->backBuffer);
     PICO_FREE(canvas);
 }
 
@@ -396,8 +396,8 @@ size_t picoCanvasGetTime(picoCanvas canvas)
 typedef struct {
     XImage *image;
     uint32_t *buffer;
-} __picoCanvasGraphicsBuffer_t;
-typedef __picoCanvasGraphicsBuffer_t *__picoCanvasGraphicsBuffer;
+} PRIV__picoCanvasGraphicsBuffer_t;
+typedef PRIV__picoCanvasGraphicsBuffer_t *PRIV__picoCanvasGraphicsBuffer;
 
 struct picoCanvas_t {
     Display *display;
@@ -409,8 +409,8 @@ struct picoCanvas_t {
     bool isOpen;
     int32_t width;
     int32_t height;
-    __picoCanvasGraphicsBuffer frontBuffer;
-    __picoCanvasGraphicsBuffer backBuffer;
+    PRIV__picoCanvasGraphicsBuffer frontBuffer;
+    PRIV__picoCanvasGraphicsBuffer backBuffer;
     picoCanvasLoggerCallback logger;
     picoCanvasResizeCallback resizeCallback;
     void *userData;
@@ -420,12 +420,12 @@ struct picoCanvas_t {
 
 // ---------------------------------------------------------------------------------------------------------------
 
-static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(Display *display, int screen, int32_t width, int32_t height)
+static PRIV__picoCanvasGraphicsBuffer PRIV__picoCanvasGraphicsBufferCreate(Display *display, int screen, int32_t width, int32_t height)
 {
-    __picoCanvasGraphicsBuffer buffer = (__picoCanvasGraphicsBuffer)PICO_MALLOC(sizeof(__picoCanvasGraphicsBuffer_t));
+    PRIV__picoCanvasGraphicsBuffer buffer = (PRIV__picoCanvasGraphicsBuffer)PICO_MALLOC(sizeof(PRIV__picoCanvasGraphicsBuffer_t));
     if (!buffer)
         return NULL;
-    memset(buffer, 0, sizeof(__picoCanvasGraphicsBuffer_t));
+    memset(buffer, 0, sizeof(PRIV__picoCanvasGraphicsBuffer_t));
 
     buffer->buffer = (uint32_t *)PICO_MALLOC(width * height * sizeof(uint32_t));
     if (!buffer->buffer) {
@@ -454,7 +454,7 @@ static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(Display *disp
     return buffer;
 }
 
-static void __picoCanvasGraphicsBufferDestroy(__picoCanvasGraphicsBuffer buffer)
+static void PRIV__picoCanvasGraphicsBufferDestroy(PRIV__picoCanvasGraphicsBuffer buffer)
 {
     if (buffer->image) {
         buffer->image->data = NULL;
@@ -465,18 +465,18 @@ static void __picoCanvasGraphicsBufferDestroy(__picoCanvasGraphicsBuffer buffer)
     PICO_FREE(buffer);
 }
 
-static bool __picoCanvasGraphicsBufferRecreate(picoCanvas canvas)
+static bool PRIV__picoCanvasGraphicsBufferRecreate(picoCanvas canvas)
 {
     if (canvas->frontBuffer)
-        __picoCanvasGraphicsBufferDestroy(canvas->frontBuffer);
+        PRIV__picoCanvasGraphicsBufferDestroy(canvas->frontBuffer);
     if (canvas->backBuffer)
-        __picoCanvasGraphicsBufferDestroy(canvas->backBuffer);
+        PRIV__picoCanvasGraphicsBufferDestroy(canvas->backBuffer);
 
     if (canvas->pixmap)
         XFreePixmap(canvas->display, canvas->pixmap);
 
-    canvas->frontBuffer = __picoCanvasGraphicsBufferCreate(canvas->display, canvas->screen, canvas->width, canvas->height);
-    canvas->backBuffer  = __picoCanvasGraphicsBufferCreate(canvas->display, canvas->screen, canvas->width, canvas->height);
+    canvas->frontBuffer = PRIV__picoCanvasGraphicsBufferCreate(canvas->display, canvas->screen, canvas->width, canvas->height);
+    canvas->backBuffer  = PRIV__picoCanvasGraphicsBufferCreate(canvas->display, canvas->screen, canvas->width, canvas->height);
 
     if (!canvas->frontBuffer || !canvas->backBuffer)
         return false;
@@ -568,7 +568,7 @@ picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, pic
                            GCLineWidth | GCCapStyle | GCJoinStyle | GCFillStyle;
     canvas->gc = XCreateGC(canvas->display, canvas->windowHandle, gcMask, &gcValues);
 
-    if (!__picoCanvasGraphicsBufferRecreate(canvas)) {
+    if (!PRIV__picoCanvasGraphicsBufferRecreate(canvas)) {
         if (canvas->logger)
             canvas->logger("Failed to create graphics buffers", canvas);
         XFreeGC(canvas->display, canvas->gc);
@@ -587,9 +587,9 @@ picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, pic
 void picoCanvasDestroy(picoCanvas canvas)
 {
     if (canvas->frontBuffer)
-        __picoCanvasGraphicsBufferDestroy(canvas->frontBuffer);
+        PRIV__picoCanvasGraphicsBufferDestroy(canvas->frontBuffer);
     if (canvas->backBuffer)
-        __picoCanvasGraphicsBufferDestroy(canvas->backBuffer);
+        PRIV__picoCanvasGraphicsBufferDestroy(canvas->backBuffer);
     if (canvas->pixmap)
         XFreePixmap(canvas->display, canvas->pixmap);
     if (canvas->gc)
@@ -615,7 +615,7 @@ void picoCanvasUpdate(picoCanvas canvas)
                     event.xconfigure.height != canvas->height) {
                     canvas->width  = event.xconfigure.width;
                     canvas->height = event.xconfigure.height;
-                    if (!__picoCanvasGraphicsBufferRecreate(canvas)) {
+                    if (!PRIV__picoCanvasGraphicsBufferRecreate(canvas)) {
                         if (canvas->logger)
                             canvas->logger("Failed to recreate graphics buffers on resize", canvas);
                     }
@@ -752,8 +752,8 @@ typedef struct {
     uint32_t *data;
     int32_t width;
     int32_t height;
-} __picoCanvasGraphicsBuffer_t;
-typedef __picoCanvasGraphicsBuffer_t *__picoCanvasGraphicsBuffer;
+} PRIV__picoCanvasGraphicsBuffer_t;
+typedef PRIV__picoCanvasGraphicsBuffer_t *PRIV__picoCanvasGraphicsBuffer;
 
 struct picoCanvas_t {
     struct wl_display *display;
@@ -766,8 +766,8 @@ struct picoCanvas_t {
     bool isOpen;
     int32_t width;
     int32_t height;
-    __picoCanvasGraphicsBuffer frontBuffer;
-    __picoCanvasGraphicsBuffer backBuffer;
+    PRIV__picoCanvasGraphicsBuffer frontBuffer;
+    PRIV__picoCanvasGraphicsBuffer backBuffer;
     picoCanvasLoggerCallback logger;
     picoCanvasResizeCallback resizeCallback;
     void *userData;
@@ -776,9 +776,9 @@ struct picoCanvas_t {
 
 // ---------------------------------------------------------------------------------------------------------------
 
-static bool __picoCanvasGraphicsBufferRecreate(picoCanvas canvas);
+static bool PRIV__picoCanvasGraphicsBufferRecreate(picoCanvas canvas);
 
-static void __picoCanvasRegistryHandler(void *data, struct wl_registry *registry, uint32_t id, const char *interface, uint32_t version)
+static void PRIV__picoCanvasRegistryHandler(void *data, struct wl_registry *registry, uint32_t id, const char *interface, uint32_t version)
 {
     picoCanvas canvas = (picoCanvas)data;
     (void)version;
@@ -792,24 +792,24 @@ static void __picoCanvasRegistryHandler(void *data, struct wl_registry *registry
     }
 }
 
-static void __picoCanvasRegistryRemover(void *data, struct wl_registry *registry, uint32_t id)
+static void PRIV__picoCanvasRegistryRemover(void *data, struct wl_registry *registry, uint32_t id)
 {
     (void)data;
     (void)registry;
     (void)id;
 }
 
-static const struct wl_registry_listener __picoCanvasRegistryListener = {
-    __picoCanvasRegistryHandler,
-    __picoCanvasRegistryRemover};
+static const struct wl_registry_listener PRIV__picoCanvasRegistryListener = {
+    PRIV__picoCanvasRegistryHandler,
+    PRIV__picoCanvasRegistryRemover};
 
-static void __picoCanvasShellSurfacePing(void *data, struct wl_shell_surface *shell_surface, uint32_t serial)
+static void PRIV__picoCanvasShellSurfacePing(void *data, struct wl_shell_surface *shell_surface, uint32_t serial)
 {
     (void)data;
     wl_shell_surface_pong(shell_surface, serial);
 }
 
-static void __picoCanvasShellSurfaceConfigure(void *data, struct wl_shell_surface *shell_surface, uint32_t edges, int32_t width, int32_t height)
+static void PRIV__picoCanvasShellSurfaceConfigure(void *data, struct wl_shell_surface *shell_surface, uint32_t edges, int32_t width, int32_t height)
 {
     picoCanvas canvas = (picoCanvas)data;
     (void)shell_surface;
@@ -817,7 +817,7 @@ static void __picoCanvasShellSurfaceConfigure(void *data, struct wl_shell_surfac
     if (width > 0 && height > 0 && (width != canvas->width || height != canvas->height)) {
         canvas->width  = width;
         canvas->height = height;
-        if (!__picoCanvasGraphicsBufferRecreate(canvas)) {
+        if (!PRIV__picoCanvasGraphicsBufferRecreate(canvas)) {
             if (canvas->logger)
                 canvas->logger("Failed to recreate graphics buffers on resize", canvas);
         }
@@ -826,18 +826,18 @@ static void __picoCanvasShellSurfaceConfigure(void *data, struct wl_shell_surfac
     }
 }
 
-static void __picoCanvasShellSurfacePopupDone(void *data, struct wl_shell_surface *shell_surface)
+static void PRIV__picoCanvasShellSurfacePopupDone(void *data, struct wl_shell_surface *shell_surface)
 {
     (void)data;
     (void)shell_surface;
 }
 
-static const struct wl_shell_surface_listener __picoCanvasShellSurfaceListener = {
-    __picoCanvasShellSurfacePing,
-    __picoCanvasShellSurfaceConfigure,
-    __picoCanvasShellSurfacePopupDone};
+static const struct wl_shell_surface_listener PRIV__picoCanvasShellSurfaceListener = {
+    PRIV__picoCanvasShellSurfacePing,
+    PRIV__picoCanvasShellSurfaceConfigure,
+    PRIV__picoCanvasShellSurfacePopupDone};
 
-static int __picoCanvasCreateSharedMemoryFile(off_t size)
+static int PRIV__picoCanvasCreateSharedMemoryFile(off_t size)
 {
     static const char template[] = "/picocanvas-shared-XXXXXX";
     const char *path;
@@ -872,12 +872,12 @@ static int __picoCanvasCreateSharedMemoryFile(off_t size)
     return fd;
 }
 
-static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(picoCanvas canvas, int32_t width, int32_t height, bool createBuffer)
+static PRIV__picoCanvasGraphicsBuffer PRIV__picoCanvasGraphicsBufferCreate(picoCanvas canvas, int32_t width, int32_t height, bool createBuffer)
 {
-    __picoCanvasGraphicsBuffer buffer = (__picoCanvasGraphicsBuffer)PICO_MALLOC(sizeof(__picoCanvasGraphicsBuffer_t));
+    PRIV__picoCanvasGraphicsBuffer buffer = (PRIV__picoCanvasGraphicsBuffer)PICO_MALLOC(sizeof(PRIV__picoCanvasGraphicsBuffer_t));
     if (!buffer)
         return NULL;
-    memset(buffer, 0, sizeof(__picoCanvasGraphicsBuffer_t));
+    memset(buffer, 0, sizeof(PRIV__picoCanvasGraphicsBuffer_t));
 
     buffer->width  = width;
     buffer->height = height;
@@ -886,7 +886,7 @@ static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(picoCanvas ca
         int32_t stride = width * 4;
         int32_t size   = stride * height;
 
-        int fd = __picoCanvasCreateSharedMemoryFile(size);
+        int fd = PRIV__picoCanvasCreateSharedMemoryFile(size);
         if (fd < 0) {
             PICO_FREE(buffer);
             return NULL;
@@ -921,7 +921,7 @@ static __picoCanvasGraphicsBuffer __picoCanvasGraphicsBufferCreate(picoCanvas ca
     return buffer;
 }
 
-static void __picoCanvasGraphicsBufferDestroy(__picoCanvasGraphicsBuffer buffer)
+static void PRIV__picoCanvasGraphicsBufferDestroy(PRIV__picoCanvasGraphicsBuffer buffer)
 {
     if (buffer->buffer) {
         wl_buffer_destroy(buffer->buffer);
@@ -933,15 +933,15 @@ static void __picoCanvasGraphicsBufferDestroy(__picoCanvasGraphicsBuffer buffer)
     PICO_FREE(buffer);
 }
 
-static bool __picoCanvasGraphicsBufferRecreate(picoCanvas canvas)
+static bool PRIV__picoCanvasGraphicsBufferRecreate(picoCanvas canvas)
 {
     if (canvas->frontBuffer)
-        __picoCanvasGraphicsBufferDestroy(canvas->frontBuffer);
+        PRIV__picoCanvasGraphicsBufferDestroy(canvas->frontBuffer);
     if (canvas->backBuffer)
-        __picoCanvasGraphicsBufferDestroy(canvas->backBuffer);
+        PRIV__picoCanvasGraphicsBufferDestroy(canvas->backBuffer);
 
-    canvas->frontBuffer = __picoCanvasGraphicsBufferCreate(canvas, canvas->width, canvas->height, true);
-    canvas->backBuffer  = __picoCanvasGraphicsBufferCreate(canvas, canvas->width, canvas->height, false);
+    canvas->frontBuffer = PRIV__picoCanvasGraphicsBufferCreate(canvas, canvas->width, canvas->height, true);
+    canvas->backBuffer  = PRIV__picoCanvasGraphicsBufferCreate(canvas, canvas->width, canvas->height, false);
 
     return canvas->frontBuffer && canvas->backBuffer;
 }
@@ -977,7 +977,7 @@ picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, pic
     }
 
     canvas->registry = wl_display_get_registry(canvas->display);
-    wl_registry_add_listener(canvas->registry, &__picoCanvasRegistryListener, canvas);
+    wl_registry_add_listener(canvas->registry, &PRIV__picoCanvasRegistryListener, canvas);
     wl_display_dispatch(canvas->display);
     wl_display_roundtrip(canvas->display);
 
@@ -1008,11 +1008,11 @@ picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, pic
         return NULL;
     }
 
-    wl_shell_surface_add_listener(canvas->shell_surface, &__picoCanvasShellSurfaceListener, canvas);
+    wl_shell_surface_add_listener(canvas->shell_surface, &PRIV__picoCanvasShellSurfaceListener, canvas);
     wl_shell_surface_set_toplevel(canvas->shell_surface);
     wl_shell_surface_set_title(canvas->shell_surface, name ? name : "PicoCanvas");
 
-    if (!__picoCanvasGraphicsBufferRecreate(canvas)) {
+    if (!PRIV__picoCanvasGraphicsBufferRecreate(canvas)) {
         if (canvas->logger)
             canvas->logger("Failed to create graphics buffers", canvas);
         wl_shell_surface_destroy(canvas->shell_surface);
@@ -1030,9 +1030,9 @@ picoCanvas picoCanvasCreate(const char *name, int32_t width, int32_t height, pic
 void picoCanvasDestroy(picoCanvas canvas)
 {
     if (canvas->frontBuffer)
-        __picoCanvasGraphicsBufferDestroy(canvas->frontBuffer);
+        PRIV__picoCanvasGraphicsBufferDestroy(canvas->frontBuffer);
     if (canvas->backBuffer)
-        __picoCanvasGraphicsBufferDestroy(canvas->backBuffer);
+        PRIV__picoCanvasGraphicsBufferDestroy(canvas->backBuffer);
     if (canvas->shell_surface)
         wl_shell_surface_destroy(canvas->shell_surface);
     if (canvas->surface)
@@ -1099,7 +1099,7 @@ void picoCanvasSetSize(picoCanvas canvas, int32_t width, int32_t height)
 
     canvas->width  = width;
     canvas->height = height;
-    if (!__picoCanvasGraphicsBufferRecreate(canvas)) {
+    if (!PRIV__picoCanvasGraphicsBufferRecreate(canvas)) {
         if (canvas->logger)
             canvas->logger("Failed to recreate graphics buffers on size change", canvas);
     }

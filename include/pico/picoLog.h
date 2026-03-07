@@ -242,9 +242,9 @@ typedef struct
 } picoLogEntry_t;
 typedef picoLogEntry_t *picoLogEntry;
 
-picoLogContext __picoLogGlobalContext = NULL;
+picoLogContext PRIV__picoLogGlobalContext = NULL;
 
-static picoLogTimeStamp __picoLogGetCurrentTimestamp(void)
+static picoLogTimeStamp PRIV__picoLogGetCurrentTimestamp(void)
 {
     static picoLogTimeStamp_t timestamp = {0};
 #if defined(_WIN32) || defined(_WIN64)
@@ -274,70 +274,70 @@ static picoLogTimeStamp __picoLogGetCurrentTimestamp(void)
     return &timestamp;
 }
 
-static picoLogLevel __picoLogGetCurrentLevel(void)
+static picoLogLevel PRIV__picoLogGetCurrentLevel(void)
 {
-    if (__picoLogGlobalContext == NULL || __picoLogGlobalContext->levelStackTop == 0) {
+    if (PRIV__picoLogGlobalContext == NULL || PRIV__picoLogGlobalContext->levelStackTop == 0) {
         return PICO_LOG_LEVEL_NONE;
     }
-    return __picoLogGlobalContext->levelStack[__picoLogGlobalContext->levelStackTop - 1];
+    return PRIV__picoLogGlobalContext->levelStack[PRIV__picoLogGlobalContext->levelStackTop - 1];
 }
 
-static const char *__picoLogGetCurrentTagFilter(void)
+static const char *PRIV__picoLogGetCurrentTagFilter(void)
 {
-    if (__picoLogGlobalContext == NULL || __picoLogGlobalContext->tagFilterStackTop == 0) {
+    if (PRIV__picoLogGlobalContext == NULL || PRIV__picoLogGlobalContext->tagFilterStackTop == 0) {
         return "";
     }
-    return __picoLogGlobalContext->tagFilterStack[__picoLogGlobalContext->tagFilterStackTop - 1];
+    return PRIV__picoLogGlobalContext->tagFilterStack[PRIV__picoLogGlobalContext->tagFilterStackTop - 1];
 }
 
-static picoLogTarget __picoLogGetCurrentTarget(void)
+static picoLogTarget PRIV__picoLogGetCurrentTarget(void)
 {
-    if (__picoLogGlobalContext == NULL || __picoLogGlobalContext->targetStackTop == 0) {
+    if (PRIV__picoLogGlobalContext == NULL || PRIV__picoLogGlobalContext->targetStackTop == 0) {
         return PICO_LOG_TARGET_CONSOLE;
     }
-    return __picoLogGlobalContext->targetStack[__picoLogGlobalContext->targetStackTop - 1];
+    return PRIV__picoLogGlobalContext->targetStack[PRIV__picoLogGlobalContext->targetStackTop - 1];
 }
 
-static picoLogFormat __picoLogGetCurrentFormat(void)
+static picoLogFormat PRIV__picoLogGetCurrentFormat(void)
 {
-    if (__picoLogGlobalContext == NULL || __picoLogGlobalContext->formatStackTop == 0) {
+    if (PRIV__picoLogGlobalContext == NULL || PRIV__picoLogGlobalContext->formatStackTop == 0) {
         return PICO_LOG_FORMAT_DEFAULT;
     }
-    return __picoLogGlobalContext->formatStack[__picoLogGlobalContext->formatStackTop - 1];
+    return PRIV__picoLogGlobalContext->formatStack[PRIV__picoLogGlobalContext->formatStackTop - 1];
 }
 
-static void __picoLogDispatchToCustomLoggers(picoLogEntry entry)
+static void PRIV__picoLogDispatchToCustomLoggers(picoLogEntry entry)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         return;
     }
 
-    if (!(__picoLogGetCurrentTarget() & PICO_LOG_TARGET_CUSTOM)) {
+    if (!(PRIV__picoLogGetCurrentTarget() & PICO_LOG_TARGET_CUSTOM)) {
         return;
     }
 
-    for (uint32_t i = 0; i < __picoLogGlobalContext->customLoggerStackTop; i++) {
-        picoLogCustomLogger logger = __picoLogGlobalContext->customLoggerStack[i];
-        void *userData             = __picoLogGlobalContext->customLoggerUserDataStack[i];
+    for (uint32_t i = 0; i < PRIV__picoLogGlobalContext->customLoggerStackTop; i++) {
+        picoLogCustomLogger logger = PRIV__picoLogGlobalContext->customLoggerStack[i];
+        void *userData             = PRIV__picoLogGlobalContext->customLoggerUserDataStack[i];
         if (logger != NULL) {
             logger(entry->level, entry->tag, entry->message, entry->location, entry->timestamp, userData);
         }
     }
 }
 
-static void __picoLogDispatchToFileLoggers(picoLogEntry entry)
+static void PRIV__picoLogDispatchToFileLoggers(picoLogEntry entry)
 {
     // loop through all file loggers and write the log entry to each file
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         return;
     }
 
-    if (!(__picoLogGetCurrentTarget() & PICO_LOG_TARGET_FILE)) {
+    if (!(PRIV__picoLogGetCurrentTarget() & PICO_LOG_TARGET_FILE)) {
         return;
     }
 
-    for (uint32_t i = 0; i < __picoLogGlobalContext->logFilesStackTop; i++) {
-        const char *filePath = __picoLogGlobalContext->logFilePaths[i];
+    for (uint32_t i = 0; i < PRIV__picoLogGlobalContext->logFilesStackTop; i++) {
+        const char *filePath = PRIV__picoLogGlobalContext->logFilePaths[i];
         if (filePath[0] == '\0') {
             continue;
         }
@@ -351,13 +351,13 @@ static void __picoLogDispatchToFileLoggers(picoLogEntry entry)
     }
 }
 
-static void __picoLogDispatchToConsoleLoggers(picoLogEntry entry)
+static void PRIV__picoLogDispatchToConsoleLoggers(picoLogEntry entry)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         return;
     }
 
-    if (!(__picoLogGetCurrentTarget() & PICO_LOG_TARGET_CONSOLE)) {
+    if (!(PRIV__picoLogGetCurrentTarget() & PICO_LOG_TARGET_CONSOLE)) {
         return;
     }
 
@@ -435,10 +435,10 @@ static void __picoLogDispatchToConsoleLoggers(picoLogEntry entry)
 #endif
 }
 
-static const char *__picoLogFormatMessage(picoLogEntry entry)
+static const char *PRIV__picoLogFormatMessage(picoLogEntry entry)
 {
     static char formattedMessage[PICO_LOG_MAX_MESSAGE_LENGTH * 2] = {0};
-    picoLogFormat format                                          = __picoLogGetCurrentFormat();
+    picoLogFormat format                                          = PRIV__picoLogGetCurrentFormat();
     switch (format) {
         case PICO_LOG_FORMAT_DEFAULT:
             snprintf(formattedMessage, sizeof(formattedMessage), "[%04u-%02u-%02u %02u:%02u:%02u.%03u] [%s] [%s:%u]: %s",
@@ -492,261 +492,261 @@ static const char *__picoLogFormatMessage(picoLogEntry entry)
 
 bool picoLogContextCreate(void)
 {
-    if (__picoLogGlobalContext != NULL) {
+    if (PRIV__picoLogGlobalContext != NULL) {
         PICO_WARN("picoLogContextCreate called but context already exists");
         return true;
     }
-    __picoLogGlobalContext = (picoLogContext)PICO_MALLOC(sizeof(picoLogContext_t));
-    if (__picoLogGlobalContext == NULL) {
+    PRIV__picoLogGlobalContext = (picoLogContext)PICO_MALLOC(sizeof(picoLogContext_t));
+    if (PRIV__picoLogGlobalContext == NULL) {
         return false;
     }
-    memset(__picoLogGlobalContext, 0, sizeof(picoLogContext_t));
+    memset(PRIV__picoLogGlobalContext, 0, sizeof(picoLogContext_t));
 
     // Initialize stacks
-    __picoLogGlobalContext->levelStack[0] = PICO_LOG_LEVEL_ALL;
-    __picoLogGlobalContext->levelStackTop = 1;
+    PRIV__picoLogGlobalContext->levelStack[0] = PICO_LOG_LEVEL_ALL;
+    PRIV__picoLogGlobalContext->levelStackTop = 1;
 
-    __picoLogGlobalContext->tagFilterStack[0][0] = '\0'; // Empty string means no filter
-    __picoLogGlobalContext->tagFilterStackTop    = 1;
+    PRIV__picoLogGlobalContext->tagFilterStack[0][0] = '\0'; // Empty string means no filter
+    PRIV__picoLogGlobalContext->tagFilterStackTop    = 1;
 
-    __picoLogGlobalContext->targetStack[0] = PICO_LOG_TARGET_CONSOLE;
-    __picoLogGlobalContext->targetStackTop = 1;
+    PRIV__picoLogGlobalContext->targetStack[0] = PICO_LOG_TARGET_CONSOLE;
+    PRIV__picoLogGlobalContext->targetStackTop = 1;
 
-    __picoLogGlobalContext->formatStack[0] = PICO_LOG_FORMAT_DEFAULT;
-    __picoLogGlobalContext->formatStackTop = 1;
+    PRIV__picoLogGlobalContext->formatStack[0] = PICO_LOG_FORMAT_DEFAULT;
+    PRIV__picoLogGlobalContext->formatStackTop = 1;
 
-    PICO_LOG_INIT_MUTEX(__picoLogGlobalContext->mutex);
+    PICO_LOG_INIT_MUTEX(PRIV__picoLogGlobalContext->mutex);
 
     return true;
 }
 
 void picoLogShutdown(void)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogShutdown called but context is NULL");
         return;
     }
 
-    PICO_LOG_DESTROY_MUTEX(__picoLogGlobalContext->mutex);
+    PICO_LOG_DESTROY_MUTEX(PRIV__picoLogGlobalContext->mutex);
 
-    PICO_FREE(__picoLogGlobalContext);
-    __picoLogGlobalContext = NULL;
+    PICO_FREE(PRIV__picoLogGlobalContext);
+    PRIV__picoLogGlobalContext = NULL;
 }
 
 picoLogContext picoLogGetContext(void)
 {
-    return __picoLogGlobalContext;
+    return PRIV__picoLogGlobalContext;
 }
 
 void picoLogSetContext(picoLogContext context)
 {
-    if (__picoLogGlobalContext != NULL) {
+    if (PRIV__picoLogGlobalContext != NULL) {
         PICO_WARN("picoLogSetContext called but context already exists");
         return;
     }
 
-    __picoLogGlobalContext = context;
+    PRIV__picoLogGlobalContext = context;
 }
 
 void picoLogPushLevel(picoLogLevel level)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPushLevel called but context is NULL");
         return;
     }
-    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
-    if (__picoLogGlobalContext->levelStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
+    PICO_LOG_BEGIN_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
+    if (PRIV__picoLogGlobalContext->levelStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
         PICO_ERROR("picoLogPushLevel stack overflow");
-        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+        PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
         return;
     }
-    __picoLogGlobalContext->levelStack[__picoLogGlobalContext->levelStackTop++] = level;
-    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+    PRIV__picoLogGlobalContext->levelStack[PRIV__picoLogGlobalContext->levelStackTop++] = level;
+    PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
 }
 
 void picoLogPopLevel(void)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPopLevel called but context is NULL");
         return;
     }
-    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
-    if (__picoLogGlobalContext->levelStackTop == 0) {
+    PICO_LOG_BEGIN_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
+    if (PRIV__picoLogGlobalContext->levelStackTop == 0) {
         PICO_ERROR("picoLogPopLevel stack underflow");
-        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+        PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
         return;
     }
-    __picoLogGlobalContext->levelStackTop--;
-    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+    PRIV__picoLogGlobalContext->levelStackTop--;
+    PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
 }
 
 void picoLogPushTagFilter(const char *tags)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPushTagFilter called but context is NULL");
         return;
     }
-    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
-    if (__picoLogGlobalContext->tagFilterStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
+    PICO_LOG_BEGIN_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
+    if (PRIV__picoLogGlobalContext->tagFilterStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
         PICO_ERROR("picoLogPushTagFilter stack overflow");
-        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+        PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
         return;
     }
-    strncpy(__picoLogGlobalContext->tagFilterStack[__picoLogGlobalContext->tagFilterStackTop++], tags, 255);
-    __picoLogGlobalContext->tagFilterStack[__picoLogGlobalContext->tagFilterStackTop - 1][255] = '\0';
-    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+    strncpy(PRIV__picoLogGlobalContext->tagFilterStack[PRIV__picoLogGlobalContext->tagFilterStackTop++], tags, 255);
+    PRIV__picoLogGlobalContext->tagFilterStack[PRIV__picoLogGlobalContext->tagFilterStackTop - 1][255] = '\0';
+    PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
 }
 
 void picoLogPopTagFilter(void)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPopTagFilter called but context is NULL");
         return;
     }
-    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
-    if (__picoLogGlobalContext->tagFilterStackTop == 0) {
+    PICO_LOG_BEGIN_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
+    if (PRIV__picoLogGlobalContext->tagFilterStackTop == 0) {
         PICO_ERROR("picoLogPopTagFilter stack underflow");
-        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+        PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
         return;
     }
-    __picoLogGlobalContext->tagFilterStackTop--;
-    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+    PRIV__picoLogGlobalContext->tagFilterStackTop--;
+    PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
 }
 
 void picoLogPushTarget(picoLogTarget target)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPushTarget called but context is NULL");
         return;
     }
-    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
-    if (__picoLogGlobalContext->targetStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
+    PICO_LOG_BEGIN_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
+    if (PRIV__picoLogGlobalContext->targetStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
         PICO_ERROR("picoLogPushTarget stack overflow");
-        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+        PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
         return;
     }
-    __picoLogGlobalContext->targetStack[__picoLogGlobalContext->targetStackTop++] = target;
-    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+    PRIV__picoLogGlobalContext->targetStack[PRIV__picoLogGlobalContext->targetStackTop++] = target;
+    PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
 }
 
 void picoLogPopTarget(void)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPopTarget called but context is NULL");
         return;
     }
-    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
-    if (__picoLogGlobalContext->targetStackTop == 0) {
+    PICO_LOG_BEGIN_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
+    if (PRIV__picoLogGlobalContext->targetStackTop == 0) {
         PICO_ERROR("picoLogPopTarget stack underflow");
-        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+        PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
         return;
     }
-    __picoLogGlobalContext->targetStackTop--;
-    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+    PRIV__picoLogGlobalContext->targetStackTop--;
+    PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
 }
 
 void picoLogPushFormat(picoLogFormat format)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPushFormat called but context is NULL");
         return;
     }
-    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
-    if (__picoLogGlobalContext->formatStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
+    PICO_LOG_BEGIN_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
+    if (PRIV__picoLogGlobalContext->formatStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
         PICO_ERROR("picoLogPushFormat stack overflow");
-        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+        PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
         return;
     }
-    __picoLogGlobalContext->formatStack[__picoLogGlobalContext->formatStackTop++] = format;
-    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+    PRIV__picoLogGlobalContext->formatStack[PRIV__picoLogGlobalContext->formatStackTop++] = format;
+    PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
 }
 
 void picoLogPopFormat(void)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPopFormat called but context is NULL");
         return;
     }
-    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
-    if (__picoLogGlobalContext->formatStackTop == 0) {
+    PICO_LOG_BEGIN_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
+    if (PRIV__picoLogGlobalContext->formatStackTop == 0) {
         PICO_ERROR("picoLogPopFormat stack underflow");
-        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+        PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
         return;
     }
-    __picoLogGlobalContext->formatStackTop--;
-    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+    PRIV__picoLogGlobalContext->formatStackTop--;
+    PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
 }
 
 void picoLogPushCustomLogger(picoLogCustomLogger logger, void *userData)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPushCustomLogger called but context is NULL");
         return;
     }
-    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
-    if (__picoLogGlobalContext->customLoggerStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
+    PICO_LOG_BEGIN_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
+    if (PRIV__picoLogGlobalContext->customLoggerStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
         PICO_ERROR("picoLogPushCustomLogger stack overflow");
-        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+        PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
         return;
     }
-    __picoLogGlobalContext->customLoggerStack[__picoLogGlobalContext->customLoggerStackTop]         = logger;
-    __picoLogGlobalContext->customLoggerUserDataStack[__picoLogGlobalContext->customLoggerStackTop] = userData;
-    __picoLogGlobalContext->customLoggerStackTop++;
-    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+    PRIV__picoLogGlobalContext->customLoggerStack[PRIV__picoLogGlobalContext->customLoggerStackTop]         = logger;
+    PRIV__picoLogGlobalContext->customLoggerUserDataStack[PRIV__picoLogGlobalContext->customLoggerStackTop] = userData;
+    PRIV__picoLogGlobalContext->customLoggerStackTop++;
+    PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
 }
 
 void picoLogPopCustomLogger(void)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPopCustomLogger called but context is NULL");
         return;
     }
-    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
-    if (__picoLogGlobalContext->customLoggerStackTop == 0) {
+    PICO_LOG_BEGIN_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
+    if (PRIV__picoLogGlobalContext->customLoggerStackTop == 0) {
         PICO_ERROR("picoLogPopCustomLogger stack underflow");
-        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+        PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
         return;
     }
-    __picoLogGlobalContext->customLoggerStackTop--;
-    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+    PRIV__picoLogGlobalContext->customLoggerStackTop--;
+    PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
 }
 
 void picoLogPushFileLogger(const char *filePath)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPushFileLogger called but context is NULL");
         return;
     }
-    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
-    if (__picoLogGlobalContext->logFilesStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
+    PICO_LOG_BEGIN_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
+    if (PRIV__picoLogGlobalContext->logFilesStackTop >= PICO_LOG_CONFIG_STACK_SIZE) {
         PICO_ERROR("picoLogPushFileLogger stack overflow");
-        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+        PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
         return;
     }
-    strncpy(__picoLogGlobalContext->logFilePaths[__picoLogGlobalContext->logFilesStackTop++], filePath, PICO_LOG_MAX_PATH - 1);
-    __picoLogGlobalContext->logFilePaths[__picoLogGlobalContext->logFilesStackTop - 1][PICO_LOG_MAX_PATH - 1] = '\0';
-    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+    strncpy(PRIV__picoLogGlobalContext->logFilePaths[PRIV__picoLogGlobalContext->logFilesStackTop++], filePath, PICO_LOG_MAX_PATH - 1);
+    PRIV__picoLogGlobalContext->logFilePaths[PRIV__picoLogGlobalContext->logFilesStackTop - 1][PICO_LOG_MAX_PATH - 1] = '\0';
+    PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
 }
 
 void picoLogPopFileLogger(void)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPopFileLogger called but context is NULL");
         return;
     }
-    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
-    if (__picoLogGlobalContext->logFilesStackTop == 0) {
+    PICO_LOG_BEGIN_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
+    if (PRIV__picoLogGlobalContext->logFilesStackTop == 0) {
         PICO_ERROR("picoLogPopFileLogger stack underflow");
-        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+        PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
         return;
     }
-    __picoLogGlobalContext->logFilesStackTop--;
-    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+    PRIV__picoLogGlobalContext->logFilesStackTop--;
+    PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
 }
 
 void picoLogPushFromEnvironment(void)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         PICO_WARN("picoLogPushFromEnvironment called but context is NULL");
         return;
     }
@@ -783,22 +783,22 @@ void picoLogPushFromEnvironment(void)
 
 void picoLog(picoLogLevel level, const char *tag, const char *file, const char *function, uint32_t line, const char *format, ...)
 {
-    if (__picoLogGlobalContext == NULL) {
+    if (PRIV__picoLogGlobalContext == NULL) {
         return;
     }
 
-    PICO_LOG_BEGIN_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+    PICO_LOG_BEGIN_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
 
     static char messageBuffer[PICO_LOG_MAX_MESSAGE_LENGTH];
 
-    if (!(level & __picoLogGetCurrentLevel())) {
-        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+    if (!(level & PRIV__picoLogGetCurrentLevel())) {
+        PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
         return;
     }
 
-    const char *currentTagFilter = __picoLogGetCurrentTagFilter();
+    const char *currentTagFilter = PRIV__picoLogGetCurrentTagFilter();
     if (currentTagFilter[0] != '\0' && tag != NULL && strstr(currentTagFilter, tag) == NULL) {
-        PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+        PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
         return;
     }
 
@@ -813,17 +813,17 @@ void picoLog(picoLogLevel level, const char *tag, const char *file, const char *
     entry.message                  = messageBuffer;
     picoLogCodeLocation_t location = {file, function, line};
     entry.location                 = &location;
-    entry.timestamp                = __picoLogGetCurrentTimestamp();
-    entry.message                  = __picoLogFormatMessage(&entry);
+    entry.timestamp                = PRIV__picoLogGetCurrentTimestamp();
+    entry.message                  = PRIV__picoLogFormatMessage(&entry);
 
-    __picoLogDispatchToCustomLoggers(&entry);
-    __picoLogDispatchToFileLoggers(&entry);
-    __picoLogDispatchToConsoleLoggers(&entry);
+    PRIV__picoLogDispatchToCustomLoggers(&entry);
+    PRIV__picoLogDispatchToFileLoggers(&entry);
+    PRIV__picoLogDispatchToConsoleLoggers(&entry);
 
     // Clear message buffer for next use
     messageBuffer[0] = '\0';
 
-    PICO_LOG_END_CRITICAL_SECTION(__picoLogGlobalContext->mutex);
+    PICO_LOG_END_CRITICAL_SECTION(PRIV__picoLogGlobalContext->mutex);
 }
 
 const char *picoLogLevelToString(picoLogLevel level)

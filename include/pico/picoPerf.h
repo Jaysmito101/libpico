@@ -157,43 +157,43 @@ typedef struct {
     char file[PICO_PERF_MAX_PATH];
     char function[PICO_PERF_MAX_PATH];
     uint32_t line;
-} __picoPerfRecordLocation_t;
+} PRIV__picoPerfRecordLocation_t;
 
 typedef struct {
     char name[PICO_PERF_MAX_NAME_LENGTH];
     char parentName[PICO_PERF_MAX_NAME_LENGTH];
     picoPerfTime startTime;
     picoPerfTime endTime;
-    __picoPerfRecordLocation_t startLocation;
-    __picoPerfRecordLocation_t endLocation;
+    PRIV__picoPerfRecordLocation_t startLocation;
+    PRIV__picoPerfRecordLocation_t endLocation;
     picoPerfTimeStamp startTimestamp;
     picoPerfTimeStamp endTimestamp;
     int scopeDepth;
-} __picoPerfRecordItem_t;
+} PRIV__picoPerfRecordItem_t;
 
 typedef struct {
     picoPerfTime startTime;
     picoPerfTime endTime;
-    __picoPerfRecordItem_t items[PICO_PERF_MAX_SCOPES];
+    PRIV__picoPerfRecordItem_t items[PICO_PERF_MAX_SCOPES];
     size_t itemCount;
-} __picoPerfRecord_t;
-typedef __picoPerfRecord_t *__picoPerfRecord;
+} PRIV__picoPerfRecord_t;
+typedef PRIV__picoPerfRecord_t *PRIV__picoPerfRecord;
 
 struct picoPerfContext_t {
-    __picoPerfRecord records;
+    PRIV__picoPerfRecord records;
     size_t recordHead;
     size_t recordCount;
 
-    __picoPerfRecord_t currentRecord;
-    __picoPerfRecordItem_t scopeStack[PICO_PERF_MAX_SCOPES];
+    PRIV__picoPerfRecord_t currentRecord;
+    PRIV__picoPerfRecordItem_t scopeStack[PICO_PERF_MAX_SCOPES];
     int scopeStackTop;
 
     bool recording;
 };
 
-static picoPerfContext __picoPerfGlobalContext = NULL;
+static picoPerfContext PRIV__picoPerfGlobalContext = NULL;
 
-static const char *__picoPerfEscapeString(const char *str)
+static const char *PRIV__picoPerfEscapeString(const char *str)
 {
     static char escaped[PICO_PERF_MAX_NAME_LENGTH * 2];
     size_t j = 0;
@@ -220,22 +220,22 @@ static const char *__picoPerfEscapeString(const char *str)
     return escaped;
 }
 
-static void __picoPerfGetReportText(FILE *output)
+static void PRIV__picoPerfGetReportText(FILE *output)
 {
-    if (!__picoPerfGlobalContext || !output) {
+    if (!PRIV__picoPerfGlobalContext || !output) {
         return;
     }
 
     fprintf(output, "picoPerf Performance Report\n");
-    fprintf(output, "Total Records: %zu\n", __picoPerfGlobalContext->recordCount);
+    fprintf(output, "Total Records: %zu\n", PRIV__picoPerfGlobalContext->recordCount);
 
-    for (size_t recordIdx = 0; recordIdx < __picoPerfGlobalContext->recordCount; recordIdx++) {
-        __picoPerfRecord_t *record = &__picoPerfGlobalContext->records[recordIdx];
+    for (size_t recordIdx = 0; recordIdx < PRIV__picoPerfGlobalContext->recordCount; recordIdx++) {
+        PRIV__picoPerfRecord_t *record = &PRIV__picoPerfGlobalContext->records[recordIdx];
         fprintf(output, "--- Record %zu ---\n", recordIdx + 1);
         fprintf(output, "Items: %zu\n\n", record->itemCount);
 
         for (size_t itemIdx = 0; itemIdx < record->itemCount; itemIdx++) {
-            __picoPerfRecordItem_t *item = &record->items[itemIdx];
+            PRIV__picoPerfRecordItem_t *item = &record->items[itemIdx];
 
             for (int i = 0; i < item->scopeDepth; i++) {
                 fprintf(output, "  ");
@@ -275,9 +275,9 @@ static void __picoPerfGetReportText(FILE *output)
     }
 }
 
-static void __picoPerfGetReportCSV(FILE *output)
+static void PRIV__picoPerfGetReportCSV(FILE *output)
 {
-    if (!__picoPerfGlobalContext || !output) {
+    if (!PRIV__picoPerfGlobalContext || !output) {
         return;
     }
 
@@ -285,11 +285,11 @@ static void __picoPerfGetReportCSV(FILE *output)
     fprintf(output, "StartFile,StartFunction,StartLine,StartTimestamp,");
     fprintf(output, "EndFile,EndFunction,EndLine,EndTimestamp\n");
 
-    for (size_t recordIdx = 0; recordIdx < __picoPerfGlobalContext->recordCount; recordIdx++) {
-        __picoPerfRecord_t *record = &__picoPerfGlobalContext->records[recordIdx];
+    for (size_t recordIdx = 0; recordIdx < PRIV__picoPerfGlobalContext->recordCount; recordIdx++) {
+        PRIV__picoPerfRecord_t *record = &PRIV__picoPerfGlobalContext->records[recordIdx];
 
         for (size_t itemIdx = 0; itemIdx < record->itemCount; itemIdx++) {
-            __picoPerfRecordItem_t *item = &record->items[itemIdx];
+            PRIV__picoPerfRecordItem_t *item = &record->items[itemIdx];
 
             double durationSec = picoPerfDurationSeconds(item->startTime, item->endTime);
             double durationMs  = picoPerfDurationMilliseconds(item->startTime, item->endTime);
@@ -297,18 +297,18 @@ static void __picoPerfGetReportCSV(FILE *output)
             double durationNs  = picoPerfDurationNanoseconds(item->startTime, item->endTime);
 
             fprintf(output, "%zu,%zu,\"%s\",\"%s\",%d,%llu,%llu,%.9f,%.6f,%.3f,%.0f,",
-                    recordIdx, itemIdx, __picoPerfEscapeString(item->name), __picoPerfEscapeString(item->parentName), item->scopeDepth,
+                    recordIdx, itemIdx, PRIV__picoPerfEscapeString(item->name), PRIV__picoPerfEscapeString(item->parentName), item->scopeDepth,
                     (unsigned long long)item->startTime, (unsigned long long)item->endTime,
                     durationSec, durationMs, durationUs, durationNs);
 
             fprintf(output, "\"%s\",\"%s\",%u,\"%04u-%02u-%02u %02u:%02u:%02u.%03u\",",
-                    __picoPerfEscapeString(item->startLocation.file), __picoPerfEscapeString(item->startLocation.function), item->startLocation.line,
+                    PRIV__picoPerfEscapeString(item->startLocation.file), PRIV__picoPerfEscapeString(item->startLocation.function), item->startLocation.line,
                     item->startTimestamp.year, item->startTimestamp.month, item->startTimestamp.day,
                     item->startTimestamp.hour, item->startTimestamp.minute, item->startTimestamp.second,
                     item->startTimestamp.millisecond);
 
             fprintf(output, "\"%s\",\"%s\",%u,\"%04u-%02u-%02u %02u:%02u:%02u.%03u\"\n",
-                    __picoPerfEscapeString(item->endLocation.file), __picoPerfEscapeString(item->endLocation.function), item->endLocation.line,
+                    PRIV__picoPerfEscapeString(item->endLocation.file), PRIV__picoPerfEscapeString(item->endLocation.function), item->endLocation.line,
                     item->endTimestamp.year, item->endTimestamp.month, item->endTimestamp.day,
                     item->endTimestamp.hour, item->endTimestamp.minute, item->endTimestamp.second,
                     item->endTimestamp.millisecond);
@@ -316,18 +316,18 @@ static void __picoPerfGetReportCSV(FILE *output)
     }
 }
 
-static void __picoPerfGetReportJSON(FILE *output)
+static void PRIV__picoPerfGetReportJSON(FILE *output)
 {
-    if (!__picoPerfGlobalContext || !output) {
+    if (!PRIV__picoPerfGlobalContext || !output) {
         return;
     }
 
     fprintf(output, "{\n");
-    fprintf(output, "  \"totalRecords\": %zu,\n", __picoPerfGlobalContext->recordCount);
+    fprintf(output, "  \"totalRecords\": %zu,\n", PRIV__picoPerfGlobalContext->recordCount);
     fprintf(output, "  \"records\": [\n");
 
-    for (size_t recordIdx = 0; recordIdx < __picoPerfGlobalContext->recordCount; recordIdx++) {
-        __picoPerfRecord_t *record = &__picoPerfGlobalContext->records[recordIdx];
+    for (size_t recordIdx = 0; recordIdx < PRIV__picoPerfGlobalContext->recordCount; recordIdx++) {
+        PRIV__picoPerfRecord_t *record = &PRIV__picoPerfGlobalContext->records[recordIdx];
 
         fprintf(output, "    {\n");
         fprintf(output, "      \"recordIndex\": %zu,\n", recordIdx);
@@ -335,7 +335,7 @@ static void __picoPerfGetReportJSON(FILE *output)
         fprintf(output, "      \"items\": [\n");
 
         for (size_t itemIdx = 0; itemIdx < record->itemCount; itemIdx++) {
-            __picoPerfRecordItem_t *item = &record->items[itemIdx];
+            PRIV__picoPerfRecordItem_t *item = &record->items[itemIdx];
 
             double durationSec = picoPerfDurationSeconds(item->startTime, item->endTime);
             double durationMs  = picoPerfDurationMilliseconds(item->startTime, item->endTime);
@@ -344,8 +344,8 @@ static void __picoPerfGetReportJSON(FILE *output)
 
             fprintf(output, "        {\n");
             fprintf(output, "          \"itemIndex\": %zu,\n", itemIdx);
-            fprintf(output, "          \"name\": \"%s\",\n", __picoPerfEscapeString(item->name));
-            fprintf(output, "          \"parentName\": \"%s\",\n", __picoPerfEscapeString(item->parentName));
+            fprintf(output, "          \"name\": \"%s\",\n", PRIV__picoPerfEscapeString(item->name));
+            fprintf(output, "          \"parentName\": \"%s\",\n", PRIV__picoPerfEscapeString(item->parentName));
             fprintf(output, "          \"scopeDepth\": %d,\n", item->scopeDepth);
             fprintf(output, "          \"startTime\": %llu,\n", (unsigned long long)item->startTime);
             fprintf(output, "          \"endTime\": %llu,\n", (unsigned long long)item->endTime);
@@ -356,8 +356,8 @@ static void __picoPerfGetReportJSON(FILE *output)
             fprintf(output, "            \"nanoseconds\": %.0f\n", durationNs);
             fprintf(output, "          },\n");
             fprintf(output, "          \"start\": {\n");
-            fprintf(output, "            \"file\": \"%s\",\n", __picoPerfEscapeString(item->startLocation.file));
-            fprintf(output, "            \"function\": \"%s\",\n", __picoPerfEscapeString(item->startLocation.function));
+            fprintf(output, "            \"file\": \"%s\",\n", PRIV__picoPerfEscapeString(item->startLocation.file));
+            fprintf(output, "            \"function\": \"%s\",\n", PRIV__picoPerfEscapeString(item->startLocation.function));
             fprintf(output, "            \"line\": %u,\n", item->startLocation.line);
             fprintf(output, "            \"timestamp\": \"%04u-%02u-%02u %02u:%02u:%02u.%03u\"\n",
                     item->startTimestamp.year, item->startTimestamp.month, item->startTimestamp.day,
@@ -365,8 +365,8 @@ static void __picoPerfGetReportJSON(FILE *output)
                     item->startTimestamp.millisecond);
             fprintf(output, "          },\n");
             fprintf(output, "          \"end\": {\n");
-            fprintf(output, "            \"file\": \"%s\",\n", __picoPerfEscapeString(item->endLocation.file));
-            fprintf(output, "            \"function\": \"%s\",\n", __picoPerfEscapeString(item->endLocation.function));
+            fprintf(output, "            \"file\": \"%s\",\n", PRIV__picoPerfEscapeString(item->endLocation.file));
+            fprintf(output, "            \"function\": \"%s\",\n", PRIV__picoPerfEscapeString(item->endLocation.function));
             fprintf(output, "            \"line\": %u,\n", item->endLocation.line);
             fprintf(output, "            \"timestamp\": \"%04u-%02u-%02u %02u:%02u:%02u.%03u\"\n",
                     item->endTimestamp.year, item->endTimestamp.month, item->endTimestamp.day,
@@ -377,35 +377,35 @@ static void __picoPerfGetReportJSON(FILE *output)
         }
 
         fprintf(output, "      ]\n");
-        fprintf(output, "    }%s\n", (recordIdx < __picoPerfGlobalContext->recordCount - 1) ? "," : "");
+        fprintf(output, "    }%s\n", (recordIdx < PRIV__picoPerfGlobalContext->recordCount - 1) ? "," : "");
     }
 
     fprintf(output, "  ]\n");
     fprintf(output, "}\n");
 }
 
-static void __picoPerfGetReportXML(FILE *output)
+static void PRIV__picoPerfGetReportXML(FILE *output)
 {
-    if (!__picoPerfGlobalContext || !output) {
+    if (!PRIV__picoPerfGlobalContext || !output) {
         return;
     }
 
     fprintf(output, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
     fprintf(output, "<PicoPerfReport>\n");
     fprintf(output, "  <Summary>\n");
-    fprintf(output, "    <TotalRecords>%zu</TotalRecords>\n", __picoPerfGlobalContext->recordCount);
+    fprintf(output, "    <TotalRecords>%zu</TotalRecords>\n", PRIV__picoPerfGlobalContext->recordCount);
     fprintf(output, "  </Summary>\n");
     fprintf(output, "  <Records>\n");
 
-    for (size_t recordIdx = 0; recordIdx < __picoPerfGlobalContext->recordCount; recordIdx++) {
-        __picoPerfRecord_t *record = &__picoPerfGlobalContext->records[recordIdx];
+    for (size_t recordIdx = 0; recordIdx < PRIV__picoPerfGlobalContext->recordCount; recordIdx++) {
+        PRIV__picoPerfRecord_t *record = &PRIV__picoPerfGlobalContext->records[recordIdx];
 
         fprintf(output, "    <Record index=\"%zu\">\n", recordIdx);
         fprintf(output, "      <ItemCount>%zu</ItemCount>\n", record->itemCount);
         fprintf(output, "      <Items>\n");
 
         for (size_t itemIdx = 0; itemIdx < record->itemCount; itemIdx++) {
-            __picoPerfRecordItem_t *item = &record->items[itemIdx];
+            PRIV__picoPerfRecordItem_t *item = &record->items[itemIdx];
 
             double durationSec = picoPerfDurationSeconds(item->startTime, item->endTime);
             double durationMs  = picoPerfDurationMilliseconds(item->startTime, item->endTime);
@@ -455,49 +455,49 @@ static void __picoPerfGetReportXML(FILE *output)
 
 bool picoPerfCreateContext(void)
 {
-    if (__picoPerfGlobalContext != NULL) {
+    if (PRIV__picoPerfGlobalContext != NULL) {
         return false;
     }
 
-    __picoPerfGlobalContext = (picoPerfContext)PICO_MALLOC(sizeof(picoPerfContext_t));
-    if (!__picoPerfGlobalContext) {
+    PRIV__picoPerfGlobalContext = (picoPerfContext)PICO_MALLOC(sizeof(picoPerfContext_t));
+    if (!PRIV__picoPerfGlobalContext) {
         return false;
     }
-    memset(__picoPerfGlobalContext, 0, sizeof(picoPerfContext_t));
+    memset(PRIV__picoPerfGlobalContext, 0, sizeof(picoPerfContext_t));
 
-    __picoPerfGlobalContext->records = (__picoPerfRecord)PICO_MALLOC(sizeof(__picoPerfRecord_t) * PICO_PERF_MAX_RECORDS);
-    if (!__picoPerfGlobalContext->records) {
-        PICO_FREE(__picoPerfGlobalContext);
-        __picoPerfGlobalContext = NULL;
+    PRIV__picoPerfGlobalContext->records = (PRIV__picoPerfRecord)PICO_MALLOC(sizeof(PRIV__picoPerfRecord_t) * PICO_PERF_MAX_RECORDS);
+    if (!PRIV__picoPerfGlobalContext->records) {
+        PICO_FREE(PRIV__picoPerfGlobalContext);
+        PRIV__picoPerfGlobalContext = NULL;
         return false;
     }
-    memset(__picoPerfGlobalContext->records, 0, sizeof(__picoPerfRecord_t) * PICO_PERF_MAX_RECORDS);
+    memset(PRIV__picoPerfGlobalContext->records, 0, sizeof(PRIV__picoPerfRecord_t) * PICO_PERF_MAX_RECORDS);
     return true;
 }
 
 void picoPerfDestroyContext(void)
 {
-    if (!__picoPerfGlobalContext) {
+    if (!PRIV__picoPerfGlobalContext) {
         return;
     }
 
-    PICO_FREE(__picoPerfGlobalContext->records);
-    PICO_FREE(__picoPerfGlobalContext);
-    __picoPerfGlobalContext = NULL;
+    PICO_FREE(PRIV__picoPerfGlobalContext->records);
+    PICO_FREE(PRIV__picoPerfGlobalContext);
+    PRIV__picoPerfGlobalContext = NULL;
 }
 
 picoPerfContext picoPerfGetContext(void)
 {
-    return __picoPerfGlobalContext;
+    return PRIV__picoPerfGlobalContext;
 }
 
 void picoPerfSetContext(picoPerfContext context)
 {
-    if (__picoPerfGlobalContext != NULL) {
+    if (PRIV__picoPerfGlobalContext != NULL) {
         return;
     }
 
-    __picoPerfGlobalContext = context;
+    PRIV__picoPerfGlobalContext = context;
 }
 
 picoPerfTimeStamp picoPerfGetCurrentTimestamp(void)
@@ -626,50 +626,50 @@ void picoPerfSleep(uint32_t milliseconds)
 
 bool picoPerfBeginRecord(void)
 {
-    if (!__picoPerfGlobalContext || __picoPerfGlobalContext->recording) {
+    if (!PRIV__picoPerfGlobalContext || PRIV__picoPerfGlobalContext->recording) {
         return false;
     }
 
-    if (__picoPerfGlobalContext->recordCount >= PICO_PERF_MAX_RECORDS) {
+    if (PRIV__picoPerfGlobalContext->recordCount >= PICO_PERF_MAX_RECORDS) {
         return false;
     }
 
-    __picoPerfGlobalContext->recording     = true;
-    __picoPerfGlobalContext->scopeStackTop = 0;
+    PRIV__picoPerfGlobalContext->recording     = true;
+    PRIV__picoPerfGlobalContext->scopeStackTop = 0;
 
-    memset(&__picoPerfGlobalContext->records[__picoPerfGlobalContext->recordHead], 0, sizeof(__picoPerfRecord_t));
-    memset(&__picoPerfGlobalContext->currentRecord, 0, sizeof(__picoPerfRecord_t));
+    memset(&PRIV__picoPerfGlobalContext->records[PRIV__picoPerfGlobalContext->recordHead], 0, sizeof(PRIV__picoPerfRecord_t));
+    memset(&PRIV__picoPerfGlobalContext->currentRecord, 0, sizeof(PRIV__picoPerfRecord_t));
 
     return true;
 }
 
 void picoPerfEndRecord(void)
 {
-    if (!__picoPerfGlobalContext || !__picoPerfGlobalContext->recording) {
+    if (!PRIV__picoPerfGlobalContext || !PRIV__picoPerfGlobalContext->recording) {
         return;
     }
 
-    __picoPerfGlobalContext->recording                                    = false;
-    __picoPerfGlobalContext->records[__picoPerfGlobalContext->recordHead] = __picoPerfGlobalContext->currentRecord;
-    __picoPerfGlobalContext->recordHead                                   = (__picoPerfGlobalContext->recordHead + 1) % PICO_PERF_MAX_RECORDS;
+    PRIV__picoPerfGlobalContext->recording                                    = false;
+    PRIV__picoPerfGlobalContext->records[PRIV__picoPerfGlobalContext->recordHead] = PRIV__picoPerfGlobalContext->currentRecord;
+    PRIV__picoPerfGlobalContext->recordHead                                   = (PRIV__picoPerfGlobalContext->recordHead + 1) % PICO_PERF_MAX_RECORDS;
 
-    if (__picoPerfGlobalContext->recordCount < PICO_PERF_MAX_RECORDS) {
-        __picoPerfGlobalContext->recordCount++;
+    if (PRIV__picoPerfGlobalContext->recordCount < PICO_PERF_MAX_RECORDS) {
+        PRIV__picoPerfGlobalContext->recordCount++;
     }
 }
 
 void picoPerfPushScope(const char *name, const char *file, const char *function, uint32_t line)
 {
-    if (!__picoPerfGlobalContext || !__picoPerfGlobalContext->recording) {
+    if (!PRIV__picoPerfGlobalContext || !PRIV__picoPerfGlobalContext->recording) {
         return;
     }
 
-    if (__picoPerfGlobalContext->scopeStackTop >= PICO_PERF_MAX_SCOPES) {
+    if (PRIV__picoPerfGlobalContext->scopeStackTop >= PICO_PERF_MAX_SCOPES) {
         return;
     }
 
-    __picoPerfRecordItem_t *item = &__picoPerfGlobalContext->scopeStack[__picoPerfGlobalContext->scopeStackTop];
-    memset(item, 0, sizeof(__picoPerfRecordItem_t));
+    PRIV__picoPerfRecordItem_t *item = &PRIV__picoPerfGlobalContext->scopeStack[PRIV__picoPerfGlobalContext->scopeStackTop];
+    memset(item, 0, sizeof(PRIV__picoPerfRecordItem_t));
 
     strncpy(item->name, name, PICO_PERF_MAX_NAME_LENGTH - 1);
     item->startTime          = picoPerfNow();
@@ -677,35 +677,35 @@ void picoPerfPushScope(const char *name, const char *file, const char *function,
     strncpy(item->startLocation.file, file ? file : "unknown", PICO_PERF_MAX_PATH - 1);
     strncpy(item->startLocation.function, function ? function : "unknown", PICO_PERF_MAX_PATH - 1);
     item->startTimestamp = picoPerfGetCurrentTimestamp();
-    item->scopeDepth     = __picoPerfGlobalContext->scopeStackTop;
+    item->scopeDepth     = PRIV__picoPerfGlobalContext->scopeStackTop;
 
-    if (__picoPerfGlobalContext->scopeStackTop > 0) {
-        __picoPerfRecordItem_t *parentItem = &__picoPerfGlobalContext->scopeStack[__picoPerfGlobalContext->scopeStackTop - 1];
+    if (PRIV__picoPerfGlobalContext->scopeStackTop > 0) {
+        PRIV__picoPerfRecordItem_t *parentItem = &PRIV__picoPerfGlobalContext->scopeStack[PRIV__picoPerfGlobalContext->scopeStackTop - 1];
         strncpy(item->parentName, parentItem->name, PICO_PERF_MAX_NAME_LENGTH - 1);
     } else {
         snprintf(item->parentName, PICO_PERF_MAX_NAME_LENGTH - 1, "ROOT");
     }
 
-    __picoPerfGlobalContext->scopeStackTop++;
+    PRIV__picoPerfGlobalContext->scopeStackTop++;
 }
 
 void picoPerfPopScope(const char *file, const char *function, uint32_t line)
 {
-    if (!__picoPerfGlobalContext || !__picoPerfGlobalContext->recording) {
+    if (!PRIV__picoPerfGlobalContext || !PRIV__picoPerfGlobalContext->recording) {
         return;
     }
 
-    if (__picoPerfGlobalContext->scopeStackTop <= 0) {
+    if (PRIV__picoPerfGlobalContext->scopeStackTop <= 0) {
         return;
     }
 
-    if (__picoPerfGlobalContext->currentRecord.itemCount >= PICO_PERF_MAX_SCOPES) {
+    if (PRIV__picoPerfGlobalContext->currentRecord.itemCount >= PICO_PERF_MAX_SCOPES) {
         return;
     }
 
-    __picoPerfGlobalContext->scopeStackTop--;
+    PRIV__picoPerfGlobalContext->scopeStackTop--;
 
-    __picoPerfRecordItem_t *stackItem = &__picoPerfGlobalContext->scopeStack[__picoPerfGlobalContext->scopeStackTop];
+    PRIV__picoPerfRecordItem_t *stackItem = &PRIV__picoPerfGlobalContext->scopeStack[PRIV__picoPerfGlobalContext->scopeStackTop];
 
     stackItem->endTime          = picoPerfNow();
     stackItem->endLocation.line = line;
@@ -713,19 +713,19 @@ void picoPerfPopScope(const char *file, const char *function, uint32_t line)
     strncpy(stackItem->endLocation.function, function ? function : "unknown", PICO_PERF_MAX_PATH - 1);
     stackItem->endTimestamp = picoPerfGetCurrentTimestamp();
 
-    __picoPerfRecordItem_t *recordItem = &__picoPerfGlobalContext->currentRecord.items[__picoPerfGlobalContext->currentRecord.itemCount];
-    memcpy(recordItem, stackItem, sizeof(__picoPerfRecordItem_t));
-    __picoPerfGlobalContext->currentRecord.itemCount++;
+    PRIV__picoPerfRecordItem_t *recordItem = &PRIV__picoPerfGlobalContext->currentRecord.items[PRIV__picoPerfGlobalContext->currentRecord.itemCount];
+    memcpy(recordItem, stackItem, sizeof(PRIV__picoPerfRecordItem_t));
+    PRIV__picoPerfGlobalContext->currentRecord.itemCount++;
 }
 
 void picoPerfPopNScopes(int count, const char *file, const char *function, uint32_t line)
 {
-    if (!__picoPerfGlobalContext || !__picoPerfGlobalContext->recording) {
+    if (!PRIV__picoPerfGlobalContext || !PRIV__picoPerfGlobalContext->recording) {
         return;
     }
 
     if (count < 0) {
-        count = __picoPerfGlobalContext->scopeStackTop;
+        count = PRIV__picoPerfGlobalContext->scopeStackTop;
     }
 
     for (int i = 0; i < count; i++) {
@@ -735,25 +735,25 @@ void picoPerfPopNScopes(int count, const char *file, const char *function, uint3
 
 void picoPerfGetReport(FILE *output, picoPerfReportFormat format)
 {
-    if (!__picoPerfGlobalContext || !output) {
+    if (!PRIV__picoPerfGlobalContext || !output) {
         return;
     }
 
     switch (format) {
         case PICO_PERF_REPORT_FORMAT_TEXT:
-            __picoPerfGetReportText(output);
+            PRIV__picoPerfGetReportText(output);
             break;
         case PICO_PERF_REPORT_FORMAT_CSV:
-            __picoPerfGetReportCSV(output);
+            PRIV__picoPerfGetReportCSV(output);
             break;
         case PICO_PERF_REPORT_FORMAT_JSON:
-            __picoPerfGetReportJSON(output);
+            PRIV__picoPerfGetReportJSON(output);
             break;
         case PICO_PERF_REPORT_FORMAT_XML:
-            __picoPerfGetReportXML(output);
+            PRIV__picoPerfGetReportXML(output);
             break;
         default:
-            __picoPerfGetReportText(output);
+            PRIV__picoPerfGetReportText(output);
             break;
     }
 }

@@ -182,7 +182,7 @@ void picoAudioDecoderDestroy(picoAudioDecoder decoder)
     PICO_FREE(decoder);
 }
 
-static picoAudioResult __picoAudioConfigureSourceReader(picoAudioDecoder decoder)
+static picoAudioResult PRIV__picoAudioConfigureSourceReader(picoAudioDecoder decoder)
 {
     IMFMediaType *partialType = NULL;
     HRESULT hr                = MFCreateMediaType(&partialType);
@@ -253,7 +253,7 @@ static picoAudioResult __picoAudioConfigureSourceReader(picoAudioDecoder decoder
     return PICO_AUDIO_RESULT_SUCCESS;
 }
 
-static void __picoAudioResetDecoder(picoAudioDecoder decoder)
+static void PRIV__picoAudioResetDecoder(picoAudioDecoder decoder)
 {
     if (decoder->isOpened) {
         if (decoder->sourceReader) {
@@ -271,7 +271,7 @@ picoAudioResult picoAudioDecoderOpenFile(picoAudioDecoder decoder, const char *f
         return PICO_AUDIO_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    __picoAudioResetDecoder(decoder);
+    PRIV__picoAudioResetDecoder(decoder);
 
     int wideLen = MultiByteToWideChar(CP_UTF8, 0, filePath, -1, NULL, 0);
     if (wideLen <= 0) {
@@ -307,7 +307,7 @@ picoAudioResult picoAudioDecoderOpenFile(picoAudioDecoder decoder, const char *f
         return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
     }
 
-    return __picoAudioConfigureSourceReader(decoder);
+    return PRIV__picoAudioConfigureSourceReader(decoder);
 }
 
 picoAudioResult picoAudioDecoderOpenBuffer(picoAudioDecoder decoder, const uint8_t *buffer, size_t size)
@@ -316,7 +316,7 @@ picoAudioResult picoAudioDecoderOpenBuffer(picoAudioDecoder decoder, const uint8
         return PICO_AUDIO_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    __picoAudioResetDecoder(decoder);
+    PRIV__picoAudioResetDecoder(decoder);
 
     IStream *memStream = SHCreateMemStream(buffer, (UINT)size);
     if (!memStream) {
@@ -349,7 +349,7 @@ picoAudioResult picoAudioDecoderOpenBuffer(picoAudioDecoder decoder, const uint8
         return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
     }
 
-    return __picoAudioConfigureSourceReader(decoder);
+    return PRIV__picoAudioConfigureSourceReader(decoder);
 }
 
 picoAudioResult picoAudioDecoderGetAudioInfo(picoAudioDecoder decoder, picoAudioInfo info)
@@ -576,7 +576,7 @@ void picoAudioDecoderDestroy(picoAudioDecoder decoder)
     PICO_FREE(decoder);
 }
 
-static void __picoAudioResetDecoder(picoAudioDecoder decoder)
+static void PRIV__picoAudioResetDecoder(picoAudioDecoder decoder)
 {
     if (decoder->isOpened) {
         if (decoder->audioFile) {
@@ -595,7 +595,7 @@ static void __picoAudioResetDecoder(picoAudioDecoder decoder)
     }
 }
 
-static picoAudioResult __picoAudioConfigureExtAudioFile(picoAudioDecoder decoder)
+static picoAudioResult PRIV__picoAudioConfigureExtAudioFile(picoAudioDecoder decoder)
 {
     AudioStreamBasicDescription inputFormat;
     UInt32 size     = sizeof(inputFormat);
@@ -661,7 +661,7 @@ picoAudioResult picoAudioDecoderOpenFile(picoAudioDecoder decoder, const char *f
         return PICO_AUDIO_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    __picoAudioResetDecoder(decoder);
+    PRIV__picoAudioResetDecoder(decoder);
 
     CFStringRef pathString = CFStringCreateWithCString(kCFAllocatorDefault, filePath, kCFStringEncodingUTF8);
     if (!pathString) {
@@ -686,7 +686,7 @@ picoAudioResult picoAudioDecoderOpenFile(picoAudioDecoder decoder, const char *f
         return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
     }
 
-    return __picoAudioConfigureExtAudioFile(decoder);
+    return PRIV__picoAudioConfigureExtAudioFile(decoder);
 }
 
 static OSStatus picoAudioReadProc(void *inClientData, SInt64 inPosition, UInt32 requestCount,
@@ -726,7 +726,7 @@ picoAudioResult picoAudioDecoderOpenBuffer(picoAudioDecoder decoder, const uint8
         return PICO_AUDIO_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    __picoAudioResetDecoder(decoder);
+    PRIV__picoAudioResetDecoder(decoder);
 
     decoder->bufferData     = buffer;
     decoder->bufferSize     = size;
@@ -784,7 +784,7 @@ picoAudioResult picoAudioDecoderOpenBuffer(picoAudioDecoder decoder, const uint8
         return PICO_AUDIO_RESULT_ERROR_DECODER_INIT_FAILED;
     }
 
-    return __picoAudioConfigureExtAudioFile(decoder);
+    return PRIV__picoAudioConfigureExtAudioFile(decoder);
 }
 
 picoAudioResult picoAudioDecoderGetAudioInfo(picoAudioDecoder decoder, picoAudioInfo info)

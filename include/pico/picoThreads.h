@@ -164,7 +164,7 @@ struct picoThreadMutex_t {
     HANDLE mutex;
 };
 
-static unsigned __picoThreadFunctionWrapper(void *arg)
+static unsigned PRIV__picoThreadFunctionWrapper(void *arg)
 {
     picoThread thread = (picoThread)arg;
     thread->threadId  = GetCurrentThreadId();
@@ -190,7 +190,7 @@ picoThread picoThreadCreate(picoThreadFunction function, void *arg)
     thread->handle   = (HANDLE)_beginthreadex(
         NULL,
         0,
-        (unsigned(__stdcall *)(void *))__picoThreadFunctionWrapper,
+        (unsigned(__stdcall *)(void *))PRIV__picoThreadFunctionWrapper,
         thread,
         0,
         &thread->threadId);
@@ -337,7 +337,7 @@ struct picoThreadMutex_t {
     pthread_mutex_t mutex;
 };
 
-static void *__picoThreadFunctionWrapper(void *arg)
+static void *PRIV__picoThreadFunctionWrapper(void *arg)
 {
     picoThread thread = (picoThread)arg;
     thread->isAlive   = true;
@@ -360,7 +360,7 @@ picoThread picoThreadCreate(picoThreadFunction function, void *arg)
     thread->function = function;
     thread->isAlive  = false;
 
-    int result = pthread_create(&thread->handle, NULL, __picoThreadFunctionWrapper, thread);
+    int result = pthread_create(&thread->handle, NULL, PRIV__picoThreadFunctionWrapper, thread);
     if (result != 0) {
         PICO_FREE(thread);
         return NULL;
@@ -545,7 +545,7 @@ struct picoThreadPool_t {
     picoThreadMutex mutex;
 };
 
-static void __picoThreadPoolWorker(void *arg)
+static void PRIV__picoThreadPoolWorker(void *arg)
 {
     picoThreadPoolWorkerArg workerArg = (picoThreadPoolWorkerArg)arg;
 
@@ -595,7 +595,7 @@ picoThreadPool picoThreadPoolCreate(uint32_t threadCount)
         pool->workerArgs[i].pool    = pool;
         pool->workerArgs[i].index   = i;
         pool->workerArgs[i].running = true;
-        pool->threads[i]            = picoThreadCreate(__picoThreadPoolWorker, &pool->workerArgs[i]);
+        pool->threads[i]            = picoThreadCreate(PRIV__picoThreadPoolWorker, &pool->workerArgs[i]);
         pool->busy[i]               = false;
     }
 
