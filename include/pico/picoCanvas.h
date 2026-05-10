@@ -388,8 +388,8 @@ size_t picoCanvasGetTime(picoCanvas canvas)
 #include <X11/Xutil.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <sys/time.h>
+#include <time.h>
 
 // ---------------------------------------------------------------------------------------------------------------
 
@@ -739,9 +739,9 @@ size_t picoCanvasGetTime(picoCanvas canvas)
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <unistd.h>
-#include <time.h>
 #include <sys/time.h>
+#include <time.h>
+#include <unistd.h>
 #include <wayland-client-protocol.h>
 #include <wayland-client.h>
 

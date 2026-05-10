@@ -154,7 +154,6 @@ bool picoTimeFormatISO(const picoTime_t *time, picoTimeISOFormat format, char *b
 // if the string is not a valid ISO formatted string, the function will return false.
 bool picoTimeParseISO(const char *isoString, picoTime_t *outTime, picoTimeISOFormat *format);
 
-
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_TIME_IMPLEMENTATION)
 #define PICO_TIME_IMPLEMENTATION
 #endif
@@ -787,7 +786,7 @@ static uint8_t PRIV__picoTimeGetDayOfWeek(uint16_t year, uint8_t month, uint8_t 
 }
 
 static void PRIV__picoTimeGetISOWeek(uint16_t year, uint8_t month, uint8_t day,
-                                 uint16_t *outISOYear, uint8_t *outWeek, uint8_t *outDayOfWeek)
+                                     uint16_t *outISOYear, uint8_t *outWeek, uint8_t *outDayOfWeek)
 {
     uint8_t dow    = PRIV__picoTimeGetDayOfWeek(year, month, day);
     uint8_t isoDow = (dow == 0) ? 7 : dow;
@@ -822,7 +821,7 @@ static void PRIV__picoTimeGetISOWeek(uint16_t year, uint8_t month, uint8_t day,
 }
 
 static bool PRIV__picoTimeFromOrdinal(uint16_t year, uint16_t dayOfYear,
-                                  uint8_t *outMonth, uint8_t *outDay)
+                                      uint8_t *outMonth, uint8_t *outDay)
 {
     uint16_t daysInYear = PRIV__picoTimeIsLeapYear(year) ? 366 : 365;
     if (dayOfYear < 1 || dayOfYear > daysInYear) {
@@ -843,7 +842,7 @@ static bool PRIV__picoTimeFromOrdinal(uint16_t year, uint16_t dayOfYear,
 }
 
 static bool PRIV__picoTimeFromISOWeek(uint16_t isoYear, uint8_t week, uint8_t dayOfWeek,
-                                  uint16_t *outYear, uint8_t *outMonth, uint8_t *outDay)
+                                      uint16_t *outYear, uint8_t *outMonth, uint8_t *outDay)
 {
     if (week < 1 || week > 53 || dayOfWeek < 1 || dayOfWeek > 7) {
         return false;

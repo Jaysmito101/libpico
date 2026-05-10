@@ -78,7 +78,7 @@ picoStream picoStreamFromFilePath(const char *filePath, bool canRead, bool canWr
 picoStream picoStreamFromMemory(void *buffer, size_t size, bool canRead, bool canWrite, bool ownMemory);
 #if PICO_STREAM_ENABLE_MAPPED
 // read only memory mapped file
-picoStream picoStreamFromFileMapped(const char *filePath);  
+picoStream picoStreamFromFileMapped(const char *filePath);
 #endif
 void picoStreamDestroy(picoStream stream);
 
@@ -94,7 +94,7 @@ void picoStreamSetEndianess(picoStream stream, bool littleEndian);
 
 void picoStreamReset(picoStream stream);
 
-void* picoStreamGetUserData(picoStream stream);
+void *picoStreamGetUserData(picoStream stream);
 
 uint8_t picoStreamReadU8(picoStream stream);
 uint16_t picoStreamReadU16(picoStream stream);
@@ -125,7 +125,6 @@ void picoStreamWriteString(picoStream stream, const char *string);
 size_t picoStreamReadLine(picoStream stream, char *buffer, size_t maxLength);
 void picoStreamWriteLine(picoStream stream, const char *string);
 
-
 bool picoStreamIsSystemLittleEndian(void);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_STREAM_IMPLEMENTATION)
@@ -141,28 +140,26 @@ bool picoStreamIsSystemLittleEndian(void);
 #endif
 #include <windows.h>
 #else
+#include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <unistd.h>
 #endif
 #endif // PICO_STREAM_ENABLE_MAPPED
 
-
-#define __PICO_STREAM_READ_IMPL(typeName, type)        \
-    type picoStreamRead##typeName(picoStream stream)            \
-    {                                                            \
+#define __PICO_STREAM_READ_IMPL(typeName, type)                       \
+    type picoStreamRead##typeName(picoStream stream)                  \
+    {                                                                 \
         type value = (type)0;                                         \
         PRIV__picoStreamReadEndianess(stream, &value, sizeof(value)); \
-        return value;                                           \
+        return value;                                                 \
     }
 
-#define __PICO_STREAM_WRITE_IMPL(typeName, type)       \
-    void picoStreamWrite##typeName(picoStream stream, type value) \
-    {                                                            \
+#define __PICO_STREAM_WRITE_IMPL(typeName, type)                       \
+    void picoStreamWrite##typeName(picoStream stream, type value)      \
+    {                                                                  \
         PRIV__picoStreamWriteEndianess(stream, &value, sizeof(value)); \
     }
-
 
 typedef union {
     picoStreamCustom_t custom;
@@ -212,7 +209,6 @@ struct picoStream_t {
     bool ownsMemory;
     bool ownsFile;
 };
-
 
 static void PRIV__picoStreamReadEndianess(picoStream stream, void *outValue, size_t size)
 {
@@ -368,8 +364,7 @@ picoStream picoStreamFromFileMapped(const char *filePath)
         NULL,
         OPEN_EXISTING,
         FILE_ATTRIBUTE_NORMAL,
-        NULL
-    );
+        NULL);
     if (fileHandle == INVALID_HANDLE_VALUE) {
         return NULL;
     }
@@ -391,8 +386,7 @@ picoStream picoStreamFromFileMapped(const char *filePath)
         PAGE_READONLY,
         0,
         0,
-        NULL
-    );
+        NULL);
     if (!mappingHandle) {
         CloseHandle(fileHandle);
         return NULL;
@@ -403,8 +397,7 @@ picoStream picoStreamFromFileMapped(const char *filePath)
         FILE_MAP_READ,
         0,
         0,
-        0
-    );
+        0);
     if (!mappedBase) {
         CloseHandle(mappingHandle);
         CloseHandle(fileHandle);
@@ -463,10 +456,10 @@ picoStream picoStreamFromFileMapped(const char *filePath)
 
     stream->type         = PICO_STREAM_SOURCE_TYPE_MAPPED;
     stream->canRead      = true;
-    stream->canWrite     = false;  // mapped files are read-only
+    stream->canWrite     = false; // mapped files are read-only
     stream->littleEndian = true;
     stream->ownsMemory   = false;
-    stream->ownsFile     = true;   // we own the mapping
+    stream->ownsFile     = true; // we own the mapping
 
     return stream;
 }
@@ -555,7 +548,7 @@ size_t picoStreamRead(picoStream stream, void *buffer, size_t size)
         case PICO_STREAM_SOURCE_TYPE_MAPPED:
             if (stream->source.mapped.base) {
                 size_t available = stream->source.mapped.size - stream->source.mapped.position;
-                size_t toRead = (size < available) ? size : available;
+                size_t toRead    = (size < available) ? size : available;
                 if (toRead > 0) {
                     memcpy(buffer, (uint8_t *)stream->source.mapped.base + stream->source.mapped.position, toRead);
                     stream->source.mapped.position += toRead;
@@ -814,14 +807,13 @@ void picoStreamReset(picoStream stream)
     picoStreamSeek(stream, 0, PICO_STREAM_SEEK_SET);
 }
 
-void* picoStreamGetUserData(picoStream stream)
+void *picoStreamGetUserData(picoStream stream)
 {
     if (!stream || stream->type != PICO_STREAM_SOURCE_TYPE_CUSTOM) {
         return NULL;
     }
     return stream->source.custom.userData;
 }
-
 
 __PICO_STREAM_READ_IMPL(U8, uint8_t)
 __PICO_STREAM_READ_IMPL(U16, uint16_t)
@@ -910,7 +902,6 @@ void picoStreamWriteLine(picoStream stream, const char *string)
     uint8_t newline = '\n';
     picoStreamWrite(stream, &newline, 1);
 }
-
 
 bool picoStreamIsSystemLittleEndian(void)
 {

@@ -21,7 +21,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    const char* input_filename = argv[1];
+    const char *input_filename = argv[1];
     printf("Input file: %s\n", input_filename);
 
     printf("Detecting MPEG-TS packet type...\n");
@@ -49,8 +49,8 @@ int main(int argc, char **argv)
     }
     printf("File processed successfully.\n");
 
-    size_t pesPacketCount = 0;
-    picoMpegTSPESPacket* pesPackets = picoMpegTSGetPESPackets(mpegts, &pesPacketCount);
+    size_t pesPacketCount           = 0;
+    picoMpegTSPESPacket *pesPackets = picoMpegTSGetPESPackets(mpegts, &pesPacketCount);
     printf("\nSummary:\n");
     printf("  Total PES Packets Found: %zu\n", pesPacketCount);
 
@@ -77,15 +77,15 @@ int main(int argc, char **argv)
         printf("\nFirst 5 PES Packets:\n");
         for (size_t i = 0; i < (pesPacketCount < 5 ? pesPacketCount : 5); i++) {
             picoMpegTSPESPacket packet = pesPackets[i];
-            printf("  [%zu] StreamID: 0x%02X (%s), Length: %zu\n", 
-                   i, 
-                   packet->head.streamId, 
-                   picoMpegTSPESStreamIDToString(packet->head.streamId), 
+            printf("  [%zu] StreamID: 0x%02X (%s), Length: %zu\n",
+                   i,
+                   packet->head.streamId,
+                   picoMpegTSPESStreamIDToString(packet->head.streamId),
                    packet->dataLength);
         }
     }
 
-    picoMpegTSDebugPrintInfo_t info = { .printPESPackets = false, .printCurrentTables = true };
+    picoMpegTSDebugPrintInfo_t info = {.printPESPackets = false, .printCurrentTables = true};
     picoMpegTSDebugPrint(mpegts, &info);
 
     picoMpegTSDestroy(mpegts);

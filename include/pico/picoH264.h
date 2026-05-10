@@ -2397,8 +2397,7 @@ static void PRIV__picoH264BitstreamFileDestroy(void *userData)
     fclose(file);
 }
 
-
-#endif 
+#endif
 
 static size_t PRIV__picoH264BitstreamBufferTell(void *userData)
 {
@@ -2602,7 +2601,6 @@ picoH264Bitstream picoH264BitstreamCreate(void)
     return bitstream;
 }
 
-
 picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size)
 {
     PICO_ASSERT(buffer != NULL);
@@ -2628,11 +2626,10 @@ picoH264Bitstream picoH264BitstreamFromBuffer(const uint8_t *buffer, size_t size
     bitstream->read     = PRIV__picoH264BitstreamBufferRead;
     bitstream->seek     = PRIV__picoH264BitstreamBufferSeek;
     bitstream->tell     = PRIV__picoH264BitstreamBufferTell;
-    bitstream->destroy  = PRIV__picoH264BitstreamBufferDestroy;    
+    bitstream->destroy  = PRIV__picoH264BitstreamBufferDestroy;
 
     return bitstream;
 }
-
 
 #ifndef PICO_H264_SKIP_FILE_BITSTREAM
 
@@ -2888,7 +2885,7 @@ int64_t picoH264BufferReaderSE(picoH264BufferReader bufferReader)
                 value = -value;
             }
             return value;
-        } 
+        }
     }
 }
 
@@ -4151,8 +4148,8 @@ static bool PRIV__picoH264ParseRefPicListModification(picoH264BufferReader br, p
         if (refPicListModOut->refPicListModificationFlagL0) {
             do {
                 picoH264RefPicListModificationEntry entry = &refPicListModOut->modificationsL0[refPicListModOut->numModificationsL0++];
-                entry->modificationOfPicNumsIdc = (uint8_t)picoH264BufferReaderUE(br);
-                
+                entry->modificationOfPicNumsIdc           = (uint8_t)picoH264BufferReaderUE(br);
+
                 if (entry->modificationOfPicNumsIdc == 0 || entry->modificationOfPicNumsIdc == 1) {
                     entry->absDiffPicNumMinus1 = (uint16_t)picoH264BufferReaderUE(br);
                 } else if (entry->modificationOfPicNumsIdc == 2) {
@@ -4169,8 +4166,8 @@ static bool PRIV__picoH264ParseRefPicListModification(picoH264BufferReader br, p
         if (refPicListModOut->refPicListModificationFlagL1) {
             do {
                 picoH264RefPicListModificationEntry entry = &refPicListModOut->modificationsL1[refPicListModOut->numModificationsL1++];
-                entry->modificationOfPicNumsIdc = (uint8_t)picoH264BufferReaderUE(br);
-                
+                entry->modificationOfPicNumsIdc           = (uint8_t)picoH264BufferReaderUE(br);
+
                 if (entry->modificationOfPicNumsIdc == 0 || entry->modificationOfPicNumsIdc == 1) {
                     entry->absDiffPicNumMinus1 = (uint16_t)picoH264BufferReaderUE(br);
                 } else if (entry->modificationOfPicNumsIdc == 2) {
@@ -4272,15 +4269,15 @@ static bool PRIV__picoH264ParseDecRefPicMarking(picoH264BufferReader br, picoH26
         decRefPicMarkingOut->adaptiveRefPicMarkingModeFlag = picoH264BufferReaderU(br, 1) != 0;
         if (decRefPicMarkingOut->adaptiveRefPicMarkingModeFlag) {
             do {
-                picoH264MMCOOperation entry = &decRefPicMarkingOut->mmcoOperations[decRefPicMarkingOut->numMMCOOperations++];
+                picoH264MMCOOperation entry             = &decRefPicMarkingOut->mmcoOperations[decRefPicMarkingOut->numMMCOOperations++];
                 entry->memoryManagementControlOperation = (uint8_t)picoH264BufferReaderUE(br);
-                
+
                 if (entry->memoryManagementControlOperation == 1 || entry->memoryManagementControlOperation == 3) {
                     entry->differenceOfPicNumsMinus1 = (uint16_t)picoH264BufferReaderUE(br);
                 }
                 if (entry->memoryManagementControlOperation == 2) {
                     entry->longTermPicNum = (uint16_t)picoH264BufferReaderUE(br);
-                } 
+                }
                 if (entry->memoryManagementControlOperation == 3 || entry->memoryManagementControlOperation == 6) {
                     entry->longTermFrameIdx = (uint32_t)picoH264BufferReaderUE(br);
                 }
@@ -4290,7 +4287,6 @@ static bool PRIV__picoH264ParseDecRefPicMarking(picoH264BufferReader br, picoH26
             } while (decRefPicMarkingOut->mmcoOperations[decRefPicMarkingOut->numMMCOOperations - 1].memoryManagementControlOperation != 0);
         }
     }
- 
 
     return true;
 }

@@ -53,7 +53,7 @@ SOFTWARE.
 #define PICO_PERF_FILE     __FILE__
 #define PICO_PERF_LINE     __LINE__
 #define PICO_PERF_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-#elif  defined(_MSC_VER)
+#elif defined(_MSC_VER)
 #define PICO_PERF_FUNC     __FUNCSIG__
 #define PICO_PERF_FILE     __FILE__
 #define PICO_PERF_LINE     __LINE__
@@ -649,9 +649,9 @@ void picoPerfEndRecord(void)
         return;
     }
 
-    PRIV__picoPerfGlobalContext->recording                                    = false;
+    PRIV__picoPerfGlobalContext->recording                                        = false;
     PRIV__picoPerfGlobalContext->records[PRIV__picoPerfGlobalContext->recordHead] = PRIV__picoPerfGlobalContext->currentRecord;
-    PRIV__picoPerfGlobalContext->recordHead                                   = (PRIV__picoPerfGlobalContext->recordHead + 1) % PICO_PERF_MAX_RECORDS;
+    PRIV__picoPerfGlobalContext->recordHead                                       = (PRIV__picoPerfGlobalContext->recordHead + 1) % PICO_PERF_MAX_RECORDS;
 
     if (PRIV__picoPerfGlobalContext->recordCount < PICO_PERF_MAX_RECORDS) {
         PRIV__picoPerfGlobalContext->recordCount++;

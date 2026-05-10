@@ -11,7 +11,7 @@ static const uint8_t PNG_SIGNATURE[8] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1
 
 typedef struct {
     uint32_t length;
-    char type[5]; 
+    char type[5];
     uint32_t crc;
 } PNGChunk;
 
@@ -25,19 +25,19 @@ bool verifyPNGSignature(picoStream stream)
 {
     uint8_t signature[8];
     size_t bytesRead = picoStreamRead(stream, signature, 8);
-    
+
     if (bytesRead != 8) {
         printf("Error: Could not read PNG signature\n");
         return false;
     }
-    
+
     for (int i = 0; i < 8; i++) {
         if (signature[i] != PNG_SIGNATURE[i]) {
             printf("Error: Invalid PNG signature\n");
             return false;
         }
     }
-    
+
     printf("Valid PNG signature detected\n\n");
     return true;
 }
@@ -45,16 +45,16 @@ bool verifyPNGSignature(picoStream stream)
 void parsePNGChunk(picoStream stream, PNGChunk *chunk)
 {
     picoStreamSetEndianess(stream, false);
-    
+
     chunk->length = picoStreamReadU32(stream);
-    
+
     picoStreamRead(stream, chunk->type, 4);
     chunk->type[4] = '\0';
-    
+
     if (chunk->length > 0) {
         picoStreamSeek(stream, chunk->length, PICO_STREAM_SEEK_CUR);
     }
-    
+
     chunk->crc = picoStreamReadU32(stream);
 }
 
@@ -62,7 +62,7 @@ void printChunkInfo(const PNGChunk *chunk, int chunkNum)
 {
     printf("Chunk #%d:\n", chunkNum);
     printf("  Type:   %s", chunk->type);
-    
+
     if (strcmp(chunk->type, "IHDR") == 0) {
         printf(" (Image Header)");
     } else if (strcmp(chunk->type, "PLTE") == 0) {
@@ -90,14 +90,14 @@ void printChunkInfo(const PNGChunk *chunk, int chunkNum)
     } else if (strcmp(chunk->type, "iCCP") == 0) {
         printf(" (ICC Profile)");
     }
-    
+
     printf("\n");
     printf("  Length: %u bytes\n", chunk->length);
     printf("  CRC:    0x%08X\n", chunk->crc);
-    
+
     bool isCritical = (chunk->type[0] & 0x20) == 0;
     printf("  Type:   %s\n", isCritical ? "Critical" : "Ancillary");
-    
+
     printf("\n");
 }
 
@@ -109,59 +109,59 @@ int main(int argc, char *argv[])
         printUsage(argv[0]);
         return 1;
     }
-    
+
     const char *filePath = argv[1];
     printf("Parsing PNG file: %s\n", filePath);
-    
+
     picoStream stream = picoStreamFromFilePath(filePath, true, false);
     if (!stream) {
         printf("Error: Could not open file '%s'\n", filePath);
         return 1;
     }
-    
+
     printf("Stream created successfully\n");
     printf("Can read:  %s\n", picoStreamCanRead(stream) ? "Yes" : "No");
     printf("Can write: %s\n", picoStreamCanWrite(stream) ? "No" : "Yes");
     printf("\n");
-    
+
     if (!verifyPNGSignature(stream)) {
         picoStreamDestroy(stream);
         return 1;
     }
-    
+
     printf("PNG Chunks\n");
-    int chunkNum = 0;
+    int chunkNum   = 0;
     bool foundIEND = false;
-    
+
     while (!foundIEND) {
         PNGChunk chunk;
         int64_t currentPos = picoStreamTell(stream);
-        
+
         size_t bytesRead = picoStreamRead(stream, &chunk.length, 1);
         if (bytesRead == 0) {
-            break; 
+            break;
         }
-        
+
         picoStreamSeek(stream, currentPos, PICO_STREAM_SEEK_SET);
         parsePNGChunk(stream, &chunk);
-        
+
         chunkNum++;
         printChunkInfo(&chunk, chunkNum);
-        
+
         if (strcmp(chunk.type, "IEND") == 0) {
             foundIEND = true;
         }
-        
+
         if (chunkNum > 1000) {
             printf("Warning: Too many chunks, stopping parse\n");
             break;
         }
     }
-    
+
     printf("Total chunks parsed: %d\n", chunkNum);
-    
+
     picoStreamDestroy(stream);
-    
+
     printf("Goodbye, Pico!\n");
     return 0;
 }

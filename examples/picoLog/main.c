@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
 #define PICO_LOG_TAG "SANDBOX" // if this is not defined, it will use the filename (main.c) as the tag
 
 #define PICO_IMPLEMENTATION
