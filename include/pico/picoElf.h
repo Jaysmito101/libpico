@@ -427,6 +427,12 @@ picoElfSymbolVisibility picoElfSymbolTableEntryVisibility(const picoElfSymbolTab
 picoElfUchar picoElfSymbolTableEntryInfo(picoElfSymbolBinding binding, picoElfSymbolType type);
 picoElfUchar picoElfSymbolTableEntryOther(picoElfSymbolVisibility visibility);
 
+const char* picoElfStringTableEntry(
+    const picoElfUchar* data,
+    size_t size,
+    const picoElfSectionHeader* stringTableSectionHeader,
+    size_t index);
+
 const char *picoElfResultToString(picoElfResult result);
 const char *picoElfClassToString(picoElfClass elfClass);
 const char *picoElfDataEncodingToString(picoElfDataEncoding dataEncoding);
@@ -747,6 +753,24 @@ picoElfUchar picoElfSymbolTableEntryInfo(picoElfSymbolBinding binding, picoElfSy
 picoElfUchar picoElfSymbolTableEntryOther(picoElfSymbolVisibility visibility)
 {
     return (picoElfUchar)visibility & 0x3;
+}
+
+const char* picoElfStringTableEntry(
+    const picoElfUchar* data,
+    size_t size,
+    const picoElfSectionHeader* stringTableSectionHeader,
+    size_t index)
+{
+    PICO_ASSERT(data);
+    PICO_ASSERT(stringTableSectionHeader);
+    PICO_ASSERT(stringTableSectionHeader->type == PICO_ELF_SHT_STRTAB);
+
+    const size_t stringOffset = stringTableSectionHeader->fileOffset + index;
+    if (stringOffset >= size) {
+        return NULL;
+    }
+
+    return (const char*)(data + stringOffset);
 }
 
 const char *picoElfResultToString(picoElfResult result)
@@ -1243,7 +1267,7 @@ void picoElfSymbolTableEntryDebugPrint(int padding, const picoElfSymbolTableEntr
     PICO_ELF_LOG("%*sValue: 0x%" PRIx64 "\n", padding, "", symbolTableEntry->value);
     PICO_ELF_LOG("%*sSize: %zu bytes\n", padding, "", symbolTableEntry->size);
     PICO_ELF_LOG(
-        "%*sInfo: Binding: %s, Type: %s\n",
+        "%*sInfo: (Binding: %s, Type: %s)\n",
         padding,
         "",
         picoElfSymbolBindingToString(picoElfSymbolTableEntryBinding(symbolTableEntry)), 
