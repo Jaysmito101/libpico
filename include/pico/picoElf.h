@@ -631,6 +631,37 @@ picoElfResult picoElfParseSectionHeaderTable(
     return PICO_ELF_RESULT_SUCCESS;
 }
 
+
+// based on https://refspecs.linuxfoundation.org/elf/gabi4+/ch4.symtab.html
+picoElfSymbolBinding picoElfSymbolTableEntryBinding(picoElfSymbolTableEntry *entry)
+{
+    return (picoElfSymbolBinding)(entry->info >> 4);
+}
+
+// based on https://refspecs.linuxfoundation.org/elf/gabi4+/ch4.symtab.html
+picoElfSymbolType picoElfSymbolTableEntryType(picoElfSymbolTableEntry *entry)
+{
+    return (picoElfSymbolType)(entry->info & 0xF);
+}
+
+// based on https://refspecs.linuxfoundation.org/elf/gabi4+/ch4.symtab.html
+picoElfSymbolVisibility picoElfSymbolTableEntryVisibility(picoElfSymbolTableEntry *entry)
+{
+    return (picoElfSymbolVisibility)(entry->other & 0x3);
+}
+
+// based on https://refspecs.linuxfoundation.org/elf/gabi4+/ch4.symtab.html
+picoElfUchar picoElfSymbolTableEntryInfo(picoElfSymbolBinding binding, picoElfSymbolType type)
+{
+    return ((picoElfUchar)binding << 4) + ((picoElfUchar)type & 0xF);
+}
+
+// based on https://refspecs.linuxfoundation.org/elf/gabi4+/ch4.symtab.html
+picoElfUchar picoElfSymbolTableEntryOther(picoElfSymbolVisibility visibility)
+{
+    return (picoElfUchar)visibility & 0x3;
+}
+
 const char *picoElfResultToString(picoElfResult result)
 {
     switch (result) {
