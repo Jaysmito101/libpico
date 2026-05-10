@@ -233,6 +233,61 @@ typedef struct {
     size_t sectionHeaderStringTableIndex;
 } picoElfHeader;
 
+typedef enum {
+    PICO_ELF_SHT_NULL          = 0,          // Section header table entry unused
+    PICO_ELF_SHT_PROGBITS      = 1,          // Program data
+    PICO_ELF_SHT_SYMTAB        = 2,          // Symbol table
+    PICO_ELF_SHT_STRTAB        = 3,          // String table
+    PICO_ELF_SHT_RELA          = 4,          // Relocation entries with addends
+    PICO_ELF_SHT_HASH          = 5,          // Symbol hash table
+    PICO_ELF_SHT_DYNAMIC       = 6,          // Dynamic linking information
+    PICO_ELF_SHT_NOTE          = 7,          // Notes
+    PICO_ELF_SHT_NOBITS        = 8,          // Program space with no data (bss)
+    PICO_ELF_SHT_REL           = 9,          // Relocation entries, no addends
+    PICO_ELF_SHT_SHLIB         = 10,         // Reserved
+    PICO_ELF_SHT_DYNSYM        = 11,         // Dynamic linker symbol table
+    PICO_ELF_SHT_INIT_ARRAY    = 14,         // Array of constructors
+    PICO_ELF_SHT_FINI_ARRAY    = 15,         // Array of destructors
+    PICO_ELF_SHT_PREINIT_ARRAY = 16,         // Array of pre-constructors
+    PICO_ELF_SHT_GROUP         = 17,         // Section group
+    PICO_ELF_SHT_SYMTAB_SHNDX  = 18,         // Extended section indices
+    PICO_ELF_SHT_LOOS          = 0x60000000, // Start of OS-specific
+    PICO_ELF_SHT_HIOS          = 0x6fffffff, // End of OS-specific
+    PICO_ELF_SHT_LOPROC        = 0x70000000, // Start of processor-specific
+    PICO_ELF_SHT_HIPROC        = 0x7fffffff, // End of processor-specific
+    // PICO_ELF_SHT_LOUSER        = 0x80000000, // Start of application-specific
+    // PICO_ELF_SHT_HIUSER        = 0xffffffff  // End of application-specific
+} picoElfSectionType;
+
+typedef enum {
+    PICO_ELF_SHF_WRITE            = 0x1,        // Writable
+    PICO_ELF_SHF_ALLOC            = 0x2,        // Occupies memory during execution
+    PICO_ELF_SHF_EXECINSTR        = 0x4,        // Executable
+    PICO_ELF_SHF_MERGE            = 0x10,       // Might be merged to eliminate duplication
+    PICO_ELF_SHF_STRINGS          = 0x20,       // Contains null-terminated strings
+    PICO_ELF_SHF_INFO_LINK        = 0x40,       // 'sh_info' contains SHT index
+    PICO_ELF_SHF_LINK_ORDER       = 0x80,       // Adds special ordering requirements for link editors
+    PICO_ELF_SHF_OS_NONCONFORMING = 0x100,      // OS-specific processing required
+    PICO_ELF_SHF_GROUP            = 0x200,      // Section is member of a group
+    PICO_ELF_SHF_TLS              = 0x400,      // Section holds Thread-Local Storage
+    PICO_ELF_SHF_COMPRESSED       = 0x800,      // Section with compressed data
+    PICO_ELF_SHF_MASKOS           = 0x0ff00000, // OS-specific
+    // PICO_ELF_SHF_MASKPROC         = 0xf0000000, // Processor-specific
+} picoElfSectionFlags;
+
+typedef struct {
+    size_t sectionNameOffset;
+    picoElfSectionType type;
+    picoElfSectionFlags flags;
+    uint64_t virtualAddress;
+    uint64_t fileOffset;
+    size_t sectionSize;
+    uint32_t link;
+    uint32_t info;
+    uint64_t addressAlignment;
+    size_t entrySize;
+} picoElfSectionHeader;
+
 picoElfResult picoElfParseIdentifier(const picoElfUchar *data, size_t size, picoElfIdentifier *outIdent);
 picoElfResult picoElfParseHeader(const picoElfUchar *data, size_t size, picoElfHeader *outHeader);
 
@@ -243,9 +298,12 @@ const char *picoElfVersionToString(picoElfVersion version);
 const char *picoElfOSABIToString(picoElfOSABI osABI);
 const char *picoElfTypeToString(picoElfType type);
 const char *picoElfMachineToString(picoElfMachine machine);
+const char *picoElfSectionTypeToString(picoElfSectionType sectionType);
+const char *picoElfSectionFlagsToString(picoElfSectionFlags flags);
 
 void picoElfIdentifierDebugPrint(int padding, const picoElfIdentifier *ident);
 void picoElfHeaderDebugPrint(int padding, const picoElfHeader *header);
+void picoElfSectionHeaderDebugPrint(int padding, const picoElfSectionHeader *sectionHeader);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_ELF_IMPLEMENTATION)
 #define PICO_ELF_IMPLEMENTATION
@@ -458,15 +516,15 @@ const char *picoElfTypeToString(picoElfType type)
 {
     switch (type) {
         case PICO_ELF_ET_NONE:
-            return "No file type";
+            return "ET_NONE (No file type)";
         case PICO_ELF_ET_REL:
-            return "Relocatable file";
+            return "ET_REL (Relocatable file)";
         case PICO_ELF_ET_EXEC:
-            return "Executable file";
+            return "ET_EXEC (Executable file)";
         case PICO_ELF_ET_DYN:
-            return "Shared object file";
+            return "ET_DYN (Shared object file)";
         case PICO_ELF_ET_CORE:
-            return "Core file";
+            return "ET_CORE (Core file)";
         default:
             if (type >= PICO_ELF_ET_LOPROC && type <= PICO_ELF_ET_HIPROC) {
                 return "Processor-specific";
@@ -479,184 +537,240 @@ const char *picoElfMachineToString(picoElfMachine machine)
 {
     switch (machine) {
         case PICO_ELF_EM_NONE:
-            return "No machine";
+            return "EM_NONE (No machine)";
         case PICO_ELF_EM_M32:
-            return "AT&T WE 32100";
+            return "EM_M32 (AT&T WE 32100)";
         case PICO_ELF_EM_SPARC:
-            return "SPARC";
+            return "EM_SPARC (SPARC)";
         case PICO_ELF_EM_386:
-            return "Intel 80386";
+            return "EM_386 (Intel 80386)";
         case PICO_ELF_EM_68K:
-            return "Motorola 68000";
+            return "EM_68K (Motorola 68000)";
         case PICO_ELF_EM_88K:
-            return "Motorola 88000";
+            return "EM_88K (Motorola 88000)";
         case PICO_ELF_EM_860:
-            return "Intel 80860";
+            return "EM_860 (Intel 80860)";
         case PICO_ELF_EM_MIPS:
-            return "MIPS I Architecture";
+            return "EM_MIPS (MIPS I Architecture)";
         case PICO_ELF_EM_S370:
-            return "IBM System/370 Processor";
+            return "EM_S370 (IBM System/370 Processor)";
         case PICO_ELF_EM_MIPS_RS3_LE:
-            return "MIPS RS3000 Little-endian";
+            return "EM_MIPS_RS3_LE (MIPS RS3000 Little-endian)";
         case PICO_ELF_EM_PARISC:
-            return "Hewlett-Packard PA-RISC";
+            return "EM_PARISC (Hewlett-Packard PA-RISC)";
         case PICO_ELF_EM_VPP500:
-            return "Fujitsu VPP500";
+            return "EM_VPP500 (Fujitsu VPP500)";
         case PICO_ELF_EM_SPARC32PLUS:
-            return "Enhanced instruction set SPARC";
+            return "EM_SPARC32PLUS (Enhanced instruction set SPARC)";
         case PICO_ELF_EM_960:
-            return "Intel 80960";
+            return "EM_960 (Intel 80960)";
         case PICO_ELF_EM_PPC:
-            return "PowerPC";
+            return "EM_PPC (PowerPC)";
         case PICO_ELF_EM_PPC64:
-            return "64-bit PowerPC";
+            return "EM_PPC64 (64-bit PowerPC)";
         case PICO_ELF_EM_S390:
-            return "IBM System/390 Processor";
+            return "EM_S390 (IBM System/390 Processor)";
         case PICO_ELF_EM_V800:
-            return "NEC V800";
+            return "EM_V800 (NEC V800)";
         case PICO_ELF_EM_FR20:
-            return "Fujitsu FR20";
+            return "EM_FR20 (Fujitsu FR20)";
         case PICO_ELF_EM_RH32:
-            return "TRW RH-32";
+            return "EM_RH32 (TRW RH-32)";
         case PICO_ELF_EM_RCE:
-            return "Motorola RCE";
+            return "EM_RCE (Motorola RCE)";
         case PICO_ELF_EM_ARM:
-            return "Advanced RISC Machines ARM";
+            return "EM_ARM (Advanced RISC Machines ARM)";
         case PICO_ELF_EM_ALPHA:
-            return "Digital Alpha";
+            return "EM_ALPHA (Digital Alpha)";
         case PICO_ELF_EM_SH:
-            return "Hitachi SH";
+            return "EM_SH (Hitachi SH)";
         case PICO_ELF_EM_SPARCV9:
-            return "SPARC Version 9";
+            return "EM_SPARCV9 (SPARC Version 9)";
         case PICO_ELF_EM_TRICORE:
-            return "Siemens TriCore embedded processor";
+            return "EM_TRICORE (Siemens TriCore embedded processor)";
         case PICO_ELF_EM_ARC:
-            return "Argonaut RISC Core";
+            return "EM_ARC (Argonaut RISC Core)";
         case PICO_ELF_EM_H8_300:
-            return "Hitachi H8/300";
+            return "EM_H8_300 (Hitachi H8/300)";
         case PICO_ELF_EM_H8_300H:
-            return "Hitachi H8/300H";
+            return "EM_H8_300H (Hitachi H8/300H)";
         case PICO_ELF_EM_H8S:
-            return "Hitachi H8S";
+            return "EM_H8S (Hitachi H8S)";
         case PICO_ELF_EM_H8_500:
-            return "Hitachi H8/500";
+            return "EM_H8_500 (Hitachi H8/500)";
         case PICO_ELF_EM_IA_64:
-            return "Intel IA-64 processor architecture";
+            return "EM_IA_64 (Intel IA-64 processor architecture)";
         case PICO_ELF_EM_MIPS_X:
-            return "Stanford MIPS-X";
+            return "EM_MIPS_X (Stanford MIPS-X)";
         case PICO_ELF_EM_COLDFIRE:
-            return "Motorola ColdFire";
+            return "EM_COLDFIRE (Motorola ColdFire)";
         case PICO_ELF_EM_68HC12:
-            return "Motorola M68HC12";
+            return "EM_68HC12 (Motorola M68HC12)";
         case PICO_ELF_EM_MMA:
-            return "Fujitsu MMA Multimedia Accelerator";
+            return "EM_MMA (Fujitsu MMA Multimedia Accelerator)";
         case PICO_ELF_EM_PCP:
-            return "Siemens PCP";
+            return "EM_PCP (Siemens PCP)";
         case PICO_ELF_EM_NCPU:
-            return "Sony nCPU embedded RISC processor";
+            return "EM_NCPU (Sony nCPU embedded RISC processor)";
         case PICO_ELF_EM_NDR1:
-            return "Denso NDR1 microprocessor";
+            return "EM_NDR1 (Denso NDR1 microprocessor)";
         case PICO_ELF_EM_STARCORE:
-            return "Motorola Star*Core processor";
+            return "EM_STARCORE (Motorola Star*Core processor)";
         case PICO_ELF_EM_ME16:
-            return "Toyota ME16 processor";
+            return "EM_ME16 (Toyota ME16 processor)";
         case PICO_ELF_EM_ST100:
-            return "STMicroelectronics ST100 processor";
+            return "EM_ST100 (STMicroelectronics ST100 processor)";
         case PICO_ELF_EM_TINYJ:
-            return "Advanced Logic Corp. TinyJ embedded processor family";
+            return "EM_TINYJ (Advanced Logic Corp. TinyJ embedded processor family)";
         case PICO_ELF_EM_X86_64:
-            return "AMD x86-64 architecture";
+            return "EM_X86_64 (AMD x86-64 architecture)";
         case PICO_ELF_EM_PDSP:
-            return "Sony DSP Processor";
+            return "EM_PDSP (Sony DSP Processor)";
         case PICO_ELF_EM_PDP10:
-            return "Digital Equipment Corp. PDP-10";
+            return "EM_PDP10 (Digital Equipment Corp. PDP-10)";
         case PICO_ELF_EM_PDP11:
-            return "Digital Equipment Corp. PDP-11";
+            return "EM_PDP11 (Digital Equipment Corp. PDP-11)";
         case PICO_ELF_EM_FX66:
-            return "Siemens FX66 microcontroller";
+            return "EM_FX66 (Siemens FX66 microcontroller)";
         case PICO_ELF_EM_ST9PLUS:
-            return "STMicroelectronics ST9+ 8/16 bit microcontroller";
+            return "EM_ST9PLUS (STMicroelectronics ST9+ 8/16 bit microcontroller)";
         case PICO_ELF_EM_ST7:
-            return "STMicroelectronics ST7 8-bit microcontroller";
+            return "EM_ST7 (STMicroelectronics ST7 8-bit microcontroller)";
         case PICO_ELF_EM_68HC16:
-            return "Motorola MC68HC16 Microcontroller";
+            return "EM_68HC16 (Motorola MC68HC16 Microcontroller)";
         case PICO_ELF_EM_68HC11:
-            return "Motorola MC68HC11 Microcontroller";
+            return "EM_68HC11 (Motorola MC68HC11 Microcontroller)";
         case PICO_ELF_EM_68HC08:
-            return "Motorola MC68HC08 Microcontroller";
+            return "EM_68HC08 (Motorola MC68HC08 Microcontroller)";
         case PICO_ELF_EM_68HC05:
-            return "Motorola MC68HC05 Microcontroller";
+            return "EM_68HC05 (Motorola MC68HC05 Microcontroller)";
         case PICO_ELF_EM_SVX:
-            return "Silicon Graphics SVx";
+            return "EM_SVX (Silicon Graphics SVx)";
         case PICO_ELF_EM_ST19:
-            return "STMicroelectronics ST19 8-bit microcontroller";
+            return "EM_ST19 (STMicroelectronics ST19 8-bit microcontroller)";
         case PICO_ELF_EM_VAX:
-            return "Digital VAX";
+            return "EM_VAX (Digital VAX)";
         case PICO_ELF_EM_CRIS:
-            return "Axis Communications 32-bit embedded processor";
+            return "EM_CRIS (Axis Communications 32-bit embedded processor)";
         case PICO_ELF_EM_JAVELIN:
-            return "Infineon Technologies 32-bit embedded processor";
+            return "EM_JAVELIN (Infineon Technologies 32-bit embedded processor)";
         case PICO_ELF_EM_FIREPATH:
-            return "Element 14 64-bit DSP Processor";
+            return "EM_FIREPATH (Element 14 64-bit DSP Processor)";
         case PICO_ELF_EM_ZSP:
-            return "LSI Logic 16-bit DSP Processor";
+            return "EM_ZSP (LSI Logic 16-bit DSP Processor)";
         case PICO_ELF_EM_MMIX:
-            return "Donald Knuth's educational 64-bit processor";
+            return "EM_MMIX (Donald Knuth's educational 64-bit processor)";
         case PICO_ELF_EM_HUANY:
-            return "Harvard University machine-independent object files";
+            return "EM_HUANY (Harvard University machine-independent object files)";
         case PICO_ELF_EM_PRISM:
-            return "SiTera Prism";
+            return "EM_PRISM (SiTera Prism)";
         case PICO_ELF_EM_AVR:
-            return "Atmel AVR 8-bit microcontroller";
+            return "EM_AVR (Atmel AVR 8-bit microcontroller)";
         case PICO_ELF_EM_FR30:
-            return "Fujitsu FR30";
+            return "EM_FR30 (Fujitsu FR30)";
         case PICO_ELF_EM_D10V:
-            return "Mitsubishi D10V";
+            return "EM_D10V (Mitsubishi D10V)";
         case PICO_ELF_EM_D30V:
-            return "Mitsubishi D30V";
+            return "EM_D30V (Mitsubishi D30V)";
         case PICO_ELF_EM_V850:
-            return "NEC v850";
+            return "EM_V850 (NEC v850)";
         case PICO_ELF_EM_M32R:
-            return "Mitsubishi M32R";
+            return "EM_M32R (Mitsubishi M32R)";
         case PICO_ELF_EM_MN10300:
-            return "Matsushita MN10300";
+            return "EM_MN10300 (Matsushita MN10300)";
         case PICO_ELF_EM_MN10200:
-            return "Matsushita MN10200";
+            return "EM_MN10200 (Matsushita MN10200)";
         case PICO_ELF_EM_PJ:
-            return "picoJava";
+            return "EM_PJ (picoJava)";
         case PICO_ELF_EM_OPENRISC:
-            return "OpenRISC 32-bit embedded processor";
+            return "EM_OPENRISC (OpenRISC 32-bit embedded processor)";
         case PICO_ELF_EM_ARC_A5:
-            return "ARC Cores Tangent-A5";
+            return "EM_ARC_A5 (ARC Cores Tangent-A5)";
         case PICO_ELF_EM_XTENSA:
-            return "Tensilica Xtensa Architecture";
+            return "EM_XTENSA (Tensilica Xtensa Architecture)";
         case PICO_ELF_EM_VIDEOCORE:
-            return "Alphamosaic VideoCore processor";
+            return "EM_VIDEOCORE (Alphamosaic VideoCore processor)";
         case PICO_ELF_EM_TMM_GPP:
-            return "Thompson Multimedia General Purpose Processor";
+            return "EM_TMM_GPP (Thompson Multimedia General Purpose Processor)";
         case PICO_ELF_EM_NS32K:
-            return "National Semiconductor 32000 series";
+            return "EM_NS32K (National Semiconductor 32000 series)";
         case PICO_ELF_EM_TPC:
-            return "Tenor Network TPC processor";
+            return "EM_TPC (Tenor Network TPC processor)";
         case PICO_ELF_EM_SNP1K:
-            return "Trebia SNP 1000 processor";
+            return "EM_SNP1K (Trebia SNP 1000 processor)";
         case PICO_ELF_EM_ST200:
-            return "STMicroelectronics ST200 microcontroller";
+            return "EM_ST200 (STMicroelectronics ST200 microcontroller)";
         case PICO_ELF_EM_RISCV:
-            return "RISC-V";
+            return "EM_RISCV (RISC-V)";
         default:
             return "Unknown machine";
     }
 }
 
+
+
+const char *picoElfSectionTypeToString(picoElfSectionType sectionType)
+{
+    switch (sectionType) {
+        case PICO_ELF_SHT_NULL: return "SHT_NULL (unused)";
+        case PICO_ELF_SHT_PROGBITS: return "SHT_PROGBITS (program data)";
+        case PICO_ELF_SHT_SYMTAB: return "SHT_SYMTAB (symbol table)";
+        case PICO_ELF_SHT_STRTAB: return "SHT_STRTAB (string table)";
+        case PICO_ELF_SHT_RELA: return "SHT_RELA (relocation entries with addends)";
+        case PICO_ELF_SHT_HASH: return "SHT_HASH (hash table)";
+        case PICO_ELF_SHT_DYNAMIC: return "SHT_DYNAMIC (dynamic linking information)";
+        case PICO_ELF_SHT_NOTE: return "SHT_NOTE (note sections)";
+        case PICO_ELF_SHT_NOBITS: return "SHT_NOBITS (no space section)";
+        case PICO_ELF_SHT_REL: return "SHT_REL (relocation entries without addends)";
+        case PICO_ELF_SHT_SHLIB: return "SHT_SHLIB (shared library section)";
+        case PICO_ELF_SHT_DYNSYM: return "SHT_DYNSYM (dynamic symbol table)";
+        case PICO_ELF_SHT_INIT_ARRAY: return "SHT_INIT_ARRAY (initialization function pointers)";
+        case PICO_ELF_SHT_FINI_ARRAY: return "SHT_FINI_ARRAY (finalization function pointers)";
+        case PICO_ELF_SHT_PREINIT_ARRAY: return "SHT_PREINIT_ARRAY (pre-initialization function pointers)";
+        case PICO_ELF_SHT_GROUP: return "SHT_GROUP (section group)";
+        case PICO_ELF_SHT_SYMTAB_SHNDX: return "SHT_SYMTAB_SHNDX (extended section indices)";
+        default:
+            if (sectionType >= PICO_ELF_SHT_LOOS && sectionType <= PICO_ELF_SHT_HIOS) return "OS-specific";
+            if (sectionType >= PICO_ELF_SHT_LOPROC && sectionType <= PICO_ELF_SHT_HIPROC) return "Processor-specific";
+            return "Unknown";
+    }
+}
+
+const char *picoElfSectionFlagsToString(picoElfSectionFlags flags)
+{
+    static char buffer[1024];
+    buffer[0] = '\0';   
+
+    #define PICO_ELF_APPEND_FLAG(flag) do { \
+        if (flags & flag) { \
+            if (buffer[0] != '\0') { \
+                strcat(buffer, " | "); \
+            } \
+            strcat(buffer, #flag); \
+        } \
+    } while (0)
+
+    PICO_ELF_APPEND_FLAG(PICO_ELF_SHF_WRITE);
+    PICO_ELF_APPEND_FLAG(PICO_ELF_SHF_ALLOC);
+    PICO_ELF_APPEND_FLAG(PICO_ELF_SHF_EXECINSTR);
+    PICO_ELF_APPEND_FLAG(PICO_ELF_SHF_MERGE);
+    PICO_ELF_APPEND_FLAG(PICO_ELF_SHF_STRINGS);
+    PICO_ELF_APPEND_FLAG(PICO_ELF_SHF_INFO_LINK);
+    PICO_ELF_APPEND_FLAG(PICO_ELF_SHF_LINK_ORDER);
+    PICO_ELF_APPEND_FLAG(PICO_ELF_SHF_OS_NONCONFORMING);
+    PICO_ELF_APPEND_FLAG(PICO_ELF_SHF_GROUP);
+    PICO_ELF_APPEND_FLAG(PICO_ELF_SHF_TLS);
+    PICO_ELF_APPEND_FLAG(PICO_ELF_SHF_COMPRESSED);
+
+    #undef PICO_ELF_APPEND_FLAG
+
+    return buffer;
+}
+
 void picoElfIdentifierDebugPrint(int padding, const picoElfIdentifier *ident)
 {
-    if (!ident) {
-        PICO_ELF_LOG("%*spicoElfIdentifier: NULL\n", padding, "");
-        return;
-    }
+    PICO_ASSERT(ident);
 
-    PICO_ELF_LOG("%*sELF Identifier\n", padding, "");
     PICO_ELF_LOG("%*sMagic: 0x%02X 0x%02X 0x%02X 0x%02X (", padding, "", ident->magic[0], ident->magic[1], ident->magic[2], ident->magic[3]);
     for (int i = 0; i < 4; i++) {
         if (ident->magic[i] >= 32 && ident->magic[i] < 127) {
@@ -675,13 +789,11 @@ void picoElfIdentifierDebugPrint(int padding, const picoElfIdentifier *ident)
 
 void picoElfHeaderDebugPrint(int padding, const picoElfHeader *header)
 {
-    if (!header) {
-        PICO_ELF_LOG("%*spicoElfHeader: NULL\n", padding, "");
-        return;
-    }
-
-    PICO_ELF_LOG("%*sELF Header\n", padding, "");
-    picoElfIdentifierDebugPrint(padding + 1, &header->ident);
+    PICO_ASSERT(header);
+    
+    
+    PICO_ELF_LOG("%*sELF Identifier:\n", padding + 1, "");
+    picoElfIdentifierDebugPrint(padding + 2, &header->ident);
     PICO_ELF_LOG("%*sType: %s\n", padding, "", picoElfTypeToString(header->type));
     PICO_ELF_LOG("%*sMachine: %s\n", padding, "", picoElfMachineToString(header->machine));
     PICO_ELF_LOG("%*sVersion: %s\n", padding, "", picoElfVersionToString(header->version));
@@ -695,6 +807,22 @@ void picoElfHeaderDebugPrint(int padding, const picoElfHeader *header)
     PICO_ELF_LOG("%*sSection Header Entry Size: %zu bytes\n", padding, "", header->sectionHeaderEntrySize);
     PICO_ELF_LOG("%*sSection Header Count: %zu\n", padding, "", header->sectionHeaderCount);
     PICO_ELF_LOG("%*sSection Header String Table Index: %zu\n", padding, "", header->sectionHeaderStringTableIndex);
+}
+
+void picoElfSectionHeaderDebugPrint(int padding, const picoElfSectionHeader *sectionHeader)
+{
+    PICO_ASSERT(sectionHeader);
+
+    PICO_ELF_LOG("%*sName Offset: %zu\n", padding, "", sectionHeader->sectionNameOffset);
+    PICO_ELF_LOG("%*sType: %s\n", padding, "", picoElfSectionTypeToString(sectionHeader->type));
+    PICO_ELF_LOG("%*sFlags: %s (0x%X)\n", padding, "", picoElfSectionFlagsToString(sectionHeader->flags), sectionHeader->flags);
+    PICO_ELF_LOG("%*sVirtual Address: 0x%llX\n", padding, "", (unsigned long long)sectionHeader->virtualAddress);
+    PICO_ELF_LOG("%*sFile Offset: 0x%llX\n", padding, "", (unsigned long long)sectionHeader->fileOffset);
+    PICO_ELF_LOG("%*sSection Size: %zu bytes\n", padding, "", sectionHeader->sectionSize);
+    PICO_ELF_LOG("%*sLink: %u\n", padding, "", sectionHeader->link);
+    PICO_ELF_LOG("%*sInfo: %u\n", padding, "", sectionHeader->info);
+    PICO_ELF_LOG("%*sAddress Alignment: 0x%llX\n", padding, "", (unsigned long long)sectionHeader->addressAlignment);
+    PICO_ELF_LOG("%*sEntry Size: %zu bytes\n", padding, "", sectionHeader->entrySize);
 }
 
 #endif // PICO_ELF_IMPLEMENTATION
