@@ -396,6 +396,40 @@ typedef struct {
     bool isRela;
 } picoElfRelocationEntry;
 
+typedef enum {
+    PICO_ELF_PT_NULL    = 0,          // Program header table entry unused
+    PICO_ELF_PT_LOAD    = 1,          // Loadable segment
+    PICO_ELF_PT_DYNAMIC = 2,          // Dynamic linking information
+    PICO_ELF_PT_INTERP  = 3,          // Interpreter information
+    PICO_ELF_PT_NOTE    = 4,          // Auxiliary information
+    PICO_ELF_PT_SHLIB   = 5,          // Reserved
+    PICO_ELF_PT_PHDR    = 6,          // Entry for header table itself
+    PICO_ELF_PT_TLS     = 7,          // Thread-local storage segment
+    PICO_ELF_PT_LOOS    = 0x60000000, // Start of OS-specific
+    PICO_ELF_PT_HIOS    = 0x6fffffff, // End of OS-specific
+    PICO_ELF_PT_LOPROC  = 0x70000000, // Start of processor-specific
+    PICO_ELF_PT_HIPROC  = 0x7fffffff  // End of processor-specific
+} picoElfProgramType;
+
+typedef enum {
+    PICO_ELF_PF_X        = 0x1,        // Execute
+    PICO_ELF_PF_W        = 0x2,        // Write
+    PICO_ELF_PF_R        = 0x4,        // Read
+    PICO_ELF_PF_MASKOS   = 0x0ff00000, // OS-specific
+    // PICO_ELF_PF_MASKPROC = 0xf0000000  // Processor-specific
+} picoElfProgramFlags;
+
+typedef struct {
+    picoElfProgramType type;
+    size_t offset;
+    size_t virtualAddress;
+    size_t physicalAddress;
+    size_t fileSize; // maybe 0
+    size_t memorySize; // maybe 0
+    uint64_t flags;
+    size_t alignment;
+} picoElfProgramHeader;
+
 picoElfResult picoElfParseIdentifier(const picoElfUchar *data, size_t size, picoElfIdentifier *outIdent);
 picoElfResult picoElfParseHeader(const picoElfUchar *data, size_t size, picoElfHeader *outHeader);
 
@@ -473,12 +507,15 @@ const char *picoElfSectionFlagsToString(picoElfSectionFlags flags);
 const char *picoElfSymbolBindingToString(picoElfSymbolBinding binding);
 const char *picoElfSymbolTypeToString(picoElfSymbolType type);
 const char *picoElfSymbolVisibilityToString(picoElfSymbolVisibility visibility);
+const char *picoElfProgramTypeToString(picoElfProgramType type);
+const char *picoElfProgramFlagsToString(uint64_t flags);
 
 void picoElfIdentifierDebugPrint(int padding, const picoElfIdentifier *ident);
 void picoElfHeaderDebugPrint(int padding, const picoElfHeader *header);
 void picoElfSectionHeaderDebugPrint(int padding, const picoElfSectionHeader *sectionHeader);
 void picoElfSymbolTableEntryDebugPrint(int padding, const picoElfSymbolTableEntry *symbolTableEntry);
 void picoElfRelocationEntryDebugPrint(int padding, const picoElfRelocationEntry *relocationEntry);
+void picoElfProgramHeaderDebugPrint(int padding, const picoElfProgramHeader *programHeader);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_ELF_IMPLEMENTATION)
 #define PICO_ELF_IMPLEMENTATION
@@ -1320,6 +1357,56 @@ const char *picoElfSymbolVisibilityToString(picoElfSymbolVisibility visibility)
     }
 }
 
+const char *picoElfProgramTypeToString(picoElfProgramType type)
+{
+    switch (type) {
+        case PICO_ELF_PT_NULL:
+            return "PT_NULL (unused)";
+        case PICO_ELF_PT_LOAD:
+            return "PT_LOAD (loadable segment)";
+        case PICO_ELF_PT_DYNAMIC:
+            return "PT_DYNAMIC (dynamic linking information)";
+        case PICO_ELF_PT_INTERP:
+            return "PT_INTERP (interpreter information)";
+        case PICO_ELF_PT_NOTE:
+            return "PT_NOTE (note segment)";
+        case PICO_ELF_PT_SHLIB:
+            return "PT_SHLIB (reserved)";
+        case PICO_ELF_PT_PHDR:
+            return "PT_PHDR (program header table)";
+        default:
+            if (type >= PICO_ELF_PT_LOOS && type <= PICO_ELF_PT_HIOS)
+                return "OS-specific";
+            if (type >= PICO_ELF_PT_LOPROC && type <= PICO_ELF_PT_HIPROC)
+                return "Processor-specific";
+            return "Unknown";
+    }
+}
+
+const char *picoElfProgramFlagsToString(uint64_t flags)
+{
+    static char buffer[1024];
+    buffer[0] = '\0';
+
+#define PICO_ELF_APPEND_FLAG(flag, desc)     \
+    do {                               \
+        if (flags & flag) {            \
+            if (buffer[0] != '\0') {   \
+                strcat(buffer, " | "); \
+            }                          \
+            strcat(buffer, desc);     \
+        }                              \
+    } while (0)
+
+    PICO_ELF_APPEND_FLAG(PICO_ELF_PF_X, "PF_X");
+    PICO_ELF_APPEND_FLAG(PICO_ELF_PF_W, "PF_W");
+    PICO_ELF_APPEND_FLAG(PICO_ELF_PF_R, "PF_R");
+
+#undef PICO_ELF_APPEND_FLAG
+
+    return buffer;
+}
+
 const char *picoElfSectionFlagsToString(picoElfSectionFlags flags)
 {
     static char buffer[1024];
@@ -1435,6 +1522,20 @@ void picoElfRelocationEntryDebugPrint(int padding, const picoElfRelocationEntry 
     if (relocationEntry->isRela) {
         PICO_ELF_LOG("%*sAddend: %" PRId64 "\n", padding, "", relocationEntry->addend);
     }
+}
+
+void picoElfProgramHeaderDebugPrint(int padding, const picoElfProgramHeader *programHeader)
+{
+    PICO_ASSERT(programHeader);
+
+    PICO_ELF_LOG("%*sType: %s\n", padding, "", picoElfProgramTypeToString(programHeader->type));
+    PICO_ELF_LOG("%*sFlags: %s (0x%" PRIx64 ")\n", padding, "", picoElfProgramFlagsToString(programHeader->flags), programHeader->flags);
+    PICO_ELF_LOG("%*sOffset: 0x%" PRIx64 "\n", padding, "", programHeader->offset);
+    PICO_ELF_LOG("%*sVirtual Address: 0x%" PRIx64 "\n", padding, "", programHeader->virtualAddress);
+    PICO_ELF_LOG("%*sPhysical Address: 0x%" PRIx64 "\n", padding, "", programHeader->physicalAddress);
+    PICO_ELF_LOG("%*sFile Size: %zu bytes\n", padding, "", programHeader->fileSize);
+    PICO_ELF_LOG("%*sMemory Size: %zu bytes\n", padding, "", programHeader->memorySize);
+    PICO_ELF_LOG("%*sAlignment: 0x%" PRIx64 "\n", padding, "", programHeader->alignment);
 }
 
 // undefine internal parsing macros to avoid polluting the global namespace
