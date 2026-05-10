@@ -19,3 +19,4 @@ headers you wanna use define `PICO_IMPLEMENTATION` before including the headers.
 | picoTime | `include/pico/picoTime.h` | A cross-platform OS based time and timer utility library. | [examples/picoTime](examples/picoTime/main.c) |
 | picoH264 | `include/pico/picoH264.h` | A library for parsing H.264 bitstreams. | [examples/picoH264](examples/picoH264/main.c) |
 | picoAudio | `include/pico/picoAudio.h` | A cross-platform audio decoding library supporting  AAC (ADTS), M4A, MP3, WAV, AIFF, CAF, via native OS APIs. | [examples/picoAudio](examples/picoAudio/main.c) |
+| picoElf | `include/pico/picoElf.h` | A library for parsing and writing ELF files. | [examples/picoElf](examples/picoElf/main.c) |
