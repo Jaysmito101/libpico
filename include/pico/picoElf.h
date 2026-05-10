@@ -72,7 +72,8 @@ typedef enum {
     PICO_ELF_RESULT_INVALID_MAGIC,
     PICO_ELF_RESULT_UNSUPPORTED_CLASS,
     PICO_ELF_RESULT_UNSUPPORTED_DATA_ENCODING,
-    PICO_ELF_RESULT_SECTION_HEADER_OUT_OF_BOUNDS,
+    PICO_ELF_RESULT_OUT_OF_BOUNDS,
+    PICO_ELF_RESULT_SYMBOL_TABLE_SECTION_VARIABLE_SIZE,
     PICO_ELF_RESULT_COUNT
 } picoElfResult;
 
@@ -385,7 +386,7 @@ typedef struct {
     size_t size;
     picoElfUchar info;
     picoElfUchar other;
-    picoElf32Half shndx;
+    picoElf32Half sectionIndex;
 } picoElfSymbolTableEntry;
 
 picoElfResult picoElfParseIdentifier(const picoElfUchar *data, size_t size, picoElfIdentifier *outIdent);
@@ -420,9 +421,9 @@ picoElfResult picoElfParseSymbolTable(
     picoElfSymbolTableEntry *outSymbolTableEntries,
     size_t maxSymbolTableEntries,
     size_t* outSymbolTableEntryCount);
-picoElfSymbolBinding picoElfSymbolTableEntryBinding(picoElfSymbolTableEntry *entry);
-picoElfSymbolType picoElfSymbolTableEntryType(picoElfSymbolTableEntry *entry);
-picoElfSymbolVisibility picoElfSymbolTableEntryVisibility(picoElfSymbolTableEntry *entry);
+picoElfSymbolBinding picoElfSymbolTableEntryBinding(const picoElfSymbolTableEntry *entry);
+picoElfSymbolType picoElfSymbolTableEntryType(const picoElfSymbolTableEntry *entry);
+picoElfSymbolVisibility picoElfSymbolTableEntryVisibility(const picoElfSymbolTableEntry *entry);
 picoElfUchar picoElfSymbolTableEntryInfo(picoElfSymbolBinding binding, picoElfSymbolType type);
 picoElfUchar picoElfSymbolTableEntryOther(picoElfSymbolVisibility visibility);
 
@@ -448,8 +449,6 @@ void picoElfSymbolTableEntryDebugPrint(int padding, const picoElfSymbolTableEntr
 #define PICO_ELF_IMPLEMENTATION
 #endif
 
-#define PICO_ELF_IMPLEMENTATION
-
 #ifdef PICO_ELF_IMPLEMENTATION
 
 #define PICO_ELF__PARSE_U64(dst, buffer, offset) \
@@ -467,6 +466,11 @@ void picoElfSymbolTableEntryDebugPrint(int padding, const picoElfSymbolTableEntr
     do { \
         (dst) = ((uint16_t)(buffer)[(offset)] | ((uint16_t)(buffer)[(offset) + 1] << 8)); \
         (offset) += sizeof(uint16_t); \
+    } while (0)
+#define PICO_ELF__PARSE_U8(dst, buffer, offset) \
+    do { \
+        (dst) = (buffer)[(offset)]; \
+        (offset) += sizeof(uint8_t); \
     } while (0)
 
 
@@ -559,7 +563,7 @@ picoElfResult picoElfParseSectionHeader(
 
     const size_t sectionHeaderOffset = header->sectionHeaderOffset + index * header->sectionHeaderEntrySize;
     if (sectionHeaderOffset + header->sectionHeaderEntrySize > size) {
-        return PICO_ELF_RESULT_SECTION_HEADER_OUT_OF_BOUNDS;
+        return PICO_ELF_RESULT_OUT_OF_BOUNDS;
     }
 
     const picoElfUchar *sectionHeaderData = data + sectionHeaderOffset;
@@ -631,21 +635,104 @@ picoElfResult picoElfParseSectionHeaderTable(
     return PICO_ELF_RESULT_SUCCESS;
 }
 
+picoElfResult picoElfParseSymbolTableEntry(
+    const picoElfUchar *data,
+    size_t size,
+    const picoElfHeader *header,
+    const picoElfSectionHeader *sectionHeader,
+    size_t index,
+    picoElfSymbolTableEntry *outSymbolTableEntry)
+{
+    PICO_ASSERT(data);
+    PICO_ASSERT(header);
+    PICO_ASSERT(sectionHeader);
+    PICO_ASSERT(outSymbolTableEntry);
+    PICO_ASSERT(sectionHeader->type == PICO_ELF_SHT_SYMTAB || sectionHeader->type == PICO_ELF_SHT_DYNSYM);
+
+    const size_t symbolTableEntryOffset = sectionHeader->fileOffset + index * sectionHeader->entrySize;
+    if (symbolTableEntryOffset + sectionHeader->entrySize > size) {
+        return PICO_ELF_RESULT_OUT_OF_BOUNDS;
+    }
+
+    const picoElfUchar *symbolTableEntryData = data + symbolTableEntryOffset;
+    memset(outSymbolTableEntry, 0, sizeof(picoElfSymbolTableEntry));
+
+    size_t offset = 0;
+    if (header->ident.elfClass == PICO_ELF_CLASS_32) {
+        PICO_ELF__PARSE_U32(outSymbolTableEntry->nameOffset, symbolTableEntryData, offset);
+        PICO_ELF__PARSE_U32(outSymbolTableEntry->value, symbolTableEntryData, offset);
+        PICO_ELF__PARSE_U32(outSymbolTableEntry->size, symbolTableEntryData, offset);
+        PICO_ELF__PARSE_U8(outSymbolTableEntry->info, symbolTableEntryData, offset);
+        PICO_ELF__PARSE_U8(outSymbolTableEntry->other, symbolTableEntryData, offset);
+        PICO_ELF__PARSE_U16(outSymbolTableEntry->sectionIndex, symbolTableEntryData, offset);
+    } else if (header->ident.elfClass == PICO_ELF_CLASS_64) {
+        PICO_ELF__PARSE_U32(outSymbolTableEntry->nameOffset, symbolTableEntryData, offset);
+        PICO_ELF__PARSE_U8(outSymbolTableEntry->info, symbolTableEntryData, offset);
+        PICO_ELF__PARSE_U8(outSymbolTableEntry->other, symbolTableEntryData, offset);
+        PICO_ELF__PARSE_U16(outSymbolTableEntry->sectionIndex, symbolTableEntryData, offset);
+        PICO_ELF__PARSE_U64(outSymbolTableEntry->value, symbolTableEntryData, offset);
+        PICO_ELF__PARSE_U64(outSymbolTableEntry->size, symbolTableEntryData, offset);
+    } else {
+        return PICO_ELF_RESULT_UNSUPPORTED_CLASS;
+    }
+
+    return PICO_ELF_RESULT_SUCCESS;
+}
+
+picoElfResult picoElfParseSymbolTable(
+    const picoElfUchar *data,
+    size_t size,
+    const picoElfHeader *header,
+    const picoElfSectionHeader *sectionHeader,
+    picoElfSymbolTableEntry *outSymbolTableEntries,
+    size_t maxSymbolTableEntries,
+    size_t* outSymbolTableEntryCount)
+{
+    PICO_ASSERT(data);
+    PICO_ASSERT(header);
+    PICO_ASSERT(sectionHeader);
+    PICO_ASSERT(outSymbolTableEntries);
+    
+    if (sectionHeader->entrySize == 0) {
+        // section entries cant be of variable size
+        return PICO_ELF_RESULT_SYMBOL_TABLE_SECTION_VARIABLE_SIZE;
+    }
+
+    size_t numEntries = sectionHeader->sectionSize / sectionHeader->entrySize;
+    if (numEntries > maxSymbolTableEntries) {
+        numEntries = maxSymbolTableEntries;
+    }
+    if (outSymbolTableEntryCount) {
+        *outSymbolTableEntryCount = numEntries;
+    }
+
+    memset(outSymbolTableEntries, 0, sizeof(picoElfSymbolTableEntry) * numEntries);
+
+    picoElfResult result = PICO_ELF_RESULT_SUCCESS;
+    for (size_t i = 0; i < numEntries; ++i) {
+        result = picoElfParseSymbolTableEntry(data, size, header, sectionHeader, i, &outSymbolTableEntries[i]);
+        if (result != PICO_ELF_RESULT_SUCCESS) {
+            return result;
+        }
+    }
+
+    return PICO_ELF_RESULT_SUCCESS;
+}
 
 // based on https://refspecs.linuxfoundation.org/elf/gabi4+/ch4.symtab.html
-picoElfSymbolBinding picoElfSymbolTableEntryBinding(picoElfSymbolTableEntry *entry)
+picoElfSymbolBinding picoElfSymbolTableEntryBinding(const picoElfSymbolTableEntry *entry)
 {
     return (picoElfSymbolBinding)(entry->info >> 4);
 }
 
 // based on https://refspecs.linuxfoundation.org/elf/gabi4+/ch4.symtab.html
-picoElfSymbolType picoElfSymbolTableEntryType(picoElfSymbolTableEntry *entry)
+picoElfSymbolType picoElfSymbolTableEntryType(const picoElfSymbolTableEntry *entry)
 {
     return (picoElfSymbolType)(entry->info & 0xF);
 }
 
 // based on https://refspecs.linuxfoundation.org/elf/gabi4+/ch4.symtab.html
-picoElfSymbolVisibility picoElfSymbolTableEntryVisibility(picoElfSymbolTableEntry *entry)
+picoElfSymbolVisibility picoElfSymbolTableEntryVisibility(const picoElfSymbolTableEntry *entry)
 {
     return (picoElfSymbolVisibility)(entry->other & 0x3);
 }
@@ -673,8 +760,10 @@ const char *picoElfResultToString(picoElfResult result)
             return "Unsupported class";
         case PICO_ELF_RESULT_UNSUPPORTED_DATA_ENCODING:
             return "Unsupported data encoding";
-        case PICO_ELF_RESULT_SECTION_HEADER_OUT_OF_BOUNDS:
-            return "Section header out of bounds";
+        case PICO_ELF_RESULT_OUT_OF_BOUNDS:
+            return "Out of bounds";
+        case PICO_ELF_RESULT_SYMBOL_TABLE_SECTION_VARIABLE_SIZE:
+            return "Symbol table section has variable size entries";
         default:
             return "Unknown result";
     }
@@ -1150,11 +1239,16 @@ void picoElfSymbolTableEntryDebugPrint(int padding, const picoElfSymbolTableEntr
 {
     PICO_ASSERT(symbolTableEntry);
 
-    PICO_ELF_LOG("%*sName Offset: %u\n", padding, "", symbolTableEntry->nameOffset);
+    PICO_ELF_LOG("%*sName Offset: %zu\n", padding, "", symbolTableEntry->nameOffset);
     PICO_ELF_LOG("%*sValue: 0x%" PRIx64 "\n", padding, "", symbolTableEntry->value);
     PICO_ELF_LOG("%*sSize: %zu bytes\n", padding, "", symbolTableEntry->size);
-    PICO_ELF_LOG("%*sInfo: Binding: %s, Type: %s\n", padding, "", picoElfSymbolBindingToString(symbolTableEntry->binding), picoElfSymbolTypeToString(symbolTableEntry->type));
-    PICO_ELF_LOG("%*sVisibility: %s\n", padding, "", picoElfSymbolVisibilityToString(symbolTableEntry->visibility));
+    PICO_ELF_LOG(
+        "%*sInfo: Binding: %s, Type: %s\n",
+        padding,
+        "",
+        picoElfSymbolBindingToString(picoElfSymbolTableEntryBinding(symbolTableEntry)), 
+        picoElfSymbolTypeToString(picoElfSymbolTableEntryType(symbolTableEntry)));
+    PICO_ELF_LOG("%*sVisibility: %s\n", padding, "", picoElfSymbolVisibilityToString(picoElfSymbolTableEntryVisibility(symbolTableEntry)));
     PICO_ELF_LOG("%*sSection Index: %u\n", padding, "", symbolTableEntry->sectionIndex);
 }
 
@@ -1162,6 +1256,7 @@ void picoElfSymbolTableEntryDebugPrint(int padding, const picoElfSymbolTableEntr
 #undef PICO_ELF__PARSE_U64
 #undef PICO_ELF__PARSE_U32
 #undef PICO_ELF__PARSE_U16
+#undef PICO_ELF__PARSE_U8
 
 #endif // PICO_ELF_IMPLEMENTATION
 #endif // PICO_ELF_H
