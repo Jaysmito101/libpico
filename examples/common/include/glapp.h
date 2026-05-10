@@ -4,10 +4,8 @@
 #include "glad/gl.h"
 #include <GLFW/glfw3.h>
 
-
 typedef struct picoCommonGlApp_t picoCommonGlApp_t;
 typedef picoCommonGlApp_t *picoCommonGlApp;
-
 
 picoCommonGlApp picoCommonGlAppCreate(const char *title, int width, int height);
 void picoCommonGlAppDestroy(picoCommonGlApp app);

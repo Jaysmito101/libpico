@@ -28,8 +28,8 @@ SOFTWARE.
 #define PICO_M3U8_H
 
 #include <stdbool.h>
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #ifndef PICO_MALLOC
 #define PICO_MALLOC malloc
@@ -871,58 +871,58 @@ const char *picoM3U8InstreamIdToString(picoM3U8InstreamId instreamId);
         }                                                                    \
     }
 
-#define __PICO_M3U8_PARSE_STRING_ATTRIBUTE(attrName, destBuffer, required)                              \
-    {                                                                                                   \
+#define __PICO_M3U8_PARSE_STRING_ATTRIBUTE(attrName, destBuffer, required)                                  \
+    {                                                                                                       \
         if (PRIV__picoM3U8ParseAttribute(valueStart, valueEnd, attrName, &attrValueStart, &attrValueEnd)) { \
-            size_t __attrStringLength = (size_t)(attrValueEnd - attrValueStart);                        \
-            if (__attrStringLength - 2 >= sizeof(destBuffer)) {                                         \
-                return false;                                                                           \
-            }                                                                                           \
-            strncpy(destBuffer, attrValueStart + 1, __attrStringLength - 2);                            \
-            destBuffer[__attrStringLength - 2] = '\0';                                                  \
-        } else if (required) {                                                                          \
-            return false;                                                                               \
-        }                                                                                               \
+            size_t __attrStringLength = (size_t)(attrValueEnd - attrValueStart);                            \
+            if (__attrStringLength - 2 >= sizeof(destBuffer)) {                                             \
+                return false;                                                                               \
+            }                                                                                               \
+            strncpy(destBuffer, attrValueStart + 1, __attrStringLength - 2);                                \
+            destBuffer[__attrStringLength - 2] = '\0';                                                      \
+        } else if (required) {                                                                              \
+            return false;                                                                                   \
+        }                                                                                                   \
     }
 
-#define __PICO_M3U8_PARSE_BOOL_ATTRIBUTE(attrName, destBool, required, defaultValue)                    \
-    {                                                                                                   \
-        destBool = defaultValue;                                                                        \
+#define __PICO_M3U8_PARSE_BOOL_ATTRIBUTE(attrName, destBool, required, defaultValue)                        \
+    {                                                                                                       \
+        destBool = defaultValue;                                                                            \
         if (PRIV__picoM3U8ParseAttribute(valueStart, valueEnd, attrName, &attrValueStart, &attrValueEnd)) { \
             destBool = PRIV__picoM3U8ParseYesNo(attrValueStart, attrValueEnd);                              \
-        } else if (required) {                                                                          \
-            return false;                                                                               \
-        }                                                                                               \
+        } else if (required) {                                                                              \
+            return false;                                                                                   \
+        }                                                                                                   \
     }
 
-#define __PICO_M3U8_PARSE_UINT32_ATTRIBUTE(attrName, destUint32, required, defaultValue)                \
-    {                                                                                                   \
-        destUint32 = defaultValue;                                                                      \
+#define __PICO_M3U8_PARSE_UINT32_ATTRIBUTE(attrName, destUint32, required, defaultValue)                    \
+    {                                                                                                       \
+        destUint32 = defaultValue;                                                                          \
         if (PRIV__picoM3U8ParseAttribute(valueStart, valueEnd, attrName, &attrValueStart, &attrValueEnd)) { \
-            destUint32 = (uint32_t)atoi(attrValueStart);                                                \
-        } else if (required) {                                                                          \
-            return false;                                                                               \
-        }                                                                                               \
+            destUint32 = (uint32_t)atoi(attrValueStart);                                                    \
+        } else if (required) {                                                                              \
+            return false;                                                                                   \
+        }                                                                                                   \
     }
 
-#define __PICO_M3U8_PARSE_FLOAT_ATTRIBUTE(attrName, destFloat, required, defaultValue)                  \
-    {                                                                                                   \
-        destFloat = defaultValue;                                                                       \
+#define __PICO_M3U8_PARSE_FLOAT_ATTRIBUTE(attrName, destFloat, required, defaultValue)                      \
+    {                                                                                                       \
+        destFloat = defaultValue;                                                                           \
         if (PRIV__picoM3U8ParseAttribute(valueStart, valueEnd, attrName, &attrValueStart, &attrValueEnd)) { \
-            destFloat = (float)atof(attrValueStart);                                                    \
-        } else if (required) {                                                                          \
-            return false;                                                                               \
-        }                                                                                               \
+            destFloat = (float)atof(attrValueStart);                                                        \
+        } else if (required) {                                                                              \
+            return false;                                                                                   \
+        }                                                                                                   \
     }
 
-#define __PICO_M3U8_PARSE_ENUM_ATTRIBUTE(attrName, destEnum, enumParseFunc, required, defaultValue)     \
-    {                                                                                                   \
-        destEnum = defaultValue;                                                                        \
+#define __PICO_M3U8_PARSE_ENUM_ATTRIBUTE(attrName, destEnum, enumParseFunc, required, defaultValue)         \
+    {                                                                                                       \
+        destEnum = defaultValue;                                                                            \
         if (PRIV__picoM3U8ParseAttribute(valueStart, valueEnd, attrName, &attrValueStart, &attrValueEnd)) { \
-            destEnum = enumParseFunc(attrValueStart, attrValueEnd);                                     \
-        } else if (required) {                                                                          \
-            return false;                                                                               \
-        }                                                                                               \
+            destEnum = enumParseFunc(attrValueStart, attrValueEnd);                                         \
+        } else if (required) {                                                                              \
+            return false;                                                                                   \
+        }                                                                                                   \
     }
 
 typedef enum {

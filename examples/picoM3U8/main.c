@@ -6,10 +6,11 @@
 #include <string.h>
 
 // This one is purely for the purpose of debugging (using DebugPrint functions of picoM3U8)
-#define PICO_M3U8_LOG(...) do { \
-    printf(__VA_ARGS__); \
-    printf("\n"); \
- } while(0)
+#define PICO_M3U8_LOG(...)   \
+    do {                     \
+        printf(__VA_ARGS__); \
+        printf("\n");        \
+    } while (0)
 
 #define PICO_IMPLEMENTATION
 #include "pico/picoM3U8.h"
@@ -119,7 +120,7 @@ int main(void)
     size_t sampleCount = sizeof(SAMPLE_PLAYLISTS) / sizeof(SAMPLE_PLAYLISTS[0]);
     for (size_t i = 0; i < sampleCount; ++i) {
         const char *playlistData = SAMPLE_PLAYLISTS[i];
-        uint32_t dataLength = (uint32_t)strlen(playlistData);
+        uint32_t dataLength      = (uint32_t)strlen(playlistData);
         printf("Parsing Playlist %zu...\n", i + 1);
         picoM3U8Playlist playlist;
         picoM3U8Result result = picoM3U8PlaylistParse(playlistData, dataLength, &playlist);
