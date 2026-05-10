@@ -289,6 +289,105 @@ typedef struct {
     size_t entrySize;
 } picoElfSectionHeader;
 
+typedef enum {
+    // Local symbols are not visible outside the object file 
+    // containing their definition. Local symbols of the same name may exist in 
+    // multiple files without interfering with each other.
+    PICO_ELF_STB_LOCAL  = 0,
+    // Global symbols are visible to all object files being combined.
+    // One file's definition of a global symbol will satisfy another 
+    // file's undefined reference to the same global symbol.
+    PICO_ELF_STB_GLOBAL = 1, 
+    // Weak symbols resemble global symbols, but their definitions
+    // have lower precedence.
+    PICO_ELF_STB_WEAK   = 2, 
+    // Values in this inclusive range are reserved for operating system-specific semantics.
+    PICO_ELF_STB_LOOS   = 10, 
+    PICO_ELF_STB_HIOS   = 12,
+    // Values in this inclusive range are reserved for processor-specific semantics.
+    // If meanings are specified, the processor supplement explains them.
+    PICO_ELF_STB_LOPROC = 13, 
+    PICO_ELF_STB_HIPROC = 15
+} picoElfSymbolBinding;
+
+typedef enum {
+    // Symbol type is unspecified
+    PICO_ELF_STT_NOTYPE  = 0, 
+    // Symbol is a data object, such as a variable, an array, etc.
+    PICO_ELF_STT_OBJECT  = 1, 
+    // Symbol is executable code, such as a function or a method.
+    PICO_ELF_STT_FUNC    = 2, 
+    // The symbol is associated with a section. Symbol table entries of this
+    // type exist primarily for relocation and normally have STB_LOCAL binding.
+    PICO_ELF_STT_SECTION = 3, 
+    // Conventionally, the symbol's name gives the name of the source file 
+    // associated with the object file. A file symbol has STB_LOCAL binding, 
+    // its section index is SHN_ABS, and it precedes the other STB_LOCAL 
+    // symbols for the file, if it is present.
+    PICO_ELF_STT_FILE    = 4, 
+    // An uninitialized common block. 
+    PICO_ELF_STT_COMMON  = 5, 
+    // The symbol specifies a Thread-Local Storage entity. When defined, it 
+    // gives the assigned offset for the symbol, not the actual address. 
+    // Symbols of type STT_TLS can be referenced by only special thread-local 
+    // storage relocations and thread-local storage relocations can only 
+    // reference symbols with type STT_TLS. Implementation need 
+    // not support thread-local storage.
+    PICO_ELF_STT_TLS     = 6, 
+    // Values in this inclusive range are reserved for operating system-specific semantics.
+    PICO_ELF_STT_LOOS   = 10, 
+    PICO_ELF_STT_HIOS   = 12,
+    // Values in this inclusive range are reserved for processor-specific semantics. 
+    // If meanings are specified, the processor supplement explains them.
+    PICO_ELF_STT_LOPROC = 13, 
+    PICO_ELF_STT_HIPROC = 15
+} picoElfSymbolType;
+
+typedef enum {
+    // The visibility of symbols with the STV_DEFAULT attribute is as specified by 
+    // the symbol's binding type. That is, global and weak symbols are visible 
+    // outside of their defining component (executable file or shared object). 
+    // Local symbols are hidden, as described below. Global and weak symbols 
+    // are also preemptable, that is, they may by preempted by definitions of 
+    // the same name in another component.
+    PICO_ELF_STV_DEFAULT   = 0,
+    // A symbol defined in the current component is protected if it is visible 
+    // in other components but not preemptable, meaning that any reference to such 
+    // a symbol from within the defining component must be resolved to the definition in 
+    // that component, even if there is a definition in another component that 
+    // would preempt by the default rules. A symbol with STB_LOCAL binding may 
+    // not have STV_PROTECTED visibility. If a symbol definition with STV_PROTECTED 
+    // visibility from a shared object is taken as resolving a reference from an 
+    // executable or another shared object, the SHN_UNDEF symbol table entry 
+    // created has STV_DEFAULT visibility.
+    PICO_ELF_STV_INTERNAL  = 1,
+    // A symbol defined in the current component is hidden if its name is not visible
+    // to other components. Such a symbol is necessarily protected. 
+    // This attribute may be used to control the external interface of a component. 
+    // Note that an object named by such a symbol may still be referenced from 
+    // another component if its address is passed outside. A hidden symbol contained 
+    // in a relocatable object must be either removed or converted to STB_LOCAL binding 
+    // by the link-editor when the relocatable object is included in 
+    // an executable file or shared object.
+    PICO_ELF_STV_HIDDEN    = 2,
+    // The meaning of this visibility attribute may be defined by processor supplements 
+    // to further constrain hidden symbols. A processor supplement's definition should be 
+    // such that generic tools can safely treat internal symbols as hidden. An internal 
+    // symbol contained in a relocatable object must be either removed or converted 
+    // to STB_LOCAL binding by the link-editor when the relocatable object is included 
+    // in an executable file or shared object.
+    PICO_ELF_STV_PROTECTED = 3 
+} picoElfSymbolVisibility;
+
+typedef struct {
+    size_t nameOffset;
+    size_t value;
+    size_t size;
+    picoElfUchar info;
+    picoElfUchar other;
+    picoElf32Half shndx;
+} picoElfSymbolTableEntry;
+
 picoElfResult picoElfParseIdentifier(const picoElfUchar *data, size_t size, picoElfIdentifier *outIdent);
 picoElfResult picoElfParseHeader(const picoElfUchar *data, size_t size, picoElfHeader *outHeader);
 
@@ -306,6 +405,27 @@ picoElfResult picoElfParseSectionHeaderTable(
     size_t maxSectionHeaders,
     size_t* outSectionHeaderCount);
 
+picoElfResult picoElfParseSymbolTableEntry(
+    const picoElfUchar *data,
+    size_t size,
+    const picoElfHeader *header,
+    const picoElfSectionHeader *sectionHeader,
+    size_t index,
+    picoElfSymbolTableEntry *outSymbolTableEntry);
+picoElfResult picoElfParseSymbolTable(
+    const picoElfUchar *data,
+    size_t size,
+    const picoElfHeader *header,
+    const picoElfSectionHeader *sectionHeader,
+    picoElfSymbolTableEntry *outSymbolTableEntries,
+    size_t maxSymbolTableEntries,
+    size_t* outSymbolTableEntryCount);
+picoElfSymbolBinding picoElfSymbolTableEntryBinding(picoElfSymbolTableEntry *entry);
+picoElfSymbolType picoElfSymbolTableEntryType(picoElfSymbolTableEntry *entry);
+picoElfSymbolVisibility picoElfSymbolTableEntryVisibility(picoElfSymbolTableEntry *entry);
+picoElfUchar picoElfSymbolTableEntryInfo(picoElfSymbolBinding binding, picoElfSymbolType type);
+picoElfUchar picoElfSymbolTableEntryOther(picoElfSymbolVisibility visibility);
+
 const char *picoElfResultToString(picoElfResult result);
 const char *picoElfClassToString(picoElfClass elfClass);
 const char *picoElfDataEncodingToString(picoElfDataEncoding dataEncoding);
@@ -315,14 +435,20 @@ const char *picoElfTypeToString(picoElfType type);
 const char *picoElfMachineToString(picoElfMachine machine);
 const char *picoElfSectionTypeToString(picoElfSectionType sectionType);
 const char *picoElfSectionFlagsToString(picoElfSectionFlags flags);
+const char *picoElfSymbolBindingToString(picoElfSymbolBinding binding);
+const char *picoElfSymbolTypeToString(picoElfSymbolType type);
+const char *picoElfSymbolVisibilityToString(picoElfSymbolVisibility visibility);
 
 void picoElfIdentifierDebugPrint(int padding, const picoElfIdentifier *ident);
 void picoElfHeaderDebugPrint(int padding, const picoElfHeader *header);
 void picoElfSectionHeaderDebugPrint(int padding, const picoElfSectionHeader *sectionHeader);
+void picoElfSymbolTableEntryDebugPrint(int padding, const picoElfSymbolTableEntry *symbolTableEntry);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_ELF_IMPLEMENTATION)
 #define PICO_ELF_IMPLEMENTATION
 #endif
+
+#define PICO_ELF_IMPLEMENTATION
 
 #ifdef PICO_ELF_IMPLEMENTATION
 
@@ -844,6 +970,62 @@ const char *picoElfSectionTypeToString(picoElfSectionType sectionType)
     }
 }
 
+const char *picoElfSymbolBindingToString(picoElfSymbolBinding binding)
+{
+    switch (binding) {
+        case PICO_ELF_STB_LOCAL:
+            return "STB_LOCAL (Local symbol)";
+        case PICO_ELF_STB_GLOBAL:
+            return "STB_GLOBAL (Global symbol)";
+        case PICO_ELF_STB_WEAK:
+            return "STB_WEAK (Weak symbol)";
+        default:
+            if (binding >= PICO_ELF_STB_LOOS && binding <= PICO_ELF_STB_HIOS)
+                return "OS-specific";
+            if (binding >= PICO_ELF_STB_LOPROC && binding <= PICO_ELF_STB_HIPROC)
+                return "Processor-specific";
+            return "Unknown binding";
+    }
+}
+
+const char *picoElfSymbolTypeToString(picoElfSymbolType type)
+{
+    switch (type) {
+        case PICO_ELF_STT_NOTYPE:
+            return "STT_NOTYPE (No type)";
+        case PICO_ELF_STT_OBJECT:
+            return "STT_OBJECT (Data object)";
+        case PICO_ELF_STT_FUNC:
+            return "STT_FUNC (Function)";
+        case PICO_ELF_STT_SECTION:
+            return "STT_SECTION (Section)";
+        case PICO_ELF_STT_FILE:
+            return "STT_FILE (File)";
+        default:
+            if (type >= PICO_ELF_STT_LOOS && type <= PICO_ELF_STT_HIOS)
+                return "OS-specific";
+            if (type >= PICO_ELF_STT_LOPROC && type <= PICO_ELF_STT_HIPROC)
+                return "Processor-specific";
+            return "Unknown type";
+    }
+}
+
+const char *picoElfSymbolVisibilityToString(picoElfSymbolVisibility visibility)
+{
+    switch (visibility) {
+        case PICO_ELF_STV_DEFAULT:
+            return "STV_DEFAULT (Default visibility)";
+        case PICO_ELF_STV_INTERNAL:
+            return "STV_INTERNAL (Internal visibility)";
+        case PICO_ELF_STV_HIDDEN:
+            return "STV_HIDDEN (Hidden visibility)";
+        case PICO_ELF_STV_PROTECTED:
+            return "STV_PROTECTED (Protected visibility)";
+        default:
+            return "Unknown visibility";
+    }
+}
+
 const char *picoElfSectionFlagsToString(picoElfSectionFlags flags)
 {
     static char buffer[1024];
@@ -900,7 +1082,7 @@ void picoElfHeaderDebugPrint(int padding, const picoElfHeader *header)
 {
     PICO_ASSERT(header);
 
-    PICO_ELF_LOG("%*sELF Identifier:\n", padding + 1, "");
+    PICO_ELF_LOG("%*sELF Identifier:\n", padding, "");
     picoElfIdentifierDebugPrint(padding + 2, &header->ident);
     PICO_ELF_LOG("%*sType: %s\n", padding, "", picoElfTypeToString(header->type));
     PICO_ELF_LOG("%*sMachine: %s\n", padding, "", picoElfMachineToString(header->machine));
@@ -931,6 +1113,18 @@ void picoElfSectionHeaderDebugPrint(int padding, const picoElfSectionHeader *sec
     PICO_ELF_LOG("%*sInfo: %u\n", padding, "", sectionHeader->info);
     PICO_ELF_LOG("%*sAddress Alignment: 0x%llX\n", padding, "", (unsigned long long)sectionHeader->addressAlignment);
     PICO_ELF_LOG("%*sEntry Size: %zu bytes\n", padding, "", sectionHeader->entrySize);
+}
+
+void picoElfSymbolTableEntryDebugPrint(int padding, const picoElfSymbolTableEntry *symbolTableEntry)
+{
+    PICO_ASSERT(symbolTableEntry);
+
+    PICO_ELF_LOG("%*sName Offset: %u\n", padding, "", symbolTableEntry->nameOffset);
+    PICO_ELF_LOG("%*sValue: 0x%" PRIx64 "\n", padding, "", symbolTableEntry->value);
+    PICO_ELF_LOG("%*sSize: %zu bytes\n", padding, "", symbolTableEntry->size);
+    PICO_ELF_LOG("%*sInfo: Binding: %s, Type: %s\n", padding, "", picoElfSymbolBindingToString(symbolTableEntry->binding), picoElfSymbolTypeToString(symbolTableEntry->type));
+    PICO_ELF_LOG("%*sVisibility: %s\n", padding, "", picoElfSymbolVisibilityToString(symbolTableEntry->visibility));
+    PICO_ELF_LOG("%*sSection Index: %u\n", padding, "", symbolTableEntry->sectionIndex);
 }
 
 // undefine internal parsing macros to avoid polluting the global namespace
