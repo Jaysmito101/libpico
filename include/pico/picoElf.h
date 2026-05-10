@@ -432,6 +432,7 @@ typedef struct {
 
 picoElfResult picoElfParseIdentifier(const picoElfUchar *data, size_t size, picoElfIdentifier *outIdent);
 picoElfResult picoElfParseHeader(const picoElfUchar *data, size_t size, picoElfHeader *outHeader);
+picoElfResult picoElfWriteHeader(picoElfUchar *data, size_t size, const picoElfHeader *header);
 
 picoElfResult picoElfParseProgramHeader(
     const picoElfUchar *data,
@@ -439,6 +440,12 @@ picoElfResult picoElfParseProgramHeader(
     const picoElfHeader *header,
     size_t index,
     picoElfProgramHeader *outProgramHeader);
+picoElfResult picoElfWriteProgramHeader(
+    picoElfUchar *data,
+    size_t size,
+    const picoElfHeader *header,
+    size_t index,
+    const picoElfProgramHeader *programHeader);
 picoElfResult picoElfParseProgramHeaderTable(
     const picoElfUchar *data,
     size_t size,
@@ -453,6 +460,12 @@ picoElfResult picoElfParseSectionHeader(
     const picoElfHeader *header,
     size_t index,
     picoElfSectionHeader *outSectionHeader);
+picoElfResult picoElfWriteSectionHeader(
+    picoElfUchar *data,
+    size_t size,
+    const picoElfHeader *header,
+    size_t index,
+    const picoElfSectionHeader *sectionHeader);
 picoElfResult picoElfParseSectionHeaderTable(
     const picoElfUchar *data,
     size_t size,
@@ -568,6 +581,76 @@ void picoElfRelocationEntryDebugPrint(int padding, const picoElfRelocationEntry 
     do { \
         (dst) = (buffer)[(offset)]; \
         (offset) += sizeof(uint8_t); \
+    } while (0)
+
+#define PICO_ELF__WRITE_U64(src, buffer, offset) \
+    do { \
+        (buffer)[(offset)]     = (picoElfUchar)(((uint64_t)(src)) & 0xFF); \
+        (buffer)[(offset) + 1] = (picoElfUchar)((((uint64_t)(src)) >> 8) & 0xFF); \
+        (buffer)[(offset) + 2] = (picoElfUchar)((((uint64_t)(src)) >> 16) & 0xFF); \
+        (buffer)[(offset) + 3] = (picoElfUchar)((((uint64_t)(src)) >> 24) & 0xFF); \
+        (buffer)[(offset) + 4] = (picoElfUchar)((((uint64_t)(src)) >> 32) & 0xFF); \
+        (buffer)[(offset) + 5] = (picoElfUchar)((((uint64_t)(src)) >> 40) & 0xFF); \
+        (buffer)[(offset) + 6] = (picoElfUchar)((((uint64_t)(src)) >> 48) & 0xFF); \
+        (buffer)[(offset) + 7] = (picoElfUchar)((((uint64_t)(src)) >> 56) & 0xFF); \
+        (offset) += sizeof(uint64_t); \
+    } while (0)
+
+#define PICO_ELF__WRITE_S64(src, buffer, offset) \
+    do { \
+        (buffer)[(offset)]     = (picoElfUchar)(((uint64_t)(src)) & 0xFF); \
+        (buffer)[(offset) + 1] = (picoElfUchar)((((uint64_t)(src)) >> 8) & 0xFF); \
+        (buffer)[(offset) + 2] = (picoElfUchar)((((uint64_t)(src)) >> 16) & 0xFF); \
+        (buffer)[(offset) + 3] = (picoElfUchar)((((uint64_t)(src)) >> 24) & 0xFF); \
+        (buffer)[(offset) + 4] = (picoElfUchar)((((uint64_t)(src)) >> 32) & 0xFF); \
+        (buffer)[(offset) + 5] = (picoElfUchar)((((uint64_t)(src)) >> 40) & 0xFF); \
+        (buffer)[(offset) + 6] = (picoElfUchar)((((uint64_t)(src)) >> 48) & 0xFF); \
+        (buffer)[(offset) + 7] = (picoElfUchar)((((uint64_t)(src)) >> 56) & 0xFF); \
+        (offset) += sizeof(int64_t); \
+    } while (0)
+
+#define PICO_ELF__WRITE_U32(src, buffer, offset) \
+    do { \
+        (buffer)[(offset)]     = (picoElfUchar)(((uint32_t)(src)) & 0xFF); \
+        (buffer)[(offset) + 1] = (picoElfUchar)((((uint32_t)(src)) >> 8) & 0xFF); \
+        (buffer)[(offset) + 2] = (picoElfUchar)((((uint32_t)(src)) >> 16) & 0xFF); \
+        (buffer)[(offset) + 3] = (picoElfUchar)((((uint32_t)(src)) >> 24) & 0xFF); \
+        (offset) += sizeof(uint32_t); \
+    } while (0)
+
+#define PICO_ELF__WRITE_S32(src, buffer, offset) \
+    do { \
+        (buffer)[(offset)]     = (picoElfUchar)(((uint32_t)(src)) & 0xFF); \
+        (buffer)[(offset) + 1] = (picoElfUchar)((((uint32_t)(src)) >> 8) & 0xFF); \
+        (buffer)[(offset) + 2] = (picoElfUchar)((((uint32_t)(src)) >> 16) & 0xFF); \
+        (buffer)[(offset) + 3] = (picoElfUchar)((((uint32_t)(src)) >> 24) & 0xFF); \
+        (offset) += sizeof(int32_t); \
+    } while (0)
+
+#define PICO_ELF__WRITE_U16(src, buffer, offset) \
+    do { \
+        (buffer)[(offset)]     = (picoElfUchar)(((uint16_t)(src)) & 0xFF); \
+        (buffer)[(offset) + 1] = (picoElfUchar)((((uint16_t)(src)) >> 8) & 0xFF); \
+        (offset) += sizeof(uint16_t); \
+    } while (0)
+
+#define PICO_ELF__WRITE_S16(src, buffer, offset) \
+    do { \
+        (buffer)[(offset)]     = (picoElfUchar)(((uint16_t)(src)) & 0xFF); \
+        (buffer)[(offset) + 1] = (picoElfUchar)((((uint16_t)(src)) >> 8) & 0xFF); \
+        (offset) += sizeof(int16_t); \
+    } while (0)
+
+#define PICO_ELF__WRITE_U8(src, buffer, offset) \
+    do { \
+        (buffer)[(offset)] = (picoElfUchar)(((uint8_t)(src)) & 0xFF); \
+        (offset) += sizeof(uint8_t); \
+    } while (0)
+
+#define PICO_ELF__WRITE_S8(src, buffer, offset) \
+    do { \
+        (buffer)[(offset)] = (picoElfUchar)(((uint8_t)(src)) & 0xFF); \
+        (offset) += sizeof(int8_t); \
     } while (0)
 
 
@@ -965,6 +1048,155 @@ picoElfResult picoElfParseRelocationTable(
         if (result != PICO_ELF_RESULT_SUCCESS) {
             return result;
         }
+    }
+
+    return PICO_ELF_RESULT_SUCCESS;
+}
+
+picoElfResult picoElfWriteHeader(
+    picoElfUchar *buffer,
+    size_t size,
+    const picoElfHeader *header)
+{
+    PICO_ASSERT(buffer);
+    PICO_ASSERT(header);
+
+    if (size < PICO_ELF_EI_NIDENT) {
+        return PICO_ELF_RESULT_OUT_OF_BOUNDS;
+    }
+
+    size_t offset = 0;
+
+    buffer[0] = 0x7f;
+    buffer[1] = 'E';
+    buffer[2] = 'L';
+    buffer[3] = 'F';
+    offset += 4;
+
+    PICO_ELF__WRITE_U8(header->ident.elfClass, buffer, offset);
+    PICO_ELF__WRITE_U8(header->ident.dataEncoding, buffer, offset);
+    PICO_ELF__WRITE_U8(header->ident.version, buffer, offset);
+    PICO_ELF__WRITE_U8(header->ident.osABI, buffer, offset);
+    PICO_ELF__WRITE_U8(header->ident.abiVersion, buffer, offset);
+
+    for (int i = 0; i < 7; ++i) {
+        PICO_ELF__WRITE_U8(0, buffer, offset);
+    }
+
+    PICO_ELF__WRITE_U16(header->type, buffer, offset);
+    PICO_ELF__WRITE_U16(header->machine, buffer, offset);
+    PICO_ELF__WRITE_U32(header->version, buffer, offset);
+
+    if (header->ident.elfClass == PICO_ELF_CLASS_32) {
+        PICO_ELF__WRITE_U32(header->entryPoint, buffer, offset);
+        PICO_ELF__WRITE_U32(header->programHeaderOffset, buffer, offset);
+        PICO_ELF__WRITE_U32(header->sectionHeaderOffset, buffer, offset);
+    } else if (header->ident.elfClass == PICO_ELF_CLASS_64) {
+        PICO_ELF__WRITE_U64(header->entryPoint, buffer, offset);
+        PICO_ELF__WRITE_U64(header->programHeaderOffset, buffer, offset);
+        PICO_ELF__WRITE_U64(header->sectionHeaderOffset, buffer, offset);
+    } else {
+        return PICO_ELF_RESULT_UNSUPPORTED_CLASS;
+    }
+
+    PICO_ELF__WRITE_U32(header->flags, buffer, offset);
+    PICO_ELF__WRITE_U16(header->headerSize, buffer, offset);
+    PICO_ELF__WRITE_U16(header->programHeaderEntrySize, buffer, offset);
+    PICO_ELF__WRITE_U16(header->programHeaderCount, buffer, offset);
+    PICO_ELF__WRITE_U16(header->sectionHeaderEntrySize, buffer, offset);
+    PICO_ELF__WRITE_U16(header->sectionHeaderCount, buffer, offset);
+    PICO_ELF__WRITE_U16(header->sectionHeaderStringTableIndex, buffer, offset);
+
+    return PICO_ELF_RESULT_SUCCESS;
+}
+
+picoElfResult picoElfWriteProgramHeader(
+    picoElfUchar *buffer,
+    size_t size,
+    const picoElfHeader *header,
+    size_t index,
+    const picoElfProgramHeader *programHeader)
+{
+    PICO_ASSERT(buffer);
+    PICO_ASSERT(header);
+    PICO_ASSERT(programHeader);
+
+    size_t offset = header->programHeaderOffset + index * header->programHeaderEntrySize;
+
+    if (offset + header->programHeaderEntrySize > size) {
+        return PICO_ELF_RESULT_OUT_OF_BOUNDS;
+    }
+
+    PICO_ELF__WRITE_U32(programHeader->type, buffer, offset);
+
+    if (header->ident.elfClass == PICO_ELF_CLASS_32) {
+        PICO_ELF__WRITE_U32(programHeader->offset, buffer, offset);
+        PICO_ELF__WRITE_U32(programHeader->virtualAddress, buffer, offset);
+        PICO_ELF__WRITE_U32(programHeader->physicalAddress, buffer, offset);
+        PICO_ELF__WRITE_U32(programHeader->fileSize, buffer, offset);
+        PICO_ELF__WRITE_U32(programHeader->memorySize, buffer, offset);
+        PICO_ELF__WRITE_U32(programHeader->flags, buffer, offset);
+        PICO_ELF__WRITE_U32(programHeader->alignment, buffer, offset);
+    } else if (header->ident.elfClass == PICO_ELF_CLASS_64) {
+        PICO_ELF__WRITE_U32(programHeader->flags, buffer, offset);
+        PICO_ELF__WRITE_U64(programHeader->offset, buffer, offset);
+        PICO_ELF__WRITE_U64(programHeader->virtualAddress, buffer, offset);
+        PICO_ELF__WRITE_U64(programHeader->physicalAddress, buffer, offset);
+        PICO_ELF__WRITE_U64(programHeader->fileSize, buffer, offset);
+        PICO_ELF__WRITE_U64(programHeader->memorySize, buffer, offset);
+        PICO_ELF__WRITE_U64(programHeader->alignment, buffer, offset);
+    } else {
+        return PICO_ELF_RESULT_UNSUPPORTED_CLASS;
+    }
+
+    return PICO_ELF_RESULT_SUCCESS;
+}
+
+picoElfResult picoElfWriteSectionHeader(
+    picoElfUchar *buffer,
+    size_t size,
+    const picoElfHeader *header,
+    size_t index,
+    const picoElfSectionHeader *sectionHeader)
+{
+    PICO_ASSERT(buffer);
+    PICO_ASSERT(header);
+    PICO_ASSERT(sectionHeader);
+
+    size_t offset = header->sectionHeaderOffset + index * header->sectionHeaderEntrySize;
+
+    if (offset + header->sectionHeaderEntrySize > size) {
+        return PICO_ELF_RESULT_OUT_OF_BOUNDS;
+    }
+
+    PICO_ELF__WRITE_U32(sectionHeader->nameOffset, buffer, offset);
+    PICO_ELF__WRITE_U32(sectionHeader->type, buffer, offset);
+
+    if (header->ident.elfClass == PICO_ELF_CLASS_32) {
+        PICO_ELF__WRITE_U32(sectionHeader->flags, buffer, offset);
+        PICO_ELF__WRITE_U32(sectionHeader->virtualAddress, buffer, offset);
+        PICO_ELF__WRITE_U32(sectionHeader->fileOffset, buffer, offset);
+        PICO_ELF__WRITE_U32(sectionHeader->sectionSize, buffer, offset);
+    } else if (header->ident.elfClass == PICO_ELF_CLASS_64) {
+        PICO_ELF__WRITE_U64(sectionHeader->flags, buffer, offset);
+        PICO_ELF__WRITE_U64(sectionHeader->virtualAddress, buffer, offset);
+        PICO_ELF__WRITE_U64(sectionHeader->fileOffset, buffer, offset);
+        PICO_ELF__WRITE_U64(sectionHeader->sectionSize, buffer, offset);
+    } else {
+        return PICO_ELF_RESULT_UNSUPPORTED_CLASS;
+    }
+
+    PICO_ELF__WRITE_U32(sectionHeader->link, buffer, offset);
+    PICO_ELF__WRITE_U32(sectionHeader->info, buffer, offset);
+
+    if (header->ident.elfClass == PICO_ELF_CLASS_32) {
+        PICO_ELF__WRITE_U32(sectionHeader->addressAlignment, buffer, offset);
+        PICO_ELF__WRITE_U32(sectionHeader->entrySize, buffer, offset);
+    } else if (header->ident.elfClass == PICO_ELF_CLASS_64) {
+        PICO_ELF__WRITE_U64(sectionHeader->addressAlignment, buffer, offset);
+        PICO_ELF__WRITE_U64(sectionHeader->entrySize, buffer, offset);
+    } else {
+        return PICO_ELF_RESULT_UNSUPPORTED_CLASS;
     }
 
     return PICO_ELF_RESULT_SUCCESS;
@@ -1630,6 +1862,15 @@ void picoElfProgramHeaderDebugPrint(int padding, const picoElfProgramHeader *pro
 #undef PICO_ELF__PARSE_U32
 #undef PICO_ELF__PARSE_S32
 #undef PICO_ELF__PARSE_U16
+#undef PICO_ELF__PARSE_U8
+#undef PICO_ELF__WRITE_U64
+#undef PICO_ELF__WRITE_S64
+#undef PICO_ELF__WRITE_U32
+#undef PICO_ELF__WRITE_S32
+#undef PICO_ELF__WRITE_U16
+#undef PICO_ELF__WRITE_S16
+#undef PICO_ELF__WRITE_U8
+#undef PICO_ELF__WRITE_S8
 #undef PICO_ELF__PARSE_U8
 
 #endif // PICO_ELF_IMPLEMENTATION
