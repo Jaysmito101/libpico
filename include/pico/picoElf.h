@@ -389,6 +389,13 @@ typedef struct {
     picoElf32Half sectionIndex;
 } picoElfSymbolTableEntry;
 
+typedef struct {
+    uint64_t offset;
+    uint64_t info;
+    int64_t addend;
+    bool isRela;
+} picoElfRelocationEntry;
+
 picoElfResult picoElfParseIdentifier(const picoElfUchar *data, size_t size, picoElfIdentifier *outIdent);
 picoElfResult picoElfParseHeader(const picoElfUchar *data, size_t size, picoElfHeader *outHeader);
 
@@ -421,11 +428,32 @@ picoElfResult picoElfParseSymbolTable(
     picoElfSymbolTableEntry *outSymbolTableEntries,
     size_t maxSymbolTableEntries,
     size_t* outSymbolTableEntryCount);
+
+picoElfResult picoElfParseRelocationEntry(
+    const picoElfUchar *data,
+    size_t size,
+    const picoElfHeader *header,
+    const picoElfSectionHeader *sectionHeader,
+    size_t index,
+    picoElfRelocationEntry *outRelocationEntry);
+picoElfResult picoElfParseRelocationTable(
+    const picoElfUchar *data,
+    size_t size,
+    const picoElfHeader *header,
+    const picoElfSectionHeader *sectionHeader,
+    picoElfRelocationEntry *outRelocationEntries,
+    size_t maxRelocationEntries,
+    size_t* outRelocationEntryCount);
+
 picoElfSymbolBinding picoElfSymbolTableEntryBinding(const picoElfSymbolTableEntry *entry);
 picoElfSymbolType picoElfSymbolTableEntryType(const picoElfSymbolTableEntry *entry);
 picoElfSymbolVisibility picoElfSymbolTableEntryVisibility(const picoElfSymbolTableEntry *entry);
 picoElfUchar picoElfSymbolTableEntryInfo(picoElfSymbolBinding binding, picoElfSymbolType type);
 picoElfUchar picoElfSymbolTableEntryOther(picoElfSymbolVisibility visibility);
+
+uint32_t picoElfRelocationEntrySymbol(picoElfClass elfClass, const picoElfRelocationEntry *entry);
+uint32_t picoElfRelocationEntryType(picoElfClass elfClass, const picoElfRelocationEntry *entry);
+uint64_t picoElfRelocationEntryInfo(uint32_t symbolIndex, uint32_t type, picoElfClass elfClass);
 
 const char* picoElfStringTableEntry(
     const picoElfUchar* data,
@@ -450,6 +478,7 @@ void picoElfIdentifierDebugPrint(int padding, const picoElfIdentifier *ident);
 void picoElfHeaderDebugPrint(int padding, const picoElfHeader *header);
 void picoElfSectionHeaderDebugPrint(int padding, const picoElfSectionHeader *sectionHeader);
 void picoElfSymbolTableEntryDebugPrint(int padding, const picoElfSymbolTableEntry *symbolTableEntry);
+void picoElfRelocationEntryDebugPrint(int padding, const picoElfRelocationEntry *relocationEntry);
 
 #if defined(PICO_IMPLEMENTATION) && !defined(PICO_ELF_IMPLEMENTATION)
 #define PICO_ELF_IMPLEMENTATION
@@ -463,10 +492,21 @@ void picoElfSymbolTableEntryDebugPrint(int padding, const picoElfSymbolTableEntr
                  ((uint64_t)(buffer)[(offset) + 4] << 32) | ((uint64_t)(buffer)[(offset) + 5] << 40) | ((uint64_t)(buffer)[(offset) + 6] << 48) | ((uint64_t)(buffer)[(offset) + 7] << 56)); \
         (offset) += sizeof(uint64_t); \
     } while (0)
+#define PICO_ELF__PARSE_S64(dst, buffer, offset) \
+    do { \
+        (dst) = ((int64_t)(buffer)[(offset)] | ((int64_t)(buffer)[(offset) + 1] << 8) | ((int64_t)(buffer)[(offset) + 2] << 16) | ((int64_t)(buffer)[(offset) + 3] << 24) | \
+                 ((int64_t)(buffer)[(offset) + 4] << 32) | ((int64_t)(buffer)[(offset) + 5] << 40) | ((int64_t)(buffer)[(offset) + 6] << 48) | ((int64_t)(buffer)[(offset) + 7] << 56)); \
+        (offset) += sizeof(int64_t); \
+    } while (0)
 #define PICO_ELF__PARSE_U32(dst, buffer, offset) \
     do { \
         (dst) = ((uint32_t)(buffer)[(offset)] | ((uint32_t)(buffer)[(offset) + 1] << 8) | ((uint32_t)(buffer)[(offset) + 2] << 16) | ((uint32_t)(buffer)[(offset) + 3] << 24)); \
         (offset) += sizeof(uint32_t); \
+    } while (0)
+#define PICO_ELF__PARSE_S32(dst, buffer, offset) \
+    do { \
+        (dst) = ((int32_t)(buffer)[(offset)] | ((int32_t)(buffer)[(offset) + 1] << 8) | ((int32_t)(buffer)[(offset) + 2] << 16) | ((int32_t)(buffer)[(offset) + 3] << 24)); \
+        (offset) += sizeof(int32_t); \
     } while (0)
 #define PICO_ELF__PARSE_U16(dst, buffer, offset) \
     do { \
@@ -725,6 +765,88 @@ picoElfResult picoElfParseSymbolTable(
     return PICO_ELF_RESULT_SUCCESS;
 }
 
+picoElfResult picoElfParseRelocationEntry(
+    const picoElfUchar *data,
+    size_t size,
+    const picoElfHeader *header,
+    const picoElfSectionHeader *sectionHeader,
+    size_t index,
+    picoElfRelocationEntry *outRelocationEntry)
+{
+    PICO_ASSERT(data);
+    PICO_ASSERT(header);
+    PICO_ASSERT(sectionHeader);
+    PICO_ASSERT(outRelocationEntry);
+    PICO_ASSERT(sectionHeader->type == PICO_ELF_SHT_REL || sectionHeader->type == PICO_ELF_SHT_RELA);
+
+    const size_t entryOffset = sectionHeader->fileOffset + index * sectionHeader->entrySize;
+    if (entryOffset + sectionHeader->entrySize > size) {
+        return PICO_ELF_RESULT_OUT_OF_BOUNDS;
+    }
+
+    const picoElfUchar *entryData = data + entryOffset;
+    memset(outRelocationEntry, 0, sizeof(picoElfRelocationEntry));
+    outRelocationEntry->isRela = (sectionHeader->type == PICO_ELF_SHT_RELA);
+
+    size_t offset = 0;
+    if (header->ident.elfClass == PICO_ELF_CLASS_32) {
+        PICO_ELF__PARSE_U32(outRelocationEntry->offset, entryData, offset);
+        PICO_ELF__PARSE_U32(outRelocationEntry->info, entryData, offset);
+        if (outRelocationEntry->isRela) {
+            PICO_ELF__PARSE_S32(outRelocationEntry->addend, entryData, offset);
+        }
+    } else if (header->ident.elfClass == PICO_ELF_CLASS_64) {
+        PICO_ELF__PARSE_U64(outRelocationEntry->offset, entryData, offset);
+        PICO_ELF__PARSE_U64(outRelocationEntry->info, entryData, offset);
+        if (outRelocationEntry->isRela) {
+            PICO_ELF__PARSE_S64(outRelocationEntry->addend, entryData, offset);
+        }
+    } else {
+        return PICO_ELF_RESULT_UNSUPPORTED_CLASS;
+    }
+
+    return PICO_ELF_RESULT_SUCCESS;
+}
+
+picoElfResult picoElfParseRelocationTable(
+    const picoElfUchar *data,
+    size_t size,
+    const picoElfHeader *header,
+    const picoElfSectionHeader *sectionHeader,
+    picoElfRelocationEntry *outRelocationEntries,
+    size_t maxRelocationEntries,
+    size_t* outRelocationEntryCount)
+{
+    PICO_ASSERT(data);
+    PICO_ASSERT(header);
+    PICO_ASSERT(sectionHeader);
+    PICO_ASSERT(outRelocationEntries);
+    
+    if (sectionHeader->entrySize == 0) {
+        return PICO_ELF_RESULT_SYMBOL_TABLE_SECTION_VARIABLE_SIZE;
+    }
+
+    size_t numEntries = sectionHeader->sectionSize / sectionHeader->entrySize;
+    if (numEntries > maxRelocationEntries) {
+        numEntries = maxRelocationEntries;
+    }
+    if (outRelocationEntryCount) {
+        *outRelocationEntryCount = numEntries;
+    }
+
+    memset(outRelocationEntries, 0, sizeof(picoElfRelocationEntry) * numEntries);
+
+    picoElfResult result = PICO_ELF_RESULT_SUCCESS;
+    for (size_t i = 0; i < numEntries; ++i) {
+        result = picoElfParseRelocationEntry(data, size, header, sectionHeader, i, &outRelocationEntries[i]);
+        if (result != PICO_ELF_RESULT_SUCCESS) {
+            return result;
+        }
+    }
+
+    return PICO_ELF_RESULT_SUCCESS;
+}
+
 // based on https://refspecs.linuxfoundation.org/elf/gabi4+/ch4.symtab.html
 picoElfSymbolBinding picoElfSymbolTableEntryBinding(const picoElfSymbolTableEntry *entry)
 {
@@ -753,6 +875,34 @@ picoElfUchar picoElfSymbolTableEntryInfo(picoElfSymbolBinding binding, picoElfSy
 picoElfUchar picoElfSymbolTableEntryOther(picoElfSymbolVisibility visibility)
 {
     return (picoElfUchar)visibility & 0x3;
+}
+
+uint32_t picoElfRelocationEntrySymbol(picoElfClass elfClass, const picoElfRelocationEntry *entry)
+{
+    if (elfClass == PICO_ELF_CLASS_32) {
+        return (uint32_t)(entry->info >> 8);
+    } else {
+        return (uint32_t)(entry->info >> 32);
+    }
+}
+
+uint32_t picoElfRelocationEntryType(picoElfClass elfClass, const picoElfRelocationEntry *entry)
+{
+    if (elfClass == PICO_ELF_CLASS_32) {
+        return (uint32_t)(entry->info & 0xff);
+    } else {
+        return (uint32_t)(entry->info & 0xffffffff);
+    }
+}
+
+
+uint64_t picoElfRelocationEntryInfo(uint32_t symbolIndex, uint32_t type, picoElfClass elfClass)
+{
+    if (elfClass == PICO_ELF_CLASS_32) {
+        return ((uint64_t)symbolIndex << 8) + type;
+    } else {
+        return ((uint64_t)symbolIndex << 32) + (type & 0xffffffff);
+    }
 }
 
 const char* picoElfStringTableEntry(
@@ -1276,9 +1426,22 @@ void picoElfSymbolTableEntryDebugPrint(int padding, const picoElfSymbolTableEntr
     PICO_ELF_LOG("%*sSection Index: %u\n", padding, "", symbolTableEntry->sectionIndex);
 }
 
+void picoElfRelocationEntryDebugPrint(int padding, const picoElfRelocationEntry *relocationEntry)
+{
+    PICO_ASSERT(relocationEntry);
+
+    PICO_ELF_LOG("%*sOffset: 0x%" PRIx64 "\n", padding, "", relocationEntry->offset);
+    PICO_ELF_LOG("%*sInfo: 0x%" PRIx64 "\n", padding, "", relocationEntry->info);
+    if (relocationEntry->isRela) {
+        PICO_ELF_LOG("%*sAddend: %" PRId64 "\n", padding, "", relocationEntry->addend);
+    }
+}
+
 // undefine internal parsing macros to avoid polluting the global namespace
 #undef PICO_ELF__PARSE_U64
+#undef PICO_ELF__PARSE_S64
 #undef PICO_ELF__PARSE_U32
+#undef PICO_ELF__PARSE_S32
 #undef PICO_ELF__PARSE_U16
 #undef PICO_ELF__PARSE_U8
 
