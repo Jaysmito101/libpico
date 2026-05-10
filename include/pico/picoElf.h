@@ -923,7 +923,7 @@ void picoElfSectionHeaderDebugPrint(int padding, const picoElfSectionHeader *sec
 
     PICO_ELF_LOG("%*sName Offset: %zu\n", padding, "", sectionHeader->nameOffset);
     PICO_ELF_LOG("%*sType: %s\n", padding, "", picoElfSectionTypeToString(sectionHeader->type));
-    PICO_ELF_LOG("%*sFlags: %s (0x%lX)\n", padding, "", picoElfSectionFlagsToString((picoElfSectionFlags)sectionHeader->flags), sectionHeader->flags);
+    PICO_ELF_LOG("%*sFlags: %s (0x%" PRIx64 ")\n", padding, "", picoElfSectionFlagsToString((picoElfSectionFlags)sectionHeader->flags), sectionHeader->flags);
     PICO_ELF_LOG("%*sVirtual Address: 0x%llX\n", padding, "", (unsigned long long)sectionHeader->virtualAddress);
     PICO_ELF_LOG("%*sFile Offset: 0x%llX\n", padding, "", (unsigned long long)sectionHeader->fileOffset);
     PICO_ELF_LOG("%*sSection Size: %zu bytes\n", padding, "", sectionHeader->sectionSize);
