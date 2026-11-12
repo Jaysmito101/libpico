@@ -64,6 +64,8 @@ bool findPPSSPSBySliceId(uint16_t sliceId, picoH264PictureParameterSet_t **ppsOu
 
 int main(int argc, char *argv[])
 {
+    printf("Hello, Pico!\n");
+
     if (argc < 2 || strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
         printf("Usage: %s <input.h264>\n", argv[0]);
         printf("Parses an H.264 bitstream and prints NAL unit information.\n");
