@@ -8,10 +8,10 @@ endif()
 
 if(MSVC)
     target_compile_options(picoH264Example PRIVATE /W4 /WX)
-elseif(UNIX AND NOT APPLE)
-    target_compile_options(picoH264Example PRIVATE -Wall -Wextra -Wpedantic -Werror)
-    target_link_libraries(picoH264Example PRIVATE m)
 else()
     target_compile_options(picoH264Example PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+
+if(UNIX)
     target_link_libraries(picoH264Example PRIVATE m)
 endif()

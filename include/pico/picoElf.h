@@ -262,17 +262,17 @@ typedef enum {
 } picoElfSectionType;
 
 typedef enum {
-    PICO_ELF_SHF_WRITE            = 0x1,        // Writable
-    PICO_ELF_SHF_ALLOC            = 0x2,        // Occupies memory during execution
-    PICO_ELF_SHF_EXECINSTR        = 0x4,        // Executable
-    PICO_ELF_SHF_MERGE            = 0x10,       // Might be merged to eliminate duplication
-    PICO_ELF_SHF_STRINGS          = 0x20,       // Contains null-terminated strings
-    PICO_ELF_SHF_INFO_LINK        = 0x40,       // 'sh_info' contains SHT index
-    PICO_ELF_SHF_LINK_ORDER       = 0x80,       // Adds special ordering requirements for link editors
-    PICO_ELF_SHF_OS_NONCONFORMING = 0x100,      // OS-specific processing required
-    PICO_ELF_SHF_GROUP            = 0x200,      // Section is member of a group
-    PICO_ELF_SHF_TLS              = 0x400,      // Section holds Thread-Local Storage
-    PICO_ELF_SHF_COMPRESSED       = 0x800,      // Section with compressed data
+    PICO_ELF_SHF_WRITE            = 0x1,   // Writable
+    PICO_ELF_SHF_ALLOC            = 0x2,   // Occupies memory during execution
+    PICO_ELF_SHF_EXECINSTR        = 0x4,   // Executable
+    PICO_ELF_SHF_MERGE            = 0x10,  // Might be merged to eliminate duplication
+    PICO_ELF_SHF_STRINGS          = 0x20,  // Contains null-terminated strings
+    PICO_ELF_SHF_INFO_LINK        = 0x40,  // 'sh_info' contains SHT index
+    PICO_ELF_SHF_LINK_ORDER       = 0x80,  // Adds special ordering requirements for link editors
+    PICO_ELF_SHF_OS_NONCONFORMING = 0x100, // OS-specific processing required
+    PICO_ELF_SHF_GROUP            = 0x200, // Section is member of a group
+    PICO_ELF_SHF_TLS              = 0x400, // Section holds Thread-Local Storage
+    PICO_ELF_SHF_COMPRESSED       = 0x800, // Section with compressed data
     // PICO_ELF_SHF_MASKOS           = 0x0ff00000, // OS-specific
     // PICO_ELF_SHF_MASKPROC         = 0xf0000000, // Processor-specific
 } picoElfSectionFlags;
@@ -291,93 +291,93 @@ typedef struct {
 } picoElfSectionHeader;
 
 typedef enum {
-    // Local symbols are not visible outside the object file 
-    // containing their definition. Local symbols of the same name may exist in 
+    // Local symbols are not visible outside the object file
+    // containing their definition. Local symbols of the same name may exist in
     // multiple files without interfering with each other.
-    PICO_ELF_STB_LOCAL  = 0,
+    PICO_ELF_STB_LOCAL = 0,
     // Global symbols are visible to all object files being combined.
-    // One file's definition of a global symbol will satisfy another 
+    // One file's definition of a global symbol will satisfy another
     // file's undefined reference to the same global symbol.
-    PICO_ELF_STB_GLOBAL = 1, 
+    PICO_ELF_STB_GLOBAL = 1,
     // Weak symbols resemble global symbols, but their definitions
     // have lower precedence.
-    PICO_ELF_STB_WEAK   = 2, 
+    PICO_ELF_STB_WEAK = 2,
     // Values in this inclusive range are reserved for operating system-specific semantics.
-    PICO_ELF_STB_LOOS   = 10, 
-    PICO_ELF_STB_HIOS   = 12,
+    PICO_ELF_STB_LOOS = 10,
+    PICO_ELF_STB_HIOS = 12,
     // Values in this inclusive range are reserved for processor-specific semantics.
     // If meanings are specified, the processor supplement explains them.
-    PICO_ELF_STB_LOPROC = 13, 
+    PICO_ELF_STB_LOPROC = 13,
     PICO_ELF_STB_HIPROC = 15
 } picoElfSymbolBinding;
 
 typedef enum {
     // Symbol type is unspecified
-    PICO_ELF_STT_NOTYPE  = 0, 
+    PICO_ELF_STT_NOTYPE = 0,
     // Symbol is a data object, such as a variable, an array, etc.
-    PICO_ELF_STT_OBJECT  = 1, 
+    PICO_ELF_STT_OBJECT = 1,
     // Symbol is executable code, such as a function or a method.
-    PICO_ELF_STT_FUNC    = 2, 
+    PICO_ELF_STT_FUNC = 2,
     // The symbol is associated with a section. Symbol table entries of this
     // type exist primarily for relocation and normally have STB_LOCAL binding.
-    PICO_ELF_STT_SECTION = 3, 
-    // Conventionally, the symbol's name gives the name of the source file 
-    // associated with the object file. A file symbol has STB_LOCAL binding, 
-    // its section index is SHN_ABS, and it precedes the other STB_LOCAL 
+    PICO_ELF_STT_SECTION = 3,
+    // Conventionally, the symbol's name gives the name of the source file
+    // associated with the object file. A file symbol has STB_LOCAL binding,
+    // its section index is SHN_ABS, and it precedes the other STB_LOCAL
     // symbols for the file, if it is present.
-    PICO_ELF_STT_FILE    = 4, 
-    // An uninitialized common block. 
-    PICO_ELF_STT_COMMON  = 5, 
-    // The symbol specifies a Thread-Local Storage entity. When defined, it 
-    // gives the assigned offset for the symbol, not the actual address. 
-    // Symbols of type STT_TLS can be referenced by only special thread-local 
-    // storage relocations and thread-local storage relocations can only 
-    // reference symbols with type STT_TLS. Implementation need 
+    PICO_ELF_STT_FILE = 4,
+    // An uninitialized common block.
+    PICO_ELF_STT_COMMON = 5,
+    // The symbol specifies a Thread-Local Storage entity. When defined, it
+    // gives the assigned offset for the symbol, not the actual address.
+    // Symbols of type STT_TLS can be referenced by only special thread-local
+    // storage relocations and thread-local storage relocations can only
+    // reference symbols with type STT_TLS. Implementation need
     // not support thread-local storage.
-    PICO_ELF_STT_TLS     = 6, 
+    PICO_ELF_STT_TLS = 6,
     // Values in this inclusive range are reserved for operating system-specific semantics.
-    PICO_ELF_STT_LOOS   = 10, 
-    PICO_ELF_STT_HIOS   = 12,
-    // Values in this inclusive range are reserved for processor-specific semantics. 
+    PICO_ELF_STT_LOOS = 10,
+    PICO_ELF_STT_HIOS = 12,
+    // Values in this inclusive range are reserved for processor-specific semantics.
     // If meanings are specified, the processor supplement explains them.
-    PICO_ELF_STT_LOPROC = 13, 
+    PICO_ELF_STT_LOPROC = 13,
     PICO_ELF_STT_HIPROC = 15
 } picoElfSymbolType;
 
 typedef enum {
-    // The visibility of symbols with the STV_DEFAULT attribute is as specified by 
-    // the symbol's binding type. That is, global and weak symbols are visible 
-    // outside of their defining component (executable file or shared object). 
-    // Local symbols are hidden, as described below. Global and weak symbols 
-    // are also preemptable, that is, they may by preempted by definitions of 
+    // The visibility of symbols with the STV_DEFAULT attribute is as specified by
+    // the symbol's binding type. That is, global and weak symbols are visible
+    // outside of their defining component (executable file or shared object).
+    // Local symbols are hidden, as described below. Global and weak symbols
+    // are also preemptable, that is, they may by preempted by definitions of
     // the same name in another component.
-    PICO_ELF_STV_DEFAULT   = 0,
-    // A symbol defined in the current component is protected if it is visible 
-    // in other components but not preemptable, meaning that any reference to such 
-    // a symbol from within the defining component must be resolved to the definition in 
-    // that component, even if there is a definition in another component that 
-    // would preempt by the default rules. A symbol with STB_LOCAL binding may 
-    // not have STV_PROTECTED visibility. If a symbol definition with STV_PROTECTED 
-    // visibility from a shared object is taken as resolving a reference from an 
-    // executable or another shared object, the SHN_UNDEF symbol table entry 
+    PICO_ELF_STV_DEFAULT = 0,
+    // A symbol defined in the current component is protected if it is visible
+    // in other components but not preemptable, meaning that any reference to such
+    // a symbol from within the defining component must be resolved to the definition in
+    // that component, even if there is a definition in another component that
+    // would preempt by the default rules. A symbol with STB_LOCAL binding may
+    // not have STV_PROTECTED visibility. If a symbol definition with STV_PROTECTED
+    // visibility from a shared object is taken as resolving a reference from an
+    // executable or another shared object, the SHN_UNDEF symbol table entry
     // created has STV_DEFAULT visibility.
-    PICO_ELF_STV_INTERNAL  = 1,
+    PICO_ELF_STV_INTERNAL = 1,
     // A symbol defined in the current component is hidden if its name is not visible
-    // to other components. Such a symbol is necessarily protected. 
-    // This attribute may be used to control the external interface of a component. 
-    // Note that an object named by such a symbol may still be referenced from 
-    // another component if its address is passed outside. A hidden symbol contained 
-    // in a relocatable object must be either removed or converted to STB_LOCAL binding 
-    // by the link-editor when the relocatable object is included in 
+    // to other components. Such a symbol is necessarily protected.
+    // This attribute may be used to control the external interface of a component.
+    // Note that an object named by such a symbol may still be referenced from
+    // another component if its address is passed outside. A hidden symbol contained
+    // in a relocatable object must be either removed or converted to STB_LOCAL binding
+    // by the link-editor when the relocatable object is included in
     // an executable file or shared object.
-    PICO_ELF_STV_HIDDEN    = 2,
-    // The meaning of this visibility attribute may be defined by processor supplements 
-    // to further constrain hidden symbols. A processor supplement's definition should be 
-    // such that generic tools can safely treat internal symbols as hidden. An internal 
-    // symbol contained in a relocatable object must be either removed or converted 
-    // to STB_LOCAL binding by the link-editor when the relocatable object is included 
+    PICO_ELF_STV_HIDDEN = 2,
+    // The meaning of this visibility attribute may be defined by processor supplements
+    // to further constrain hidden symbols. A processor supplement's definition should be
+    // such that generic tools can safely treat internal symbols as hidden. An internal
+    // symbol contained in a relocatable object must be either removed or converted
+    // to STB_LOCAL binding by the link-editor when the relocatable object is included
     // in an executable file or shared object.
-    PICO_ELF_STV_PROTECTED = 3 
+    PICO_ELF_STV_PROTECTED = 3
 } picoElfSymbolVisibility;
 
 typedef struct {
@@ -412,10 +412,10 @@ typedef enum {
 } picoElfProgramType;
 
 typedef enum {
-    PICO_ELF_PF_X        = 0x1,        // Execute
-    PICO_ELF_PF_W        = 0x2,        // Write
-    PICO_ELF_PF_R        = 0x4,        // Read
-    PICO_ELF_PF_MASKOS   = 0x0ff00000, // OS-specific
+    PICO_ELF_PF_X      = 0x1,        // Execute
+    PICO_ELF_PF_W      = 0x2,        // Write
+    PICO_ELF_PF_R      = 0x4,        // Read
+    PICO_ELF_PF_MASKOS = 0x0ff00000, // OS-specific
     // PICO_ELF_PF_MASKPROC = 0xf0000000  // Processor-specific
 } picoElfProgramFlags;
 
@@ -424,7 +424,7 @@ typedef struct {
     size_t offset;
     size_t virtualAddress;
     size_t physicalAddress;
-    size_t fileSize; // maybe 0
+    size_t fileSize;   // maybe 0
     size_t memorySize; // maybe 0
     uint64_t flags;
     size_t alignment;
@@ -452,7 +452,7 @@ picoElfResult picoElfParseProgramHeaderTable(
     const picoElfHeader *header,
     picoElfProgramHeader *outProgramHeaders,
     size_t maxProgramHeaders,
-    size_t* outProgramHeaderCount);
+    size_t *outProgramHeaderCount);
 
 picoElfResult picoElfParseSectionHeader(
     const picoElfUchar *data,
@@ -472,7 +472,7 @@ picoElfResult picoElfParseSectionHeaderTable(
     const picoElfHeader *header,
     picoElfSectionHeader *outSectionHeaders,
     size_t maxSectionHeaders,
-    size_t* outSectionHeaderCount);
+    size_t *outSectionHeaderCount);
 
 picoElfResult picoElfParseSymbolTableEntry(
     const picoElfUchar *data,
@@ -488,7 +488,7 @@ picoElfResult picoElfParseSymbolTable(
     const picoElfSectionHeader *sectionHeader,
     picoElfSymbolTableEntry *outSymbolTableEntries,
     size_t maxSymbolTableEntries,
-    size_t* outSymbolTableEntryCount);
+    size_t *outSymbolTableEntryCount);
 
 picoElfResult picoElfParseRelocationEntry(
     const picoElfUchar *data,
@@ -504,7 +504,7 @@ picoElfResult picoElfParseRelocationTable(
     const picoElfSectionHeader *sectionHeader,
     picoElfRelocationEntry *outRelocationEntries,
     size_t maxRelocationEntries,
-    size_t* outRelocationEntryCount);
+    size_t *outRelocationEntryCount);
 
 picoElfSymbolBinding picoElfSymbolTableEntryBinding(const picoElfSymbolTableEntry *entry);
 picoElfSymbolType picoElfSymbolTableEntryType(const picoElfSymbolTableEntry *entry);
@@ -516,10 +516,10 @@ uint32_t picoElfRelocationEntrySymbol(picoElfClass elfClass, const picoElfReloca
 uint32_t picoElfRelocationEntryType(picoElfClass elfClass, const picoElfRelocationEntry *entry);
 uint64_t picoElfRelocationEntryInfo(uint32_t symbolIndex, uint32_t type, picoElfClass elfClass);
 
-const char* picoElfStringTableEntry(
-    const picoElfUchar* data,
+const char *picoElfStringTableEntry(
+    const picoElfUchar *data,
     size_t size,
-    const picoElfSectionHeader* stringTableSectionHeader,
+    const picoElfSectionHeader *stringTableSectionHeader,
     size_t index);
 
 const char *picoElfResultToString(picoElfResult result);
@@ -550,110 +550,108 @@ void picoElfRelocationEntryDebugPrint(int padding, const picoElfRelocationEntry 
 
 #ifdef PICO_ELF_IMPLEMENTATION
 
-#define PICO_ELF__PARSE_U64(dst, buffer, offset) \
-    do { \
-        (dst) = ((uint64_t)(buffer)[(offset)] | ((uint64_t)(buffer)[(offset) + 1] << 8) | ((uint64_t)(buffer)[(offset) + 2] << 16) | ((uint64_t)(buffer)[(offset) + 3] << 24) | \
+#define PICO_ELF__PARSE_U64(dst, buffer, offset)                                                                                                                                             \
+    do {                                                                                                                                                                                     \
+        (dst) = ((uint64_t)(buffer)[(offset)] | ((uint64_t)(buffer)[(offset) + 1] << 8) | ((uint64_t)(buffer)[(offset) + 2] << 16) | ((uint64_t)(buffer)[(offset) + 3] << 24) |              \
                  ((uint64_t)(buffer)[(offset) + 4] << 32) | ((uint64_t)(buffer)[(offset) + 5] << 40) | ((uint64_t)(buffer)[(offset) + 6] << 48) | ((uint64_t)(buffer)[(offset) + 7] << 56)); \
-        (offset) += sizeof(uint64_t); \
+        (offset) += sizeof(uint64_t);                                                                                                                                                        \
     } while (0)
-#define PICO_ELF__PARSE_S64(dst, buffer, offset) \
-    do { \
-        (dst) = ((int64_t)(buffer)[(offset)] | ((int64_t)(buffer)[(offset) + 1] << 8) | ((int64_t)(buffer)[(offset) + 2] << 16) | ((int64_t)(buffer)[(offset) + 3] << 24) | \
+#define PICO_ELF__PARSE_S64(dst, buffer, offset)                                                                                                                                         \
+    do {                                                                                                                                                                                 \
+        (dst) = ((int64_t)(buffer)[(offset)] | ((int64_t)(buffer)[(offset) + 1] << 8) | ((int64_t)(buffer)[(offset) + 2] << 16) | ((int64_t)(buffer)[(offset) + 3] << 24) |              \
                  ((int64_t)(buffer)[(offset) + 4] << 32) | ((int64_t)(buffer)[(offset) + 5] << 40) | ((int64_t)(buffer)[(offset) + 6] << 48) | ((int64_t)(buffer)[(offset) + 7] << 56)); \
-        (offset) += sizeof(int64_t); \
+        (offset) += sizeof(int64_t);                                                                                                                                                     \
     } while (0)
-#define PICO_ELF__PARSE_U32(dst, buffer, offset) \
-    do { \
+#define PICO_ELF__PARSE_U32(dst, buffer, offset)                                                                                                                                \
+    do {                                                                                                                                                                        \
         (dst) = ((uint32_t)(buffer)[(offset)] | ((uint32_t)(buffer)[(offset) + 1] << 8) | ((uint32_t)(buffer)[(offset) + 2] << 16) | ((uint32_t)(buffer)[(offset) + 3] << 24)); \
-        (offset) += sizeof(uint32_t); \
+        (offset) += sizeof(uint32_t);                                                                                                                                           \
     } while (0)
-#define PICO_ELF__PARSE_S32(dst, buffer, offset) \
-    do { \
+#define PICO_ELF__PARSE_S32(dst, buffer, offset)                                                                                                                            \
+    do {                                                                                                                                                                    \
         (dst) = ((int32_t)(buffer)[(offset)] | ((int32_t)(buffer)[(offset) + 1] << 8) | ((int32_t)(buffer)[(offset) + 2] << 16) | ((int32_t)(buffer)[(offset) + 3] << 24)); \
-        (offset) += sizeof(int32_t); \
+        (offset) += sizeof(int32_t);                                                                                                                                        \
     } while (0)
-#define PICO_ELF__PARSE_U16(dst, buffer, offset) \
-    do { \
+#define PICO_ELF__PARSE_U16(dst, buffer, offset)                                          \
+    do {                                                                                  \
         (dst) = ((uint16_t)(buffer)[(offset)] | ((uint16_t)(buffer)[(offset) + 1] << 8)); \
-        (offset) += sizeof(uint16_t); \
+        (offset) += sizeof(uint16_t);                                                     \
     } while (0)
 #define PICO_ELF__PARSE_U8(dst, buffer, offset) \
-    do { \
-        (dst) = (buffer)[(offset)]; \
-        (offset) += sizeof(uint8_t); \
+    do {                                        \
+        (dst) = (buffer)[(offset)];             \
+        (offset) += sizeof(uint8_t);            \
     } while (0)
 
-#define PICO_ELF__WRITE_U64(src, buffer, offset) \
-    do { \
-        (buffer)[(offset)]     = (picoElfUchar)(((uint64_t)(src)) & 0xFF); \
-        (buffer)[(offset) + 1] = (picoElfUchar)((((uint64_t)(src)) >> 8) & 0xFF); \
+#define PICO_ELF__WRITE_U64(src, buffer, offset)                                   \
+    do {                                                                           \
+        (buffer)[(offset)]     = (picoElfUchar)(((uint64_t)(src)) & 0xFF);         \
+        (buffer)[(offset) + 1] = (picoElfUchar)((((uint64_t)(src)) >> 8) & 0xFF);  \
         (buffer)[(offset) + 2] = (picoElfUchar)((((uint64_t)(src)) >> 16) & 0xFF); \
         (buffer)[(offset) + 3] = (picoElfUchar)((((uint64_t)(src)) >> 24) & 0xFF); \
         (buffer)[(offset) + 4] = (picoElfUchar)((((uint64_t)(src)) >> 32) & 0xFF); \
         (buffer)[(offset) + 5] = (picoElfUchar)((((uint64_t)(src)) >> 40) & 0xFF); \
         (buffer)[(offset) + 6] = (picoElfUchar)((((uint64_t)(src)) >> 48) & 0xFF); \
         (buffer)[(offset) + 7] = (picoElfUchar)((((uint64_t)(src)) >> 56) & 0xFF); \
-        (offset) += sizeof(uint64_t); \
+        (offset) += sizeof(uint64_t);                                              \
     } while (0)
 
-#define PICO_ELF__WRITE_S64(src, buffer, offset) \
-    do { \
-        (buffer)[(offset)]     = (picoElfUchar)(((uint64_t)(src)) & 0xFF); \
-        (buffer)[(offset) + 1] = (picoElfUchar)((((uint64_t)(src)) >> 8) & 0xFF); \
+#define PICO_ELF__WRITE_S64(src, buffer, offset)                                   \
+    do {                                                                           \
+        (buffer)[(offset)]     = (picoElfUchar)(((uint64_t)(src)) & 0xFF);         \
+        (buffer)[(offset) + 1] = (picoElfUchar)((((uint64_t)(src)) >> 8) & 0xFF);  \
         (buffer)[(offset) + 2] = (picoElfUchar)((((uint64_t)(src)) >> 16) & 0xFF); \
         (buffer)[(offset) + 3] = (picoElfUchar)((((uint64_t)(src)) >> 24) & 0xFF); \
         (buffer)[(offset) + 4] = (picoElfUchar)((((uint64_t)(src)) >> 32) & 0xFF); \
         (buffer)[(offset) + 5] = (picoElfUchar)((((uint64_t)(src)) >> 40) & 0xFF); \
         (buffer)[(offset) + 6] = (picoElfUchar)((((uint64_t)(src)) >> 48) & 0xFF); \
         (buffer)[(offset) + 7] = (picoElfUchar)((((uint64_t)(src)) >> 56) & 0xFF); \
-        (offset) += sizeof(int64_t); \
+        (offset) += sizeof(int64_t);                                               \
     } while (0)
 
-#define PICO_ELF__WRITE_U32(src, buffer, offset) \
-    do { \
-        (buffer)[(offset)]     = (picoElfUchar)(((uint32_t)(src)) & 0xFF); \
-        (buffer)[(offset) + 1] = (picoElfUchar)((((uint32_t)(src)) >> 8) & 0xFF); \
+#define PICO_ELF__WRITE_U32(src, buffer, offset)                                   \
+    do {                                                                           \
+        (buffer)[(offset)]     = (picoElfUchar)(((uint32_t)(src)) & 0xFF);         \
+        (buffer)[(offset) + 1] = (picoElfUchar)((((uint32_t)(src)) >> 8) & 0xFF);  \
         (buffer)[(offset) + 2] = (picoElfUchar)((((uint32_t)(src)) >> 16) & 0xFF); \
         (buffer)[(offset) + 3] = (picoElfUchar)((((uint32_t)(src)) >> 24) & 0xFF); \
-        (offset) += sizeof(uint32_t); \
+        (offset) += sizeof(uint32_t);                                              \
     } while (0)
 
-#define PICO_ELF__WRITE_S32(src, buffer, offset) \
-    do { \
-        (buffer)[(offset)]     = (picoElfUchar)(((uint32_t)(src)) & 0xFF); \
-        (buffer)[(offset) + 1] = (picoElfUchar)((((uint32_t)(src)) >> 8) & 0xFF); \
+#define PICO_ELF__WRITE_S32(src, buffer, offset)                                   \
+    do {                                                                           \
+        (buffer)[(offset)]     = (picoElfUchar)(((uint32_t)(src)) & 0xFF);         \
+        (buffer)[(offset) + 1] = (picoElfUchar)((((uint32_t)(src)) >> 8) & 0xFF);  \
         (buffer)[(offset) + 2] = (picoElfUchar)((((uint32_t)(src)) >> 16) & 0xFF); \
         (buffer)[(offset) + 3] = (picoElfUchar)((((uint32_t)(src)) >> 24) & 0xFF); \
-        (offset) += sizeof(int32_t); \
+        (offset) += sizeof(int32_t);                                               \
     } while (0)
 
-#define PICO_ELF__WRITE_U16(src, buffer, offset) \
-    do { \
-        (buffer)[(offset)]     = (picoElfUchar)(((uint16_t)(src)) & 0xFF); \
+#define PICO_ELF__WRITE_U16(src, buffer, offset)                                  \
+    do {                                                                          \
+        (buffer)[(offset)]     = (picoElfUchar)(((uint16_t)(src)) & 0xFF);        \
         (buffer)[(offset) + 1] = (picoElfUchar)((((uint16_t)(src)) >> 8) & 0xFF); \
-        (offset) += sizeof(uint16_t); \
+        (offset) += sizeof(uint16_t);                                             \
     } while (0)
 
-#define PICO_ELF__WRITE_S16(src, buffer, offset) \
-    do { \
-        (buffer)[(offset)]     = (picoElfUchar)(((uint16_t)(src)) & 0xFF); \
+#define PICO_ELF__WRITE_S16(src, buffer, offset)                                  \
+    do {                                                                          \
+        (buffer)[(offset)]     = (picoElfUchar)(((uint16_t)(src)) & 0xFF);        \
         (buffer)[(offset) + 1] = (picoElfUchar)((((uint16_t)(src)) >> 8) & 0xFF); \
-        (offset) += sizeof(int16_t); \
+        (offset) += sizeof(int16_t);                                              \
     } while (0)
 
-#define PICO_ELF__WRITE_U8(src, buffer, offset) \
-    do { \
+#define PICO_ELF__WRITE_U8(src, buffer, offset)                       \
+    do {                                                              \
         (buffer)[(offset)] = (picoElfUchar)(((uint8_t)(src)) & 0xFF); \
-        (offset) += sizeof(uint8_t); \
+        (offset) += sizeof(uint8_t);                                  \
     } while (0)
 
-#define PICO_ELF__WRITE_S8(src, buffer, offset) \
-    do { \
+#define PICO_ELF__WRITE_S8(src, buffer, offset)                       \
+    do {                                                              \
         (buffer)[(offset)] = (picoElfUchar)(((uint8_t)(src)) & 0xFF); \
-        (offset) += sizeof(int8_t); \
+        (offset) += sizeof(int8_t);                                   \
     } while (0)
-
-
 
 picoElfResult picoElfParseIdentifier(const picoElfUchar *data, size_t size, picoElfIdentifier *outIdent)
 {
@@ -752,7 +750,7 @@ picoElfResult picoElfParseProgramHeader(
 
     size_t offset = 0;
     PICO_ELF__PARSE_U32(outProgramHeader->type, programHeaderData, offset);
-    
+
     if (header->ident.elfClass == PICO_ELF_CLASS_32) {
         PICO_ELF__PARSE_U32(outProgramHeader->offset, programHeaderData, offset);
         PICO_ELF__PARSE_U32(outProgramHeader->virtualAddress, programHeaderData, offset);
@@ -768,7 +766,7 @@ picoElfResult picoElfParseProgramHeader(
         PICO_ELF__PARSE_U64(outProgramHeader->physicalAddress, programHeaderData, offset);
         PICO_ELF__PARSE_U64(outProgramHeader->fileSize, programHeaderData, offset);
         PICO_ELF__PARSE_U64(outProgramHeader->memorySize, programHeaderData, offset);
-        PICO_ELF__PARSE_U64(outProgramHeader->alignment, programHeaderData, offset);        
+        PICO_ELF__PARSE_U64(outProgramHeader->alignment, programHeaderData, offset);
     } else {
         return PICO_ELF_RESULT_UNSUPPORTED_CLASS;
     }
@@ -782,7 +780,7 @@ picoElfResult picoElfParseProgramHeaderTable(
     const picoElfHeader *header,
     picoElfProgramHeader *outProgramHeaders,
     size_t maxProgramHeaders,
-    size_t* outProgramHeaderCount)
+    size_t *outProgramHeaderCount)
 {
     PICO_ASSERT(data);
     PICO_ASSERT(header);
@@ -863,12 +861,12 @@ picoElfResult picoElfParseSectionHeaderTable(
     const picoElfHeader *header,
     picoElfSectionHeader *outSectionHeaders,
     size_t maxSectionHeaders,
-    size_t* outSectionHeaderCount)
+    size_t *outSectionHeaderCount)
 {
     PICO_ASSERT(data);
     PICO_ASSERT(header);
     PICO_ASSERT(outSectionHeaders);
-    
+
     size_t numHeaders = header->sectionHeaderCount > maxSectionHeaders ? maxSectionHeaders : header->sectionHeaderCount;
     if (outSectionHeaderCount) {
         *outSectionHeaderCount = numHeaders;
@@ -938,13 +936,13 @@ picoElfResult picoElfParseSymbolTable(
     const picoElfSectionHeader *sectionHeader,
     picoElfSymbolTableEntry *outSymbolTableEntries,
     size_t maxSymbolTableEntries,
-    size_t* outSymbolTableEntryCount)
+    size_t *outSymbolTableEntryCount)
 {
     PICO_ASSERT(data);
     PICO_ASSERT(header);
     PICO_ASSERT(sectionHeader);
     PICO_ASSERT(outSymbolTableEntries);
-    
+
     if (sectionHeader->entrySize == 0) {
         // section entries cant be of variable size
         return PICO_ELF_RESULT_SYMBOL_TABLE_SECTION_VARIABLE_SIZE;
@@ -1021,13 +1019,13 @@ picoElfResult picoElfParseRelocationTable(
     const picoElfSectionHeader *sectionHeader,
     picoElfRelocationEntry *outRelocationEntries,
     size_t maxRelocationEntries,
-    size_t* outRelocationEntryCount)
+    size_t *outRelocationEntryCount)
 {
     PICO_ASSERT(data);
     PICO_ASSERT(header);
     PICO_ASSERT(sectionHeader);
     PICO_ASSERT(outRelocationEntries);
-    
+
     if (sectionHeader->entrySize == 0) {
         return PICO_ELF_RESULT_SYMBOL_TABLE_SECTION_VARIABLE_SIZE;
     }
@@ -1250,7 +1248,6 @@ uint32_t picoElfRelocationEntryType(picoElfClass elfClass, const picoElfRelocati
     }
 }
 
-
 uint64_t picoElfRelocationEntryInfo(uint32_t symbolIndex, uint32_t type, picoElfClass elfClass)
 {
     if (elfClass == PICO_ELF_CLASS_32) {
@@ -1260,10 +1257,10 @@ uint64_t picoElfRelocationEntryInfo(uint32_t symbolIndex, uint32_t type, picoElf
     }
 }
 
-const char* picoElfStringTableEntry(
-    const picoElfUchar* data,
+const char *picoElfStringTableEntry(
+    const picoElfUchar *data,
     size_t size,
-    const picoElfSectionHeader* stringTableSectionHeader,
+    const picoElfSectionHeader *stringTableSectionHeader,
     size_t index)
 {
     PICO_ASSERT(data);
@@ -1275,7 +1272,7 @@ const char* picoElfStringTableEntry(
         return NULL;
     }
 
-    return (const char*)(data + stringOffset);
+    return (const char *)(data + stringOffset);
 }
 
 const char *picoElfResultToString(picoElfResult result)
@@ -1706,14 +1703,14 @@ const char *picoElfProgramFlagsToString(uint64_t flags)
     static char buffer[1024];
     buffer[0] = '\0';
 
-#define PICO_ELF_APPEND_FLAG(flag, desc)     \
-    do {                               \
-        if (flags & flag) {            \
-            if (buffer[0] != '\0') {   \
-                strcat(buffer, " | "); \
-            }                          \
-            strcat(buffer, desc);     \
-        }                              \
+#define PICO_ELF_APPEND_FLAG(flag, desc) \
+    do {                                 \
+        if (flags & flag) {              \
+            if (buffer[0] != '\0') {     \
+                strcat(buffer, " | ");   \
+            }                            \
+            strcat(buffer, desc);        \
+        }                                \
     } while (0)
 
     PICO_ELF_APPEND_FLAG(PICO_ELF_PF_X, "PF_X");
@@ -1730,14 +1727,14 @@ const char *picoElfSectionFlagsToString(picoElfSectionFlags flags)
     static char buffer[1024];
     buffer[0] = '\0';
 
-#define PICO_ELF_APPEND_FLAG(flag, desc)     \
-    do {                               \
-        if (flags & flag) {            \
-            if (buffer[0] != '\0') {   \
-                strcat(buffer, " | "); \
-            }                          \
-            strcat(buffer, desc);     \
-        }                              \
+#define PICO_ELF_APPEND_FLAG(flag, desc) \
+    do {                                 \
+        if (flags & flag) {              \
+            if (buffer[0] != '\0') {     \
+                strcat(buffer, " | ");   \
+            }                            \
+            strcat(buffer, desc);        \
+        }                                \
     } while (0)
 
     PICO_ELF_APPEND_FLAG(PICO_ELF_SHF_WRITE, "SHF_WRITE");
@@ -1825,7 +1822,7 @@ void picoElfSymbolTableEntryDebugPrint(int padding, const picoElfSymbolTableEntr
         "%*sInfo: (Binding: %s, Type: %s)\n",
         padding,
         "",
-        picoElfSymbolBindingToString(picoElfSymbolTableEntryBinding(symbolTableEntry)), 
+        picoElfSymbolBindingToString(picoElfSymbolTableEntryBinding(symbolTableEntry)),
         picoElfSymbolTypeToString(picoElfSymbolTableEntryType(symbolTableEntry)));
     PICO_ELF_LOG("%*sVisibility: %s\n", padding, "", picoElfSymbolVisibilityToString(picoElfSymbolTableEntryVisibility(symbolTableEntry)));
     PICO_ELF_LOG("%*sSection Index: %u\n", padding, "", symbolTableEntry->sectionIndex);
