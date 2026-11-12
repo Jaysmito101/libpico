@@ -10,6 +10,7 @@ headers you wanna use define `PICO_IMPLEMENTATION` before including the headers.
 | Library | File | Description | Example |
 |---------|------|-------------|---------|
 | picoCanvas | `include/pico/picoCanvas.h` | A simple cross-platform library to create a window and draw pixels to it. | [examples/picoCanvas](examples/picoCanvas/main.c) |
+| picoCli | `include/pico/picoCli.h` | A command-line parser with flags, value options, positional parameters, nested commands, and generated help. | [examples/picoCli](examples/picoCli/main.c) |
 | picoLog | `include/pico/picoLog.h` | A simple logging library. | [examples/picoLog](examples/picoLog/main.c) |
 | picoThreads | `include/pico/picoThreads.h` | A simple cross-platform threading + thread pool library. | [examples/picoThreads](examples/picoThreads/main.c) |
 | picoStream | `include/pico/picoStream.h` | A simple file and memory stream library. | [examples/picoStream](examples/picoStream/main.c) |
